@@ -1,0 +1,65 @@
+name: z
+description: "A modern Twitter/X clone built with Flutter"
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Firebase
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+
+  # Supabase
+  supabase_flutter: ^2.7.3
+
+  # UI & Icons
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  image_picker: ^1.1.2
+  video_player: ^2.9.2
+  flutter_svg: ^2.0.10+1
+
+  # Utilities
+  intl: ^0.19.0
+  timeago: ^3.7.0
+  uuid: ^4.5.1
+  path_provider: ^2.1.4
+  shared_preferences: ^2.3.2
+  image: ^4.3.0
+  path: ^1.9.0
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # Media
+  image_picker_for_web: ^3.0.3
+  video_compress: ^3.1.4
+
+  # Google Sign In
+  google_sign_in: ^7.2.0
+  photo_view: ^0.15.0
+  flutter_cache_manager: ^3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/

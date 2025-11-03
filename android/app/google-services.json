@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "385298524193",
+    "project_id": "zdotcom",
+    "storage_bucket": "zdotcom.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:385298524193:android:7b4c43922fe75c3f215b60",
+        "android_client_info": {
+          "package_name": "me.ritom.z.z"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "385298524193-ri320pd2a3o4grlpo77qv0vrj33m3a18.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "me.ritom.z.z",
+            "certificate_hash": "9c59dd296a52a40c09300df3a11549dc3e89159b"
+          }
+        },
+        {
+          "client_id": "385298524193-1gn3fpjs72f9clou2v09526autcuk4m8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD453stpHhtFj6iGgYJDvSymEL5lF8M3mM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "385298524193-1gn3fpjs72f9clou2v09526autcuk4m8.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "385298524193-8bremu8ucbhu3h7jkbl4atk4kkhm5fc6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "me.ritom.z.z"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
