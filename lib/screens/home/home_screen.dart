@@ -9,7 +9,6 @@ import '../../providers/tweet_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/tweet_card.dart';
 import '../../widgets/loading_shimmer.dart';
-import '../../widgets/tweet_composer.dart';
 import '../profile/profile_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -212,15 +211,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [_ForYouTab(), _FollowingTab(userId: currentUser.id)],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const TweetComposer()),
-          );
-        },
-        child: const Icon(Icons.edit),
       ),
     );
   }

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:oc_liquid_glass/oc_liquid_glass.dart';
 
 import 'package:z/screens/home/home_screen.dart';
 import 'package:z/screens/search/search_screen.dart';
@@ -43,8 +45,6 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     if (index == _currentIndex) return;
 
     final currentUser = ref.read(currentUserModelProvider).valueOrNull;
-
-    // 🔔 When user opens Notifications tab, mark all as read
     if (index == 4 && currentUser != null) {
       _markNotificationsRead(currentUser.id);
     }
@@ -69,115 +69,185 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           children: _pages,
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0A0A0A) : Colors.white,
-          border: Border(
-            top: BorderSide(
-              color:
-                  isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.08),
-              width: 0.5,
+      bottomNavigationBar:
+          (kIsWeb)
+              ? _buildWebNav(theme, isDark, currentUser)
+              : _buildMobileGlassNav(theme, isDark, currentUser),
+    );
+  }
+
+  // 🌐 WEB NAVIGATION (no glass effect)
+  Widget _buildWebNav(ThemeData theme, bool isDark, dynamic currentUser) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: OCLiquidGlassGroup(
+        settings: OCLiquidGlassSettings(
+          refractStrength: -0.08,
+          blurRadiusPx: 3.0,
+          specStrength: 25.0,
+          lightbandColor: isDark ? Colors.cyanAccent : Colors.blueAccent,
+        ),
+        child: OCLiquidGlass(
+          width: double.infinity,
+          height: 70,
+          borderRadius: 24,
+          color:
+              isDark
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.black.withOpacity(0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(_pages.length, (index) {
+                final isSelected = index == _currentIndex;
+                final color =
+                    isSelected
+                        ? theme.colorScheme.secondary
+                        : theme.colorScheme.onSurface.withOpacity(0.6);
+
+                final icon = _getIcon(index);
+
+                if (index == 4 && currentUser != null) {
+                  final notificationsAsync = ref.watch(
+                    unreadNotificationsCountProvider(currentUser.id),
+                  );
+                  return Expanded(
+                    child: notificationsAsync.when(
+                      data:
+                          (count) => _buildNavItem(
+                            index: index,
+                            icon: icon,
+                            color: color,
+                            isSelected: isSelected,
+                            onTap: () => _onItemTapped(index),
+                            badgeCount: count,
+                          ),
+                      loading:
+                          () => _buildNavItem(
+                            index: index,
+                            icon: icon,
+                            color: color,
+                            isSelected: isSelected,
+                            onTap: () => _onItemTapped(index),
+                          ),
+                      error:
+                          (e, _) => _buildNavItem(
+                            index: index,
+                            icon: icon,
+                            color: color,
+                            isSelected: isSelected,
+                            onTap: () => _onItemTapped(index),
+                          ),
+                    ),
+                  );
+                }
+
+                return Expanded(
+                  child: _buildNavItem(
+                    index: index,
+                    icon: icon,
+                    color: color,
+                    isSelected: isSelected,
+                    onTap: () => _onItemTapped(index),
+                  ),
+                );
+              }),
             ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color:
-                  isDark
-                      ? Colors.black.withValues(alpha: 0.4)
-                      : Colors.grey.withValues(alpha: 0.15),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(_pages.length, (index) {
-            final isSelected = index == _currentIndex;
-            final color =
-                isSelected
-                    ? theme.colorScheme.secondary
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.6);
-
-            IconData icon;
-            switch (index) {
-              case 0:
-                icon = Icons.home_rounded;
-                break;
-              case 1:
-                icon = Icons.search_rounded;
-                break;
-              case 2:
-                icon = Icons.play_circle_fill_rounded;
-                break;
-              case 3:
-                icon = Icons.auto_stories_rounded;
-                break;
-              case 4:
-                icon = Icons.notifications_rounded;
-                break;
-              default:
-                icon = Icons.circle;
-            }
-
-            // Notifications tab → show badge
-            if (index == 4 && currentUser != null) {
-              final notificationsAsync = ref.watch(
-                unreadNotificationsCountProvider(currentUser.id),
-              );
-
-              return Expanded(
-                child: notificationsAsync.when(
-                  data:
-                      (count) => _buildNavItem(
-                        index: index,
-                        icon: icon,
-                        color: color,
-                        isSelected: isSelected,
-                        onTap: () => _onItemTapped(index),
-                        badgeCount: count,
-                      ),
-                  loading:
-                      () => _buildNavItem(
-                        index: index,
-                        icon: icon,
-                        color: color,
-                        isSelected: isSelected,
-                        onTap: () => _onItemTapped(index),
-                      ),
-                  error: (e, st) {
-                    log('Error loading unread notifications', error: e);
-                    return _buildNavItem(
-                      index: index,
-                      icon: icon,
-                      color: color,
-                      isSelected: isSelected,
-                      onTap: () => _onItemTapped(index),
-                    );
-                  },
-                ),
-              );
-            }
-
-            // Normal tabs
-            return Expanded(
-              child: _buildNavItem(
-                index: index,
-                icon: icon,
-                color: color,
-                isSelected: isSelected,
-                onTap: () => _onItemTapped(index),
-              ),
-            );
-          }),
         ),
       ),
     );
   }
 
+  // 📱 MOBILE (Android/iOS) GLASS NAVIGATION
+  Widget _buildMobileGlassNav(
+    ThemeData theme,
+    bool isDark,
+    dynamic currentUser,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: OCLiquidGlassGroup(
+        settings: OCLiquidGlassSettings(
+          refractStrength: -0.07,
+          blurRadiusPx: 8.0,
+          specStrength: 25.0,
+          lightbandColor: isDark ? Colors.cyanAccent : Colors.blueAccent,
+        ),
+        child: OCLiquidGlass(
+          width: double.infinity,
+          height: 78,
+          borderRadius: 24,
+          color:
+              isDark
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.black.withOpacity(0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(_pages.length, (index) {
+                final isSelected = index == _currentIndex;
+                final color =
+                    isSelected
+                        ? theme.colorScheme.secondary
+                        : theme.colorScheme.onSurface.withOpacity(0.6);
+                final icon = _getIcon(index);
+
+                if (index == 4 && currentUser != null) {
+                  final notificationsAsync = ref.watch(
+                    unreadNotificationsCountProvider(currentUser.id),
+                  );
+                  return Expanded(
+                    child: notificationsAsync.when(
+                      data:
+                          (count) => _buildNavItem(
+                            index: index,
+                            icon: icon,
+                            color: color,
+                            isSelected: isSelected,
+                            onTap: () => _onItemTapped(index),
+                            badgeCount: count,
+                          ),
+                      loading:
+                          () => _buildNavItem(
+                            index: index,
+                            icon: icon,
+                            color: color,
+                            isSelected: isSelected,
+                            onTap: () => _onItemTapped(index),
+                          ),
+                      error:
+                          (_, __) => _buildNavItem(
+                            index: index,
+                            icon: icon,
+                            color: color,
+                            isSelected: isSelected,
+                            onTap: () => _onItemTapped(index),
+                          ),
+                    ),
+                  );
+                }
+
+                return Expanded(
+                  child: _buildNavItem(
+                    index: index,
+                    icon: icon,
+                    color: color,
+                    isSelected: isSelected,
+                    onTap: () => _onItemTapped(index),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🔸 NAV ITEM
   Widget _buildNavItem({
     required int index,
     required IconData icon,
@@ -193,88 +263,88 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color:
-              isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(icon, color: color, size: isSelected ? 28 : 24),
-                if (badgeCount > 0)
-                  Positioned(
-                    right: -6,
-                    top: -6,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      transitionBuilder: (child, animation) {
-                        final offsetAnim = Tween<Offset>(
-                          begin: const Offset(0, -0.1),
-                          end: Offset.zero,
-                        ).animate(animation);
-                        return SlideTransition(
-                          position: offsetAnim,
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Container(
-                        key: ValueKey<int>(badgeCount),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            badgeCount > 99 ? '99+' : badgeCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              height: 1,
-                            ),
-                          ),
-                        ),
-                      ),
+        child: OCLiquidGlass(
+          width: double.infinity,
+          height: 52,
+          borderRadius: 18,
+          color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, color: color, size: isSelected ? 28 : 24),
+                  if (badgeCount > 0)
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: _buildBadge(badgeCount),
                     ),
+                ],
+              ),
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: isSelected ? 1 : 0,
+                child: Text(
+                  _getLabel(index),
+                  style: GoogleFonts.roboto(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: color,
                   ),
-              ],
-            ),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: isSelected ? 1 : 0,
-              child: Text(
-                _getLabel(index),
-                style: GoogleFonts.roboto(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: color,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  // 🔔 Badge
+  Widget _buildBadge(int count) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        key: ValueKey(count),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+        decoration: BoxDecoration(
+          color: Colors.redAccent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black12, width: 1),
+        ),
+        child: Center(
+          child: Text(
+            count > 99 ? '99+' : count.toString(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getIcon(int index) {
+    switch (index) {
+      case 0:
+        return Icons.home_rounded;
+      case 1:
+        return Icons.search_rounded;
+      case 2:
+        return Icons.play_circle_fill_rounded;
+      case 3:
+        return Icons.auto_stories_rounded;
+      case 4:
+        return Icons.notifications_rounded;
+      default:
+        return Icons.circle;
+    }
   }
 
   String _getLabel(int index) {
