@@ -39,7 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
 
       if (mounted) {
-        context.go('/home');
+        context.go('/');
       }
     } catch (e) {
       log("Email sign in failed", error: e);
@@ -63,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await authService.signInWithGoogle();
 
       if (mounted) {
-        context.go('/home');
+        context.go('/');
       }
     } catch (e) {
       log("Google sign in failed", error: e);

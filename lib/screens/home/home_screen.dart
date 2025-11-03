@@ -1,10 +1,9 @@
 import 'dart:developer';
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:z/providers/message_provider.dart';
-import 'package:z/providers/notification_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/tweet_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -23,14 +22,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   Future<void> _logout(WidgetRef ref) async {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signOut();
-      if (mounted) {
-        context.go('/login');
-      }
+      if (mounted) context.go('/login');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -52,71 +50,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
+  /// 🔹 Helper function for mail icon with badge
+  Widget _buildIconWithBadge({
+    required IconData icon,
+    required int count,
+    required VoidCallback onPressed,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(icon: Icon(icon, color: Colors.white), onPressed: onPressed),
+        if (count > 0)
+          Positioned(
+            right: 4,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
-
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final notificationsAsync = ref.watch(
-      unreadNotificationsCountProvider(currentUser.id),
-    );
+
     final unreadMessagesAsync = ref.watch(
       unreadMessageCountProvider(currentUser.id),
     );
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              decoration: BoxDecoration(
+                color:
+                    currentUser.coverPhotoUrl == null
+                        ? Theme.of(context).colorScheme.surface
+                        : null,
+                image:
+                    currentUser.coverPhotoUrl != null
+                        ? DecorationImage(
+                          image: NetworkImage(currentUser.coverPhotoUrl!),
+                          fit: BoxFit.cover,
+                          colorFilter: ColorFilter.mode(
+                            Colors.black.withValues(alpha: 0.5),
+                            BlendMode.darken,
+                          ),
+                        )
+                        : null,
+              ),
+
+              accountName: Text(currentUser.displayName),
+              accountEmail: Text(currentUser.email),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage:
+                    currentUser.profilePictureUrl != null
+                        ? CachedNetworkImageProvider(
+                          currentUser.profilePictureUrl!,
+                        )
+                        : null,
+                child:
+                    currentUser.profilePictureUrl == null
+                        ? Text(currentUser.displayName[0].toUpperCase())
+                        : null,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/profile/${currentUser.id}');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () {
+                Navigator.pop(context);
+                _logout(ref);
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
-        title: const Text('Home'),
-        actions: [
-          Row(
-            children: [
-              notificationsAsync.when(
-                data:
-                    (count) => IconWithBadge(
-                      icon: Icons.notifications_outlined,
-                      count: count,
-                      onPressed: () => context.push('/notifications'),
-                    ),
-                loading: () => const SizedBox.shrink(),
-                error: (e, st) {
-                  log(
-                    "Error getting notification count",
-                    error: e,
-                    stackTrace: st,
-                  );
-                  return IconButton(
-                    icon: const Icon(Icons.notifications_outlined),
-                    onPressed: () => context.push('/notifications'),
-                  );
-                },
-              ),
-              unreadMessagesAsync.when(
-                data:
-                    (count) => IconWithBadge(
-                      icon: Icons.mail_outline,
-                      count: count,
-                      onPressed: () => context.push('/messages'),
-                    ),
-                loading: () => const SizedBox.shrink(),
-                error: (e, st) {
-                  log(
-                    "Error getting unread messages count",
-                    error: e,
-                    stackTrace: st,
-                  );
-                  return IconButton(
-                    icon: const Icon(Icons.mail_outline),
-                    onPressed: () => context.push('/messages'),
-                  );
-                },
-              ),
-            ],
-          ),
-          PopupMenuButton<String>(
-            icon: CircleAvatar(
-              radius: 16,
+        leading: GestureDetector(
+          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: CircleAvatar(
               backgroundImage:
                   currentUser.profilePictureUrl != null
                       ? NetworkImage(currentUser.profilePictureUrl!)
@@ -125,48 +171,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   currentUser.profilePictureUrl == null
                       ? Text(
                         currentUser.displayName[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: 14),
                       )
                       : null,
             ),
-            onSelected: (value) {
-              switch (value) {
-                case 'profile':
-                  context.push('/profile/${currentUser.id}');
-                  break;
-                case 'logout':
-                  _logout(ref);
-                  break;
-              }
+          ),
+        ),
+        title: const Text('Home'),
+        actions: [
+          unreadMessagesAsync.when(
+            data:
+                (count) => _buildIconWithBadge(
+                  icon: Icons.mail_outline,
+                  count: count,
+                  onPressed: () => context.push('/messages'),
+                ),
+            loading: () => const SizedBox.shrink(),
+            error: (e, st) {
+              log(
+                "Error getting unread messages count",
+                error: e,
+                stackTrace: st,
+              );
+              return IconButton(
+                icon: const Icon(Icons.mail_outline),
+                onPressed: () => context.push('/messages'),
+              );
             },
-            itemBuilder:
-                (context) => [
-                  PopupMenuItem(
-                    value: 'profile',
-                    child: const Row(
-                      children: [
-                        Icon(Icons.person_outline),
-                        SizedBox(width: 8),
-                        Text('Profile'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout),
-                        SizedBox(width: 8),
-                        Text('Logout'),
-                      ],
-                    ),
-                  ),
-                ],
           ),
         ],
         bottom: TabBar(
-          dividerColor: Colors.transparent,
           controller: _tabController,
+          dividerColor: Colors.transparent,
           indicatorColor: Theme.of(context).colorScheme.primary,
           labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
@@ -194,28 +230,20 @@ class _ForYouTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tweetsAsync = ref.watch(forYouFeedProvider);
-
     return tweetsAsync.when(
       data: (tweets) {
-        if (tweets.isEmpty) {
-          return const Center(child: Text('No tweets yet'));
-        }
-
+        if (tweets.isEmpty) return const Center(child: Text('No tweets yet'));
         return ListView.builder(
           itemCount: tweets.length,
           itemBuilder: (context, index) {
             final tweet = tweets[index];
-
             final userAsync = ref.watch(userProfileProvider(tweet.userId));
-
             return userAsync.when(
               data:
                   (user) => TweetCard(
                     tweet: tweet,
                     user: user,
-                    onTap: () {
-                      context.push('/tweet/${tweet.id}');
-                    },
+                    onTap: () => context.push('/tweet/${tweet.id}'),
                     onUserTap: () {
                       if (user != null) {
                         Navigator.push(
@@ -239,9 +267,9 @@ class _ForYouTab extends ConsumerWidget {
             itemCount: 10,
             itemBuilder: (context, index) => const TweetCardShimmer(),
           ),
-      error: (error, stack) {
-        log("Error: $error");
-        return Center(child: Text('Error: $error'));
+      error: (e, st) {
+        log("Error: $e");
+        return Center(child: Text('Error: $e'));
       },
     );
   }
@@ -249,13 +277,11 @@ class _ForYouTab extends ConsumerWidget {
 
 class _FollowingTab extends ConsumerWidget {
   final String userId;
-
   const _FollowingTab({required this.userId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tweetsAsync = ref.watch(followingFeedProvider(userId));
-
     return tweetsAsync.when(
       data: (tweets) {
         if (tweets.isEmpty) {
@@ -263,21 +289,17 @@ class _FollowingTab extends ConsumerWidget {
             child: Text('Follow users to see their tweets here'),
           );
         }
-
         return ListView.builder(
           itemCount: tweets.length,
           itemBuilder: (context, index) {
             final tweet = tweets[index];
             final userAsync = ref.watch(userProfileProvider(tweet.userId));
-
             return userAsync.when(
               data:
                   (user) => TweetCard(
                     tweet: tweet,
                     user: user,
-                    onTap: () {
-                      context.push('/tweet/${tweet.id}');
-                    },
+                    onTap: () => context.push('/tweet/${tweet.id}'),
                     onUserTap: () {
                       if (user != null) {
                         Navigator.push(
@@ -301,60 +323,10 @@ class _FollowingTab extends ConsumerWidget {
             itemCount: 10,
             itemBuilder: (context, index) => const TweetCardShimmer(),
           ),
-      error: (error, stack) {
-        log("Error: $error");
-        return Center(child: Text('Error: $error'));
+      error: (e, st) {
+        log("Error: $e");
+        return Center(child: Text('Error: $e'));
       },
-    );
-  }
-}
-
-class IconWithBadge extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final int count;
-  final Color badgeColor;
-  final Color iconColor;
-
-  const IconWithBadge({
-    super.key,
-    required this.icon,
-    required this.onPressed,
-    this.count = 0,
-    this.badgeColor = Colors.red,
-    this.iconColor = Colors.white,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(icon: Icon(icon, color: iconColor), onPressed: onPressed),
-        if (count > 0)
-          Positioned(
-            right: 4,
-            top: 6,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-              decoration: BoxDecoration(
-                color: badgeColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  count > 99 ? '99+' : '$count',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

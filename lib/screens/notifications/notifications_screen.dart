@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -11,14 +10,6 @@ import '../../providers/profile_provider.dart';
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
-  void _markNotificationsRead(String userId) {
-    try {
-      unawaited(markAllNotificationsAsRead(userId));
-    } catch (e, st) {
-      log("Error setting notifications to read", error: e, stackTrace: st);
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
@@ -28,8 +19,6 @@ class NotificationsScreen extends ConsumerWidget {
     }
 
     final notificationsAsync = ref.watch(notificationsProvider(currentUser.id));
-
-    _markNotificationsRead(currentUser.id);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),

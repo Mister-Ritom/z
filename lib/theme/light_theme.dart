@@ -16,6 +16,18 @@ class LightTheme {
         outline: Color(0xFFE5E5E5),
         surfaceContainerHighest: Color(0xFFF7F9F9),
       ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Color(0xFFF9F9F9),
+        elevation: 0,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Color(0xFF000000),
+        unselectedItemColor: Color(0xFF8B98A5),
+        selectedIconTheme: IconThemeData(size: 28, color: Color(0xFF000000)),
+        unselectedIconTheme: IconThemeData(size: 26, color: Color(0xFF8B98A5)),
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+      ),
+
       scaffoldBackgroundColor: const Color(0xFFFFFFFF),
       appBarTheme: AppBarTheme(
         backgroundColor: const Color(0xFFFFFFFF),

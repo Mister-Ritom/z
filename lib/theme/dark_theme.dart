@@ -16,6 +16,17 @@ class DarkTheme {
         outline: Color(0xFF2F3336),
         surfaceContainerHighest: Color(0xFF16181C),
       ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Color(0xFF16181C),
+        elevation: 0,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Color(0xFFFFFFFF),
+        unselectedItemColor: Color(0xFF8B98A5),
+        selectedIconTheme: IconThemeData(size: 28, color: Color(0xFFFFFFFF)),
+        unselectedIconTheme: IconThemeData(size: 26, color: Color(0xFF8B98A5)),
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+      ),
       scaffoldBackgroundColor: const Color(0xFF000000),
       appBarTheme: AppBarTheme(
         backgroundColor: const Color(0xFF000000),
