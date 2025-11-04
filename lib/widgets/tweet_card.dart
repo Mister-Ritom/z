@@ -11,6 +11,17 @@ import '../providers/auth_provider.dart';
 import '../utils/helpers.dart';
 import '../screens/tweet/tweet_detail_screen.dart';
 
+// Action state providers (track loading state per tweet)
+final retweetingProvider = StateProvider.family<bool, String>(
+  (ref, tweetId) => false,
+);
+final likingProvider = StateProvider.family<bool, String>(
+  (ref, tweetId) => false,
+);
+final bookmarkingProvider = StateProvider.family<bool, String>(
+  (ref, tweetId) => false,
+);
+
 class TweetCard extends ConsumerWidget {
   final TweetModel tweet;
   final UserModel? user;
@@ -30,8 +41,13 @@ class TweetCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
-    final isLiked = tweet.likedBy.contains(currentUser?.id);
-    final isRetweeted = tweet.retweetedBy.contains(currentUser?.id);
+    if (currentUser == null) return const SizedBox.shrink();
+
+    final isLiked = tweet.likedBy.contains(currentUser.id);
+    final isBookmarked = ref.watch(
+      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser.id)),
+    );
+    final isRetweeted = tweet.retweetedBy.contains(currentUser.id);
 
     return InkWell(
       onTap: onTap,
@@ -112,7 +128,13 @@ class TweetCard extends ConsumerWidget {
                   ],
                   // Actions
                   const SizedBox(height: 12),
-                  _buildActions(context, ref, isLiked, isRetweeted),
+                  _buildActions(
+                    context,
+                    ref,
+                    isLiked,
+                    isRetweeted,
+                    isBookmarked.value ?? false,
+                  ),
                 ],
               ),
             ),
@@ -171,7 +193,12 @@ class TweetCard extends ConsumerWidget {
     WidgetRef ref,
     bool isLiked,
     bool isRetweeted,
+    bool isBookmarked,
   ) {
+    final isRetweeting = ref.watch(retweetingProvider(tweet.id));
+    final isLiking = ref.watch(likingProvider(tweet.id));
+    final isBookmarking = ref.watch(bookmarkingProvider(tweet.id));
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
@@ -190,29 +217,52 @@ class TweetCard extends ConsumerWidget {
         ),
         _buildActionButton(
           context,
-          isRetweeted ? Icons.repeat : Icons.repeat,
+          Icons.repeat,
           tweet.retweetsCount,
           color: isRetweeted ? const Color(0xFF00BA7C) : null,
-          onTap: () async {
-            final currentUser = ref.read(currentUserModelProvider).valueOrNull;
-            if (currentUser != null) {
-              final tweetService = ref.read(tweetServiceProvider);
-              await tweetService.retweet(tweet.id, currentUser.id);
-            }
-          },
+          isLoading: isRetweeting,
+          onTap:
+              isRetweeting
+                  ? null
+                  : () async {
+                    final currentUser =
+                        ref.read(currentUserModelProvider).valueOrNull;
+                    if (currentUser != null) {
+                      final tweetService = ref.read(tweetServiceProvider);
+                      ref.read(retweetingProvider(tweet.id).notifier).state =
+                          true;
+                      try {
+                        await tweetService.retweet(tweet.id, currentUser.id);
+                      } finally {
+                        ref.read(retweetingProvider(tweet.id).notifier).state =
+                            false;
+                      }
+                    }
+                  },
         ),
         _buildActionButton(
           context,
           isLiked ? Icons.favorite : Icons.favorite_border,
           tweet.likesCount,
           color: isLiked ? const Color(0xFFF91880) : null,
-          onTap: () async {
-            final currentUser = ref.read(currentUserModelProvider).valueOrNull;
-            if (currentUser != null) {
-              final tweetService = ref.read(tweetServiceProvider);
-              await tweetService.likeTweet(tweet.id, currentUser.id);
-            }
-          },
+          isLoading: isLiking,
+          onTap:
+              isLiking
+                  ? null
+                  : () async {
+                    final currentUser =
+                        ref.read(currentUserModelProvider).valueOrNull;
+                    if (currentUser != null) {
+                      final tweetService = ref.read(tweetServiceProvider);
+                      ref.read(likingProvider(tweet.id).notifier).state = true;
+                      try {
+                        await tweetService.likeTweet(tweet.id, currentUser.id);
+                      } finally {
+                        ref.read(likingProvider(tweet.id).notifier).state =
+                            false;
+                      }
+                    }
+                  },
         ),
         _buildActionButton(
           context,
@@ -224,11 +274,47 @@ class TweetCard extends ConsumerWidget {
         ),
         _buildActionButton(
           context,
-          Icons.bookmark_border,
+          isBookmarked ? Icons.bookmark : Icons.bookmark_border,
           null,
-          onTap: () {
-            // Bookmark functionality
-          },
+          color:
+              isBookmarked
+                  ? Theme.of(context).colorScheme.inverseSurface
+                  : Colors.grey,
+          isLoading: isBookmarking,
+          onTap:
+              isBookmarking
+                  ? null
+                  : () async {
+                    final currentUser =
+                        ref.read(currentUserModelProvider).valueOrNull;
+                    if (currentUser != null) {
+                      final tweetService = ref.read(tweetServiceProvider);
+                      ref.read(bookmarkingProvider(tweet.id).notifier).state =
+                          true;
+                      try {
+                        if (isBookmarked) {
+                          await tweetService.removeBookmark(
+                            tweet.id,
+                            currentUser.id,
+                          );
+                        } else {
+                          await tweetService.bookmarkTweet(
+                            tweet.id,
+                            currentUser.id,
+                          );
+                        }
+                        ref.invalidate(
+                          isBookmarkedProvider((
+                            tweetId: tweet.id,
+                            userId: currentUser.id,
+                          )),
+                        );
+                      } finally {
+                        ref.read(bookmarkingProvider(tweet.id).notifier).state =
+                            false;
+                      }
+                    }
+                  },
         ),
       ],
     );
@@ -239,6 +325,7 @@ class TweetCard extends ConsumerWidget {
     IconData icon,
     int? count, {
     Color? color,
+    bool isLoading = false,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -247,11 +334,18 @@ class TweetCard extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: color ?? Theme.of(context).textTheme.bodyMedium?.color,
-          ),
+          if (isLoading)
+            const SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(
+              icon,
+              size: 20,
+              color: color ?? Theme.of(context).textTheme.bodyMedium?.color,
+            ),
           if (count != null && count > 0) ...[
             const SizedBox(width: 4),
             Text(

@@ -70,3 +70,11 @@ final tweetProvider = FutureProvider.family<TweetModel?, String>((
   final tweetService = ref.watch(tweetServiceProvider);
   return await tweetService.getTweetById(tweetId);
 });
+final isBookmarkedProvider =
+    FutureProvider.family<bool, ({String tweetId, String userId})>((
+      ref,
+      args,
+    ) async {
+      final tweetService = ref.watch(tweetServiceProvider);
+      return await tweetService.isBookmarked(args.tweetId, args.userId);
+    });

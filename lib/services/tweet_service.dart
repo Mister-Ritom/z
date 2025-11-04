@@ -462,6 +462,20 @@ class TweetService {
     }
   }
 
+  Future<bool> isBookmarked(String tweetId, String userId) async {
+    try {
+      final doc =
+          await _firestore
+              .collection(AppConstants.bookmarksCollection)
+              .doc('${userId}_$tweetId')
+              .get();
+
+      return doc.exists;
+    } catch (e) {
+      throw Exception('Failed to check bookmark: $e');
+    }
+  }
+
   // Helper: Get user by username
   Future<dynamic> _getUserByUsername(String username) async {
     try {

@@ -16,6 +16,12 @@ import 'package:z/providers/auth_provider.dart';
 import 'package:z/widgets/glass_widget.dart';
 import 'package:z/widgets/tweet_composer.dart';
 
+extension ColorX on Color {
+  Color withOpacityAlpha(double opacity) {
+    return withValues(alpha: opacity);
+  }
+}
+
 class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
 
@@ -104,8 +110,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           borderRadius: 24,
           color:
               isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withOpacityAlpha(0.05)
+                  : Colors.black.withOpacityAlpha(0.05),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -115,7 +121,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
                 final color =
                     isSelected
                         ? theme.colorScheme.secondary
-                        : theme.colorScheme.onSurface.withOpacity(0.6);
+                        : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
 
                 final icon = _getIcon(index);
 
@@ -192,8 +198,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           borderRadius: 24,
           color:
               isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withOpacityAlpha(0.05)
+                  : Colors.black.withOpacityAlpha(0.05),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -203,7 +209,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
                 final color =
                     isSelected
                         ? theme.colorScheme.secondary
-                        : theme.colorScheme.onSurface.withOpacity(0.6);
+                        : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
                 final icon = _getIcon(index);
 
                 if (index == 4 && currentUser != null) {
@@ -278,7 +284,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           width: double.infinity,
           height: 52,
           borderRadius: 18,
-          color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? color.withOpacityAlpha(0.2) : Colors.transparent,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
