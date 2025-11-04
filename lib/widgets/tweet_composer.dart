@@ -22,22 +22,37 @@ class TweetComposer extends ConsumerStatefulWidget {
 
 class _TweetComposerState extends ConsumerState<TweetComposer> {
   final _textController = TextEditingController();
-  final List<XFile> _selectedImages = [];
-  XFile? _selectedVideo;
-  bool _isUploading = false;
+  final ValueNotifier<List<XFile>> _selectedImages = ValueNotifier([]);
+  final ValueNotifier<List<XFile>> _selectedVideos = ValueNotifier([]);
+  int remainingChars = AppConstants.maxTweetLength;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController.addListener(() {
+      final len = _textController.text.length;
+      final newRemaining = AppConstants.maxTweetLength - len;
+      if (remainingChars != newRemaining) {
+        setState(() => remainingChars = newRemaining);
+      }
+    });
+  }
 
   @override
   void dispose() {
     _textController.dispose();
+    _selectedImages.dispose();
+    _selectedVideos.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final images = await picker.pickMultiImage();
+    if (images.isEmpty) return;
 
-    if (images.length + _selectedImages.length >
-        AppConstants.maxImagesPerTweet) {
+    final total = _selectedImages.value.length + images.length;
+    if (total > AppConstants.maxImagesPerTweet) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -50,23 +65,28 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
       return;
     }
 
-    setState(() {
-      for (final image in images) {
-        _selectedImages.add(image);
-      }
-    });
+    _selectedImages.value = [..._selectedImages.value, ...images];
   }
 
   Future<void> _pickVideo() async {
     final picker = ImagePicker();
     final video = await picker.pickVideo(source: ImageSource.gallery);
+    if (video == null) return;
 
-    if (video != null) {
-      setState(() {
-        _selectedVideo = video;
-        _selectedImages.clear();
-      });
+    if (_selectedVideos.value.length >= AppConstants.maxVideosPerTweet) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Maximum ${AppConstants.maxVideosPerTweet} videos allowed',
+            ),
+          ),
+        );
+      }
+      return;
     }
+
+    _selectedVideos.value = [..._selectedVideos.value, video];
   }
 
   Future<void> _sendTweet() async {
@@ -74,9 +94,10 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
     if (currentUser == null) return;
 
     final text = _textController.text.trim();
-    if (text.isEmpty && _selectedImages.isEmpty && _selectedVideo == null) {
-      return;
-    }
+    final images = _selectedImages.value;
+    final videos = _selectedVideos.value;
+
+    if (text.isEmpty && images.isEmpty && videos.isEmpty) return;
 
     if (text.length > AppConstants.maxTweetLength) {
       if (mounted) {
@@ -87,93 +108,100 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
       return;
     }
 
-    setState(() {
-      _isUploading = true;
+    final id =
+        FirebaseFirestore.instance
+            .collection(AppConstants.tweetsCollection)
+            .doc()
+            .id;
+
+    final tweetService = ref.read(tweetServiceProvider);
+    final uploadService = ref.read(uploadNotifierProvider.notifier);
+
+    // Chain uploads asynchronously
+    Future(() async {
+      try {
+        List<String> imageUrls = [];
+        List<String> videoUrls = [];
+
+        // Upload images first (if any)
+        if (images.isNotEmpty) {
+          await uploadService.uploadFiles(
+            files: images,
+            type: UploadType.tweet,
+            referenceId: id,
+            onComplete: (urls) async {
+              imageUrls = urls;
+
+              // then upload videos if any
+              if (videos.isNotEmpty) {
+                await uploadService.uploadFiles(
+                  files: videos,
+                  type: UploadType.tweet,
+                  referenceId: id,
+                  onComplete: (vUrls) async {
+                    videoUrls = vUrls;
+                    await tweetService.createTweet(
+                      tweetId: id,
+                      userId: currentUser.id,
+                      text: text,
+                      imageUrls: imageUrls,
+                      videoUrls: videoUrls,
+                      parentTweetId: widget.replyToTweetId,
+                    );
+                  },
+                );
+              } else {
+                await tweetService.createTweet(
+                  tweetId: id,
+                  userId: currentUser.id,
+                  text: text,
+                  imageUrls: imageUrls,
+                  parentTweetId: widget.replyToTweetId,
+                );
+              }
+            },
+          );
+        }
+        // if no images, but videos exist
+        else if (videos.isNotEmpty) {
+          await uploadService.uploadFiles(
+            files: videos,
+            type: UploadType.tweet,
+            referenceId: id,
+            onComplete: (vUrls) async {
+              videoUrls = vUrls;
+              await tweetService.createTweet(
+                tweetId: id,
+                userId: currentUser.id,
+                text: text,
+                videoUrls: videoUrls,
+                parentTweetId: widget.replyToTweetId,
+              );
+            },
+          );
+        }
+        // if text only
+        else {
+          await tweetService.createTweet(
+            tweetId: id,
+            userId: currentUser.id,
+            text: text,
+            parentTweetId: widget.replyToTweetId,
+          );
+        }
+      } catch (e, st) {
+        log('Failed async tweet upload', error: e, stackTrace: st);
+      }
     });
 
-    try {
-      final tweetService = ref.read(tweetServiceProvider);
-      final uploadService = ref.read(uploadNotifierProvider.notifier);
-      final id =
-          FirebaseFirestore.instance
-              .collection(AppConstants.tweetsCollection)
-              .doc()
-              .id;
-      // Upload images
-      if (_selectedImages.isNotEmpty) {
-        uploadService.uploadFiles(
-          files: _selectedImages,
-          type: UploadType.tweet,
-          referenceId: id,
-          onComplete: (urls) async {
-            // Create tweet
-            await tweetService.createTweet(
-              tweetId: id,
-              userId: currentUser.id,
-              text: text,
-              imageUrls: urls,
-              parentTweetId: widget.replyToTweetId,
-            );
-          },
-        );
-      }
-      // Upload video
-      else if (_selectedVideo != null) {
-        uploadService.uploadFiles(
-          files: [_selectedVideo!],
-          type: UploadType.tweet,
-          referenceId: id,
-          onComplete: (urls) async {
-            // Create tweet
-
-            await tweetService.createTweet(
-              tweetId: id,
-              userId: currentUser.id,
-              text: text,
-              videoUrl: urls[0],
-              parentTweetId: widget.replyToTweetId,
-            );
-          },
-        );
-      } else {
-        await tweetService.createTweet(
-          tweetId: id,
-          userId: currentUser.id,
-          text: text,
-          parentTweetId: widget.replyToTweetId,
-        );
-      }
-      // Reset composer
-      _textController.clear();
-      setState(() {
-        _selectedImages.clear();
-        _selectedVideo = null;
-        _isUploading = false;
-      });
-
-      widget.onTweetSent?.call();
-
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (e, st) {
-      setState(() {
-        _isUploading = false;
-      });
-      log("Failed to send tweet", error: e, stackTrace: st);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to send tweet: $e')));
-      }
-    }
+    // Instantly pop — background upload continues
+    widget.onTweetSent?.call();
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
-    final remainingChars =
-        AppConstants.maxTweetLength - _textController.text.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -185,7 +213,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
-              onPressed: _isUploading ? null : _sendTweet,
+              onPressed: _sendTweet,
               child: const Text('Tweet'),
             ),
           ),
@@ -194,144 +222,147 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
       body:
           currentUser == null
               ? const Center(child: Text('Please sign in'))
-              : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // User info and text field
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundImage:
-                                currentUser.profilePictureUrl != null
-                                    ? NetworkImage(
-                                      currentUser.profilePictureUrl!,
-                                    )
-                                    : null,
-                            child:
-                                currentUser.profilePictureUrl == null
-                                    ? Text(
-                                      currentUser.displayName[0].toUpperCase(),
-                                    )
-                                    : null,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _textController,
-                              maxLength: AppConstants.maxTweetLength,
-                              maxLines: null,
-                              decoration: const InputDecoration(
-                                hintText: "What's happening?",
-                                border: InputBorder.none,
-                              ),
-                              onChanged: (_) => setState(() {}),
+              : Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundImage:
+                              currentUser.profilePictureUrl != null
+                                  ? NetworkImage(currentUser.profilePictureUrl!)
+                                  : null,
+                          child:
+                              currentUser.profilePictureUrl == null
+                                  ? Text(
+                                    currentUser.displayName[0].toUpperCase(),
+                                  )
+                                  : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _textController,
+                            maxLength: AppConstants.maxTweetLength,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                              hintText: "What's happening?",
+                              border: InputBorder.none,
                             ),
                           ),
-                        ],
-                      ),
-                      // Media preview
-                      if (_selectedImages.isNotEmpty ||
-                          _selectedVideo != null) ...[
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ..._selectedImages.map(
-                              (image) => Stack(
-                                children: [
-                                  AppImage.xFile(
-                                    image,
-                                    width: 100,
-                                    height: 100,
-                                    fit: BoxFit.cover,
-                                  ),
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: IconButton(
-                                      icon: const Icon(Icons.close, size: 20),
-                                      onPressed: () {
-                                        setState(() {
-                                          _selectedImages.remove(image);
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_selectedVideo != null)
-                              Stack(
-                                children: [
-                                  SizedBox(
-                                    width: 100,
-                                    height: 100,
-                                    child: VideoPlayerWidget(
-                                      isFile: true,
-                                      url:
-                                          _selectedVideo!
-                                              .path, // since _selectedVideo is a File
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: -12,
-                                    right: -8,
-                                    child: IconButton(
-                                      icon: const Icon(Icons.close, size: 20),
-                                      onPressed: () {
-                                        setState(() {
-                                          _selectedVideo = null;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      // Actions and character count
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Media buttons
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.image_outlined),
-                                onPressed:
-                                    _selectedVideo == null ? _pickImage : null,
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.videocam_outlined),
-                                onPressed:
-                                    _selectedImages.isEmpty ? _pickVideo : null,
-                              ),
-                            ],
-                          ),
-                          // Character count
-                          Text(
-                            remainingChars.toString(),
-                            style: TextStyle(
-                              color:
-                                  remainingChars < 0
-                                      ? Colors.red
-                                      : remainingChars < 20
-                                      ? Colors.orange
-                                      : null,
+                    ),
+                    const SizedBox(height: 8),
+                    ValueListenableBuilder<List<XFile>>(
+                      valueListenable: _selectedImages,
+                      builder: (_, images, __) {
+                        return ValueListenableBuilder<List<XFile>>(
+                          valueListenable: _selectedVideos,
+                          builder: (_, videos, __) {
+                            if (images.isEmpty && videos.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                ...images.map(
+                                  (image) => Stack(
+                                    children: [
+                                      AppImage.xFile(
+                                        image,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                      ),
+                                      Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.close,
+                                            size: 20,
+                                          ),
+                                          onPressed: () {
+                                            _selectedImages.value = List.from(
+                                              images,
+                                            )..remove(image);
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                ...videos.map(
+                                  (video) => Stack(
+                                    children: [
+                                      SizedBox(
+                                        width: 100,
+                                        height: 100,
+                                        child: VideoPlayerWidget(
+                                          isFile: true,
+                                          url: video.path,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: -12,
+                                        right: -8,
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.close,
+                                            size: 20,
+                                          ),
+                                          onPressed: () {
+                                            _selectedVideos.value = List.from(
+                                              videos,
+                                            )..remove(video);
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.image_outlined),
+                              onPressed: _pickImage,
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.videocam_outlined),
+                              onPressed: _pickVideo,
+                            ),
+                          ],
+                        ),
+                        Text(
+                          remainingChars.toString(),
+                          style: TextStyle(
+                            color:
+                                remainingChars < 0
+                                    ? Colors.red
+                                    : remainingChars < 20
+                                    ? Colors.orange
+                                    : null,
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
     );

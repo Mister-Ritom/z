@@ -66,7 +66,7 @@ class TweetService {
     required String userId,
     required String text,
     List<String> imageUrls = const [],
-    String? videoUrl,
+    List<String> videoUrls = const [],
     String? parentTweetId,
     String? quotedTweetId,
   }) async {
@@ -81,7 +81,7 @@ class TweetService {
         quotedTweetId: quotedTweetId,
         text: text,
         imageUrls: imageUrls,
-        videoUrl: videoUrl,
+        videoUrls: videoUrls,
         createdAt: DateTime.now(),
         hashtags: hashtags,
         mentions: mentions,

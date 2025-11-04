@@ -148,10 +148,7 @@ class MessageBubble extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: AppImage.network(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                  ),
+                  child: AppImage.network(imageUrl, fit: BoxFit.cover),
                 ),
                 if (isLastVisible)
                   Container(

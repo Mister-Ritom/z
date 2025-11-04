@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,7 +15,6 @@ import '../providers/auth_provider.dart';
 import '../utils/helpers.dart';
 import '../screens/tweet/tweet_detail_screen.dart';
 
-// Action state providers (track loading state per tweet)
 final retweetingProvider = StateProvider.family<bool, String>(
   (ref, tweetId) => false,
 );
@@ -51,6 +52,8 @@ class TweetCard extends ConsumerWidget {
     );
     final isRetweeted = tweet.retweetedBy.contains(currentUser.id);
 
+    final mediaUrls = [...tweet.imageUrls, ...tweet.videoUrls];
+
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -58,7 +61,6 @@ class TweetCard extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Avatar
             GestureDetector(
               onTap: onUserTap,
               child: CircleAvatar(
@@ -74,12 +76,10 @@ class TweetCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // User info
                   Row(
                     children: [
                       GestureDetector(
@@ -113,22 +113,21 @@ class TweetCard extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // Tweet text
                   Text(
                     tweet.text,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
-                  // Images
-                  if (tweet.imageUrls.isNotEmpty) ...[
+                  if (mediaUrls.length == 1 &&
+                      tweet.videoUrls.contains(mediaUrls[0]))
+                    VideoPlayerWidget(isFile: false, url: mediaUrls[0])
+                  else if (mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    _buildImageGrid(context, tweet.imageUrls),
+                    SizedBox(
+                      height: 200,
+                      child: MediaCarousel(mediaUrls: mediaUrls, tweet: tweet),
+                    ),
                   ],
-                  // Video
-                  if (tweet.videoUrl != null) ...[
-                    const SizedBox(height: 8),
-                    _buildVideoPreview(context, tweet.videoUrl!),
-                  ],
-                  // Actions
+
                   const SizedBox(height: 12),
                   _buildActions(
                     context,
@@ -142,50 +141,6 @@ class TweetCard extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildImageGrid(BuildContext context, List<String> imageUrls) {
-    if (imageUrls.length == 1) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: CachedNetworkImage(
-          imageUrl: imageUrls.first,
-          width: double.infinity,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-
-    // Grid for multiple images
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: imageUrls.length > 4 ? 4 : imageUrls.length,
-      itemBuilder: (context, index) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AppImage.network(
-            imageUrl: imageUrls[index],
-            fit: BoxFit.cover,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildVideoPreview(BuildContext context, String videoUrl) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        width: double.infinity,
-        child: VideoPlayerWidget(isFile: false, url: videoUrl),
       ),
     );
   }
@@ -342,11 +297,9 @@ class TweetCard extends ConsumerWidget {
   Future<XFile?> cachedImageToXFile(String imageUrl) async {
     final cacheManager = CachedNetworkImageProvider.defaultCacheManager;
     final fileInfo = await cacheManager.getFileFromCache(imageUrl);
-
     if (fileInfo != null) {
       return XFile(fileInfo.file.path);
     } else {
-      // Not cached yet, download it
       final file = await cacheManager.getSingleFile(imageUrl);
       return XFile(file.path);
     }
@@ -389,6 +342,103 @@ class TweetCard extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class MediaCarousel extends StatefulWidget {
+  final List<String> mediaUrls;
+  final TweetModel tweet; // or whatever your tweet object is
+  const MediaCarousel({
+    super.key,
+    required this.mediaUrls,
+    required this.tweet,
+  });
+
+  @override
+  State<MediaCarousel> createState() => _MediaCarouselState();
+}
+
+class _MediaCarouselState extends State<MediaCarousel> {
+  late final PageController _pageController;
+  double _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+
+    _pageController.addListener(() {
+      if (_pageController.hasClients) {
+        setState(() {
+          _currentPage = _pageController.page ?? 0;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          width: MediaQuery.of(context).size.width,
+          child: PageView(
+            controller: _pageController,
+            children:
+                widget.mediaUrls.map((url) {
+                  if (widget.tweet.videoUrls.contains(url)) {
+                    return VideoPlayerWidget(
+                      isFile: false,
+                      url: url,
+                      width: MediaQuery.of(context).size.width,
+                      height: 200,
+                    );
+                  } else {
+                    return AppImage.network(url);
+                  }
+                }).toList(),
+          ),
+        ),
+        Positioned(
+          bottom: 8,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.mediaUrls.length, (index) {
+              final isActive = (_currentPage.round() == index);
+              return InkWell(
+                onTap: () {
+                  _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color:
+                        isActive
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey.shade400,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }

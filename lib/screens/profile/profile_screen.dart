@@ -522,7 +522,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             .where(
                               (tweet) =>
                                   tweet.imageUrls.isNotEmpty ||
-                                  tweet.videoUrl != null,
+                                  tweet.videoUrls.isNotEmpty,
                             )
                             .toList();
                     if (mediaTweets.isEmpty) {

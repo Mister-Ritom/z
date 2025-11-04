@@ -61,8 +61,8 @@ class AppImage extends StatelessWidget {
   }
 
   /// For network images — uses CachedNetworkImage internally
-  factory AppImage.network({
-    required String imageUrl,
+  factory AppImage.network(
+    String url, {
     Key? key,
     BoxFit? fit,
     double? width,
@@ -77,7 +77,7 @@ class AppImage extends StatelessWidget {
   }) {
     return AppImage._(
       key: key,
-      imageProvider: CachedNetworkImageProvider(imageUrl),
+      imageProvider: CachedNetworkImageProvider(url),
       fit: fit,
       width: width,
       height: height,

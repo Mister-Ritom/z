@@ -19,7 +19,8 @@ class AppConstants {
 
   // User Limits
   static const int maxTweetLength = 280;
-  static const int maxImagesPerTweet = 4;
+  static const int maxImagesPerTweet = 10;
+  static const int maxVideosPerTweet = 4;
   static const int maxVideoSizeMB = 100;
   static const int maxImageSizeMB = 10;
 

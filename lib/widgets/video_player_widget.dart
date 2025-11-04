@@ -1,16 +1,26 @@
 import 'dart:developer';
 import 'dart:io';
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart';
+import 'package:z/screens/main_navigation.dart';
 import 'package:z/widgets/video_cache_manager.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
   final bool isFile;
   final String url;
+  final double? width;
+  final double? height;
 
-  const VideoPlayerWidget({super.key, required this.isFile, required this.url});
+  const VideoPlayerWidget({
+    super.key,
+    required this.isFile,
+    required this.url,
+    this.width,
+    this.height,
+  });
 
   @override
   State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
@@ -123,10 +133,40 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          AspectRatio(
-            aspectRatio: _controller!.value.aspectRatio,
-            child: VideoPlayer(_controller!),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              if (widget.width != null && widget.height != null)
+                SizedBox(
+                  width: widget.width,
+                  height: widget.height,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            Colors.black.withOpacityAlpha(0.2),
+                            BlendMode.darken,
+                          ),
+                          child: VideoPlayer(_controller!),
+                        ),
+                        BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: const SizedBox.expand(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              AspectRatio(
+                aspectRatio: _controller!.value.aspectRatio,
+                child: VideoPlayer(_controller!),
+              ),
+            ],
           ),
+
           if (!_isPlaying)
             Container(
               color: Colors.black38,
