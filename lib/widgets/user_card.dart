@@ -112,11 +112,11 @@ class UserCard extends ConsumerWidget {
                   backgroundColor:
                       isFollowing
                           ? Colors.transparent
-                          : Theme.of(context).colorScheme.primary,
+                          : Theme.of(context).colorScheme.secondary,
                   foregroundColor:
                       isFollowing
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.white,
+                          ? Theme.of(context).colorScheme.secondary
+                          : Theme.of(context).colorScheme.inverseSurface,
                   side:
                       isFollowing
                           ? BorderSide(

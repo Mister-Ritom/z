@@ -3,7 +3,8 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/auth_provider.dart';
+import 'package:z/utils/helpers.dart';
+import '../providers/auth_provider.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -61,7 +62,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       );
 
       if (mounted) {
-        context.go('/');
+        context.pushReplacement('/');
       }
     } catch (e) {
       log("Email sign in failed", error: e);
@@ -113,7 +114,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo
-                  const Icon(Icons.abc, size: 64),
+                  Image.asset(
+                    Helpers.getIconAsset(
+                      brightness: Theme.brightnessOf(context),
+                    ),
+                    width: 64,
+                    height: 64,
+                  ),
                   const SizedBox(height: 32),
                   // Title
                   Text(

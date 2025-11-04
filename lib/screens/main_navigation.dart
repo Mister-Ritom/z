@@ -13,6 +13,8 @@ import 'package:z/screens/stories/stories_screen.dart';
 import 'package:z/screens/notifications/notifications_screen.dart';
 import 'package:z/providers/notification_provider.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/widgets/glass_widget.dart';
+import 'package:z/widgets/tweet_composer.dart';
 
 class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
@@ -73,6 +75,15 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           (kIsWeb)
               ? _buildWebNav(theme, isDark, currentUser)
               : _buildMobileGlassNav(theme, isDark, currentUser),
+      floatingActionButton: GlassFAB(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const TweetComposer()),
+          );
+        },
+        child: const Icon(Icons.edit, color: Colors.white),
+      ),
     );
   }
 

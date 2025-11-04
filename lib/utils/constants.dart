@@ -26,12 +26,8 @@ class AppConstants {
   static const int messagesPerPage = 30;
   static const int usersPerPage = 20;
 
-  // Verification
-  static const List<String> verifiedUserIds = [
-    // Add user IDs that should have verified badges
-    // Example: 'user123', 'user456'
-  ];
-
+  static const String darkModeIcon = "assets/icons/icon_white.png";
+  static const String lightModeIcon = "assets/icons/icon_black.png";
   // Timeouts
   static const Duration networkTimeout = Duration(seconds: 30);
   static const Duration cacheExpiration = Duration(hours: 1);

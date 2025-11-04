@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
@@ -47,6 +48,17 @@ class Helpers {
     } catch (e) {
       return null;
     }
+  }
+
+  static String getIconAsset({Brightness? brightness}) {
+    if (brightness == null) {
+      return AppConstants.darkModeIcon;
+    } else if (brightness == Brightness.dark)
+      // ignore: curly_braces_in_flow_control_structures
+      return AppConstants.darkModeIcon;
+    else
+      // ignore: curly_braces_in_flow_control_structures
+      return AppConstants.lightModeIcon;
   }
 
   /// Extract hashtags from text

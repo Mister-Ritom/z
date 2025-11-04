@@ -6,6 +6,59 @@ import '../utils/helpers.dart';
 
 class TweetService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Search tweets by query (text startsWith, hashtags, or mentions)
+  Future<List<TweetModel>> searchTweets(String query) async {
+    try {
+      final lowerQuery = query.toLowerCase();
+
+      final tweetsRef = _firestore.collection(AppConstants.tweetsCollection);
+
+      // Step 1: Search by hashtags
+      final hashtagResults =
+          await tweetsRef
+              .where('hashtags', arrayContains: lowerQuery)
+              .where('isDeleted', isEqualTo: false)
+              .get();
+
+      // Step 2: Search by mentions
+      final mentionResults =
+          await tweetsRef
+              .where('mentions', arrayContains: lowerQuery)
+              .where('isDeleted', isEqualTo: false)
+              .get();
+
+      // Step 3: Search by text that *starts with* query
+      final textResults =
+          await tweetsRef
+              .where('isDeleted', isEqualTo: false)
+              .orderBy('text')
+              .startAt([lowerQuery])
+              .endAt(['$lowerQuery\uf8ff'])
+              .get();
+
+      // Step 4: Combine all docs and remove duplicates
+      final allDocs = [
+        ...hashtagResults.docs,
+        ...mentionResults.docs,
+        ...textResults.docs,
+      ];
+
+      final uniqueDocs = {for (var doc in allDocs) doc.id: doc}.values.toList();
+
+      // Step 5: Convert to TweetModel list
+      final tweets =
+          uniqueDocs
+              .map((doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}))
+              .toList();
+
+      // Step 6: Sort by createdAt descending (newest first)
+      tweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      return tweets;
+    } catch (e) {
+      throw Exception('Failed to search tweets: $e');
+    }
+  }
 
   // Create a tweet
   Future<TweetModel> createTweet({

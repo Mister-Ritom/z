@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:z/providers/message_provider.dart';
+import 'package:z/utils/helpers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/tweet_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -176,7 +177,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
         ),
-        title: const Text('Home'),
+        title: Image.asset(
+          Helpers.getIconAsset(brightness: Theme.brightnessOf(context)),
+          width: 48,
+          height: 48,
+        ),
         actions: [
           unreadMessagesAsync.when(
             data:

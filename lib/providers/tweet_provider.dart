@@ -26,6 +26,13 @@ final userTweetsProvider = StreamProvider.family<List<TweetModel>, String>((
   final tweetService = ref.watch(tweetServiceProvider);
   return tweetService.getUserTweets(userId);
 });
+final searchTweetsProvider = FutureProvider.family<List<TweetModel>, String>((
+  ref,
+  query,
+) async {
+  final tweetService = ref.watch(tweetServiceProvider);
+  return await tweetService.searchTweets(query);
+});
 
 final tweetRepliesProvider = StreamProvider.family<List<TweetModel>, String>((
   ref,
@@ -43,22 +50,18 @@ final userRepliesProvider = StreamProvider.family<List<TweetModel>, String>((
   return tweetService.getUserReplies(userId);
 });
 
-final userLikedTweetsProvider = StreamProvider.family<List<TweetModel>, String>((
-  ref,
-  userId,
-) {
-  final tweetService = ref.watch(tweetServiceProvider);
-  return tweetService.getUserLikedTweets(userId);
-});
+final userLikedTweetsProvider = StreamProvider.family<List<TweetModel>, String>(
+  (ref, userId) {
+    final tweetService = ref.watch(tweetServiceProvider);
+    return tweetService.getUserLikedTweets(userId);
+  },
+);
 
 final userRetweetedTweetsProvider =
-    StreamProvider.family<List<TweetModel>, String>((
-  ref,
-  userId,
-) {
-  final tweetService = ref.watch(tweetServiceProvider);
-  return tweetService.getUserRetweetedTweets(userId);
-});
+    StreamProvider.family<List<TweetModel>, String>((ref, userId) {
+      final tweetService = ref.watch(tweetServiceProvider);
+      return tweetService.getUserRetweetedTweets(userId);
+    });
 
 final tweetProvider = FutureProvider.family<TweetModel?, String>((
   ref,
