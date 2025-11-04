@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:z/providers/message_provider.dart';
+import 'package:z/providers/theme_provider.dart';
 import 'package:z/utils/helpers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/tweet_provider.dart';
@@ -122,22 +123,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         )
                         : null,
               ),
-
               accountName: Text(currentUser.displayName),
               accountEmail: Text(currentUser.email),
-              currentAccountPicture: CircleAvatar(
-                backgroundImage:
-                    currentUser.profilePictureUrl != null
-                        ? CachedNetworkImageProvider(
-                          currentUser.profilePictureUrl!,
-                        )
-                        : null,
-                child:
-                    currentUser.profilePictureUrl == null
-                        ? Text(currentUser.displayName[0].toUpperCase())
-                        : null,
+              currentAccountPicture: InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/profile/${currentUser.id}');
+                },
+                child: CircleAvatar(
+                  backgroundImage:
+                      currentUser.profilePictureUrl != null
+                          ? CachedNetworkImageProvider(
+                            currentUser.profilePictureUrl!,
+                          )
+                          : null,
+                  child:
+                      currentUser.profilePictureUrl == null
+                          ? Text(currentUser.displayName[0].toUpperCase())
+                          : null,
+                ),
               ),
             ),
+
+            // Profile
             ListTile(
               leading: const Icon(Icons.person_outline),
               title: const Text('Profile'),
@@ -146,6 +154,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 context.push('/profile/${currentUser.id}');
               },
             ),
+
+            // Bookmarks
+            ListTile(
+              leading: const Icon(Icons.bookmark_outline),
+              title: const Text('Bookmarks'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/bookmarks');
+              },
+            ),
+
+            // Settings
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Settings'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/settings');
+              },
+            ),
+            const Divider(),
+
+            // Feedback
+            ListTile(
+              leading: const Icon(Icons.feedback_outlined),
+              title: const Text('Feedback'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/feedback');
+              },
+            ),
+
+            // Terms
+            ListTile(
+              leading: const Icon(Icons.article_outlined),
+              title: const Text('Terms of Service'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/terms');
+              },
+            ),
+
+            // Privacy Policy
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: const Text('Privacy Policy'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/privacy');
+              },
+            ),
+
+            const Divider(),
+
+            // Logout
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
@@ -153,6 +216,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Navigator.pop(context);
                 _logout(ref);
               },
+            ),
+            Divider(),
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                IconButton(
+                  tooltip: 'Change theme',
+                  icon: Icon(switch (ref.watch(themeProvider)) {
+                    AppTheme.light => Icons.light_mode_outlined,
+                    AppTheme.dark => Icons.dark_mode_outlined,
+                    AppTheme.system => Icons.brightness_auto_outlined,
+                  }),
+                  onPressed: () {
+                    ref.read(themeProvider.notifier).setTheme(switch (ref.read(
+                      themeProvider,
+                    )) {
+                      AppTheme.light => AppTheme.dark,
+                      AppTheme.dark => AppTheme.system,
+                      AppTheme.system => AppTheme.light,
+                    });
+                  },
+                ),
+                Text(switch (ref.watch(themeProvider)) {
+                  AppTheme.light => "Light",
+                  AppTheme.dark => "Dark",
+                  AppTheme.system => "System",
+                }),
+              ],
             ),
           ],
         ),
