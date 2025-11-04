@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:z/utils/constants.dart';
 import 'package:z/widgets/app_image.dart';
 import 'package:z/widgets/video_player_widget.dart';
 import '../models/tweet_model.dart';
@@ -268,8 +270,25 @@ class TweetCard extends ConsumerWidget {
           context,
           Icons.share_outlined,
           null,
-          onTap: () {
-            // Share functionality
+          onTap: () async {
+            final file =
+                tweet.imageUrls.isNotEmpty
+                    ? await cachedImageToXFile(tweet.imageUrls[0])
+                    : null;
+            await SharePlus.instance.share(
+              ShareParams(
+                title: "Share ${user?.displayName ?? user?.username}'s post",
+                text:
+                    "Take a look at ${user?.displayName ?? user?.username}'s post ${AppConstants.appUrl}/tweet/${tweet.id}",
+                previewThumbnail: file,
+                excludedCupertinoActivities: [
+                  CupertinoActivityType.addToHomeScreen,
+                  CupertinoActivityType.sharePlay,
+                  CupertinoActivityType.assignToContact,
+                  CupertinoActivityType.openInIBooks,
+                ],
+              ),
+            );
           },
         ),
         _buildActionButton(
@@ -318,6 +337,19 @@ class TweetCard extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<XFile?> cachedImageToXFile(String imageUrl) async {
+    final cacheManager = CachedNetworkImageProvider.defaultCacheManager;
+    final fileInfo = await cacheManager.getFileFromCache(imageUrl);
+
+    if (fileInfo != null) {
+      return XFile(fileInfo.file.path);
+    } else {
+      // Not cached yet, download it
+      final file = await cacheManager.getSingleFile(imageUrl);
+      return XFile(file.path);
+    }
   }
 
   Widget _buildActionButton(

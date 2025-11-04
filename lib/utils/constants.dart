@@ -26,9 +26,15 @@ class AppConstants {
   static const int messagesPerPage = 30;
   static const int usersPerPage = 20;
 
+  //Icons
   static const String darkModeIcon = "assets/icons/icon_white.png";
   static const String lightModeIcon = "assets/icons/icon_black.png";
+
   // Timeouts
   static const Duration networkTimeout = Duration(seconds: 30);
   static const Duration cacheExpiration = Duration(hours: 1);
+
+  //Web
+  static const String appUrl =
+      "z-temp.com"; //Temporary util i public the website
 }
