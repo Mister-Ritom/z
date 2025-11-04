@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'dart:io' show Platform;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_compress/video_compress.dart';
 import '../utils/constants.dart';
@@ -9,17 +10,13 @@ class StorageService {
 
   StorageService(this._supabase);
 
-  // Upload profile picture
-  Future<String> uploadProfilePicture(File imageFile, String userId) async {
+  Future<String> uploadProfilePicture(
+    Uint8List fileBytes,
+    String userId,
+  ) async {
     try {
-      // Compress image
-      final compressedFile = await Helpers.compressImage(imageFile);
-      final fileToUpload = compressedFile ?? imageFile;
-
       final fileName =
           'profile_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final fileBytes = await fileToUpload.readAsBytes();
-
       await _supabase.storage
           .from(AppConstants.profilePicturesBucket)
           .uploadBinary(
@@ -30,29 +27,18 @@ class StorageService {
               upsert: true,
             ),
           );
-
-      // Get public URL
-      final url = _supabase.storage
+      return _supabase.storage
           .from(AppConstants.profilePicturesBucket)
           .getPublicUrl(fileName);
-
-      return url;
     } catch (e) {
       throw Exception('Failed to upload profile picture: $e');
     }
   }
 
-  // Upload cover photo
-  Future<String> uploadCoverPhoto(File imageFile, String userId) async {
+  Future<String> uploadCoverPhoto(Uint8List fileBytes, String userId) async {
     try {
-      // Compress image
-      final compressedFile = await Helpers.compressImage(imageFile);
-      final fileToUpload = compressedFile ?? imageFile;
-
       final fileName =
           'cover_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final fileBytes = await fileToUpload.readAsBytes();
-
       await _supabase.storage
           .from(AppConstants.coverPhotosBucket)
           .uploadBinary(
@@ -63,28 +49,18 @@ class StorageService {
               upsert: true,
             ),
           );
-
-      // Get public URL
-      final url = _supabase.storage
+      return _supabase.storage
           .from(AppConstants.coverPhotosBucket)
           .getPublicUrl(fileName);
-
-      return url;
     } catch (e) {
       throw Exception('Failed to upload cover photo: $e');
     }
   }
 
-  // Upload tweet image
-  Future<String> uploadTweetImage(File imageFile, String tweetId) async {
+  Future<String> uploadTweetImage(Uint8List fileBytes, String tweetId) async {
     try {
-      // Compress image
-      final compressedFile = await Helpers.compressImage(imageFile);
-      final fileToUpload = compressedFile ?? imageFile;
-
       final fileName =
           'tweet_${tweetId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final fileBytes = await fileToUpload.readAsBytes();
 
       await _supabase.storage
           .from(AppConstants.tweetMediaBucket)
@@ -96,81 +72,129 @@ class StorageService {
               upsert: true,
             ),
           );
-
-      // Get public URL
-      final url = _supabase.storage
+      return _supabase.storage
           .from(AppConstants.tweetMediaBucket)
           .getPublicUrl(fileName);
-
-      return url;
     } catch (e) {
       throw Exception('Failed to upload tweet image: $e');
     }
   }
 
-  Future<String> uploadTweetVideo(File videoFile, String tweetId) async {
+  Future<String> uploadTweetVideo(Uint8List fileBytes, String tweetId) async {
     try {
-      // 1️⃣ Compress the video before upload
-      final info = await VideoCompress.compressVideo(
-        videoFile.path,
-        quality: VideoQuality.MediumQuality, // balance speed & quality
-        deleteOrigin: false,
-      );
-
-      if (info == null || info.file == null) {
-        throw Exception('Video compression failed');
-      }
-
-      final compressedFile = info.file!;
       final fileName =
           'video_${tweetId}_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
-      // 2️⃣ Upload the file directly (streaming, faster & memory-efficient)
-      await _supabase.storage
-          .from(AppConstants.tweetMediaBucket)
-          .upload(
-            fileName,
-            compressedFile,
-            fileOptions: const FileOptions(
-              contentType: 'video/mp4',
-              upsert: true,
-            ),
-          );
+      if (Platform.isAndroid || Platform.isIOS) {
+        final tempFile = await Helpers.bytesToTempFile(fileBytes, fileName);
+        final info = await VideoCompress.compressVideo(
+          tempFile.path,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+        );
+        if (info?.file == null) throw Exception("Video compression failed");
 
-      // 3️⃣ Clean up temporary cache files
-      await VideoCompress.deleteAllCache();
+        await _supabase.storage
+            .from(AppConstants.tweetMediaBucket)
+            .upload(
+              fileName,
+              info!.file!,
+              fileOptions: const FileOptions(
+                contentType: 'video/mp4',
+                upsert: true,
+              ),
+            );
+        await VideoCompress.deleteAllCache();
+      } else {
+        await _supabase.storage
+            .from(AppConstants.tweetMediaBucket)
+            .uploadBinary(
+              fileName,
+              fileBytes,
+              fileOptions: const FileOptions(
+                contentType: 'video/mp4',
+                upsert: true,
+              ),
+            );
+      }
 
-      // 4️⃣ Get the public URL of the uploaded file
-      final url = _supabase.storage
+      return _supabase.storage
           .from(AppConstants.tweetMediaBucket)
           .getPublicUrl(fileName);
-
-      return url;
     } catch (e) {
       throw Exception('Failed to upload tweet video: $e');
     }
   }
 
-  // Upload multiple tweet images
-  Future<List<String>> uploadTweetImages(
-    List<File> imageFiles,
-    String tweetId,
-  ) async {
+  Future<String> uploadReel(Uint8List fileBytes, String userId) async {
     try {
-      final urls = <String>[];
+      final fileName =
+          'reel_${userId}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      if (Platform.isAndroid || Platform.isIOS) {
+        final tempFile = await Helpers.bytesToTempFile(fileBytes, fileName);
+        final info = await VideoCompress.compressVideo(
+          tempFile.path,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+        );
+        if (info?.file == null) throw Exception("Reel compression failed");
 
-      for (var i = 0; i < imageFiles.length; i++) {
-        final url = await uploadTweetImage(imageFiles[i], '$tweetId$i');
-        urls.add(url);
+        await _supabase.storage
+            .from(AppConstants.reelsVideoBucket)
+            .upload(
+              fileName,
+              info!.file!,
+              fileOptions: const FileOptions(
+                contentType: 'video/mp4',
+                upsert: true,
+              ),
+            );
+        await VideoCompress.deleteAllCache();
+      } else {
+        await _supabase.storage
+            .from(AppConstants.reelsVideoBucket)
+            .uploadBinary(
+              fileName,
+              fileBytes,
+              fileOptions: const FileOptions(
+                contentType: 'video/mp4',
+                upsert: true,
+              ),
+            );
       }
-
-      return urls;
+      return _supabase.storage
+          .from(AppConstants.reelsVideoBucket)
+          .getPublicUrl(fileName);
     } catch (e) {
-      throw Exception('Failed to upload tweet images: $e');
+      throw Exception('Failed to upload reel: $e');
     }
   }
 
-  // Delete file from storage
+  Future<String> uploadDocument(
+    Uint8List fileBytes,
+    String mimeType,
+    String referenceId, {
+    String subFolder = "",
+  }) async {
+    try {
+      final ext = mimeType.split('/').last;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'documents/subFolder$referenceId/doc_$timestamp.$ext';
+      await _supabase.storage
+          .from(AppConstants.documentsBucket)
+          .uploadBinary(
+            fileName,
+            fileBytes,
+            fileOptions: FileOptions(contentType: mimeType, upsert: true),
+          );
+      return _supabase.storage
+          .from(AppConstants.documentsBucket)
+          .getPublicUrl(fileName);
+    } catch (e) {
+      throw Exception('Failed to upload document: $e');
+    }
+  }
+
   Future<void> deleteFile(String bucket, String fileName) async {
     try {
       await _supabase.storage.from(bucket).remove([fileName]);

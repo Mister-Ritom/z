@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:photo_view/photo_view.dart';
 
 class AppImage extends StatelessWidget {
@@ -114,6 +116,55 @@ class AppImage extends StatelessWidget {
       filterQuality: filterQuality,
       onDoubleTap: onDoubleTap,
     );
+  }
+
+  /// Internal helper for the async version
+  static Widget xFile(
+    XFile file, {
+    Key? key,
+    BoxFit? fit,
+    double? width,
+    double? height,
+    Alignment alignment = Alignment.center,
+    Color? color,
+    BlendMode? colorBlendMode,
+    FilterQuality filterQuality = FilterQuality.low,
+    VoidCallback? onDoubleTap,
+  }) {
+    return FutureBuilder<ImageProvider>(
+      future: _loadImageProvider(file),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        }
+        if (snapshot.hasError) {
+          return const Icon(Icons.error, color: Colors.red);
+        }
+
+        return AppImage._(
+          key: key,
+          imageProvider: snapshot.data!,
+          fit: fit,
+          width: width,
+          height: height,
+          alignment: alignment,
+          color: color,
+          colorBlendMode: colorBlendMode,
+          filterQuality: filterQuality,
+          onDoubleTap: onDoubleTap,
+        );
+      },
+    );
+  }
+
+  /// Loads image provider depending on platform
+  static Future<ImageProvider> _loadImageProvider(XFile file) async {
+    if (kIsWeb) {
+      final bytes = await file.readAsBytes();
+      return MemoryImage(bytes);
+    } else {
+      return FileImage(File(file.path));
+    }
   }
 
   void _openFullScreen(BuildContext context) {

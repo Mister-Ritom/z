@@ -73,7 +73,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       // Upload profile picture
       if (_profilePicture != null) {
         profilePictureUrl = await storageService.uploadProfilePicture(
-          _profilePicture!,
+          _profilePicture!.readAsBytesSync(),
           widget.user.id,
         );
       }
@@ -81,7 +81,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       // Upload cover photo
       if (_coverPhoto != null) {
         coverPhotoUrl = await storageService.uploadCoverPhoto(
-          _coverPhoto!,
+          _coverPhoto!.readAsBytesSync(),
           widget.user.id,
         );
       }

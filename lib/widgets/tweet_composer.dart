@@ -1,8 +1,9 @@
 import 'dart:developer';
-import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:z/widgets/app_image.dart';
 import 'package:z/widgets/video_player_widget.dart';
 import '../providers/tweet_provider.dart';
 import '../providers/auth_provider.dart';
@@ -21,8 +22,8 @@ class TweetComposer extends ConsumerStatefulWidget {
 
 class _TweetComposerState extends ConsumerState<TweetComposer> {
   final _textController = TextEditingController();
-  final List<File> _selectedImages = [];
-  File? _selectedVideo;
+  final List<XFile> _selectedImages = [];
+  XFile? _selectedVideo;
   bool _isUploading = false;
 
   @override
@@ -51,7 +52,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 
     setState(() {
       for (final image in images) {
-        _selectedImages.add(File(image.path));
+        _selectedImages.add(image);
       }
     });
   }
@@ -62,7 +63,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 
     if (video != null) {
       setState(() {
-        _selectedVideo = File(video.path);
+        _selectedVideo = video;
         _selectedImages.clear();
       });
     }
@@ -92,36 +93,56 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 
     try {
       final tweetService = ref.read(tweetServiceProvider);
-      final storageService = ref.read(storageServiceProvider);
-
-      List<String> imageUrls = [];
-      String? videoUrl;
-
+      final uploadService = ref.read(uploadNotifierProvider.notifier);
+      final id =
+          FirebaseFirestore.instance
+              .collection(AppConstants.tweetsCollection)
+              .doc()
+              .id;
       // Upload images
       if (_selectedImages.isNotEmpty) {
-        imageUrls = await storageService.uploadTweetImages(
-          _selectedImages,
-          DateTime.now().millisecondsSinceEpoch.toString(),
+        uploadService.uploadFiles(
+          files: _selectedImages,
+          type: UploadType.tweet,
+          referenceId: id,
+          onComplete: (urls) async {
+            // Create tweet
+            await tweetService.createTweet(
+              tweetId: id,
+              userId: currentUser.id,
+              text: text,
+              imageUrls: urls,
+              parentTweetId: widget.replyToTweetId,
+            );
+          },
         );
       }
-
       // Upload video
-      if (_selectedVideo != null) {
-        videoUrl = await storageService.uploadTweetVideo(
-          _selectedVideo!,
-          DateTime.now().millisecondsSinceEpoch.toString(),
+      else if (_selectedVideo != null) {
+        uploadService.uploadFiles(
+          files: [_selectedVideo!],
+          type: UploadType.tweet,
+          referenceId: id,
+          onComplete: (urls) async {
+            // Create tweet
+
+            await tweetService.createTweet(
+              tweetId: id,
+              userId: currentUser.id,
+              text: text,
+              videoUrl: urls[0],
+              parentTweetId: widget.replyToTweetId,
+            );
+          },
+        );
+      } else {
+        await tweetService.createTweet(
+          tweetId: id,
+          userId: currentUser.id,
+          text: text,
+          parentTweetId: widget.replyToTweetId,
         );
       }
-
-      // Create tweet
-      await tweetService.createTweet(
-        userId: currentUser.id,
-        text: text,
-        imageUrls: imageUrls,
-        videoUrl: videoUrl,
-        parentTweetId: widget.replyToTweetId,
-      );
-
       // Reset composer
       _textController.clear();
       setState(() {
@@ -224,7 +245,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
                             ..._selectedImages.map(
                               (image) => Stack(
                                 children: [
-                                  Image.file(
+                                  AppImage.xFile(
                                     image,
                                     width: 100,
                                     height: 100,

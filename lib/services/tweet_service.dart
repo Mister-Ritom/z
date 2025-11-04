@@ -62,6 +62,7 @@ class TweetService {
 
   // Create a tweet
   Future<TweetModel> createTweet({
+    required tweetId,
     required String userId,
     required String text,
     List<String> imageUrls = const [],
@@ -74,7 +75,7 @@ class TweetService {
       final mentions = Helpers.extractMentions(text);
 
       final tweet = TweetModel(
-        id: _firestore.collection(AppConstants.tweetsCollection).doc().id,
+        id: tweetId,
         userId: userId,
         parentTweetId: parentTweetId,
         quotedTweetId: quotedTweetId,

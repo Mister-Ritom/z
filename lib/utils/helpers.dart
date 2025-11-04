@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image/image.dart' as img;
@@ -48,6 +49,13 @@ class Helpers {
     } catch (e) {
       return null;
     }
+  }
+
+  static Future<File> bytesToTempFile(Uint8List bytes, String fileName) async {
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsBytes(bytes, flush: true);
+    return file;
   }
 
   static String getIconAsset({Brightness? brightness}) {

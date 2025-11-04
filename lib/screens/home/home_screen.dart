@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:z/providers/message_provider.dart';
+import 'package:z/providers/storage_provider.dart';
 import 'package:z/providers/theme_provider.dart';
 import 'package:z/utils/helpers.dart';
 import '../../providers/auth_provider.dart';
@@ -98,6 +99,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final unreadMessagesAsync = ref.watch(
       unreadMessageCountProvider(currentUser.id),
     );
+    final uploads = ref.watch(uploadNotifierProvider);
+
+    final totalProgress =
+        uploads.isEmpty
+            ? null
+            : uploads
+                    .where((task) => task.type == UploadType.tweet)
+                    .map((e) => e.progress)
+                    .reduce((a, b) => a + b) /
+                uploads.length;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -305,9 +316,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           tabs: const [Tab(text: 'For You'), Tab(text: 'Following')],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_ForYouTab(), _FollowingTab(userId: currentUser.id)],
+      body: Column(
+        children: [
+          if (totalProgress != null)
+            LinearProgressIndicator(
+              value: totalProgress,
+              backgroundColor: Colors.grey.shade800,
+              color: Theme.of(context).colorScheme.primary,
+              minHeight: 4,
+            ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [_ForYouTab(), _FollowingTab(userId: currentUser.id)],
+            ),
+          ),
+        ],
       ),
     );
   }

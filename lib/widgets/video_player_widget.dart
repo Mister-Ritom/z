@@ -17,7 +17,7 @@ class VideoPlayerWidget extends StatefulWidget {
 }
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isPlaying = false;
   Duration _duration = Duration.zero;
@@ -43,16 +43,18 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   Future<void> _initVideo() async {
     if (widget.isFile) {
-      VideoPlayerController.file(File(widget.url));
+      _controller = VideoPlayerController.file(File(widget.url));
     } else {
       await _setupCacheController();
     }
-
+    if (_controller == null) {
+      throw Exception("Controller not initialized");
+    }
     try {
-      await _controller.initialize();
-      _controller.setLooping(true);
-      _duration = _controller.value.duration;
-      await _controller.pause();
+      await _controller!.initialize();
+      _controller!.setLooping(true);
+      _duration = _controller!.value.duration;
+      await _controller!.pause();
       if (mounted) setState(() => _isInitialized = true);
     } catch (e) {
       log("Video init error: $e");
@@ -62,11 +64,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Future<void> _togglePlayPause() async {
     if (!_isInitialized) return;
 
-    if (_controller.value.isPlaying) {
-      await _controller.pause();
+    if (_controller!.value.isPlaying) {
+      await _controller!.pause();
       setState(() => _isPlaying = false);
     } else {
-      await _controller.play();
+      await _controller!.play();
       setState(() => _isPlaying = true);
     }
   }
@@ -74,14 +76,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Future<void> _openFullScreen() async {
     if (!_isInitialized) return;
 
-    await _controller.pause();
+    await _controller!.pause();
     setState(() => _isPlaying = false);
     if (!mounted || !context.mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
         pageBuilder:
-            (_, __, ___) => FullScreenVideoPlayer(controller: _controller),
+            (_, __, ___) => FullScreenVideoPlayer(controller: _controller!),
       ),
     );
 
@@ -97,7 +99,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (_controller != null) {
+      _controller!.dispose();
+    }
     super.dispose();
   }
 
@@ -120,8 +124,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         alignment: Alignment.center,
         children: [
           AspectRatio(
-            aspectRatio: _controller.value.aspectRatio,
-            child: VideoPlayer(_controller),
+            aspectRatio: _controller!.value.aspectRatio,
+            child: VideoPlayer(_controller!),
           ),
           if (!_isPlaying)
             Container(
