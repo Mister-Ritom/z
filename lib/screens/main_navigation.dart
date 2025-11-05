@@ -88,7 +88,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
             MaterialPageRoute(builder: (context) => const TweetComposer()),
           );
         },
-        child: const Icon(Icons.edit, color: Colors.white),
+        child: const Icon(Icons.edit),
       ),
     );
   }

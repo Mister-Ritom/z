@@ -61,7 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        IconButton(icon: Icon(icon, color: Colors.white), onPressed: onPressed),
+        IconButton(icon: Icon(icon), onPressed: onPressed),
         if (count > 0)
           Positioned(
             right: 4,
@@ -138,8 +138,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         )
                         : null,
               ),
-              accountName: Text(currentUser.displayName),
-              accountEmail: Text(currentUser.email),
+              accountName: Text(
+                currentUser.displayName,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              accountEmail: Text(
+                currentUser.email,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               currentAccountPicture: InkWell(
                 onTap: () {
                   Navigator.pop(context);

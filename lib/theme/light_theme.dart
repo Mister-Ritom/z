@@ -98,6 +98,7 @@ class LightTheme {
         color: Color(0xFFEFF3F4),
         thickness: 0.5,
       ),
+      iconTheme: IconThemeData(color: const Color(0xFF000000)),
     );
   }
 

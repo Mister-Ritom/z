@@ -65,7 +65,13 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final screenSize = MediaQuery.of(context).size;
+    final screenSize = Size(
+      MediaQuery.of(context).size.width,
+      MediaQuery.of(context).size.height +
+          MediaQuery.of(context).padding.top +
+          MediaQuery.of(context).padding.bottom,
+    );
+
     final tweets = ref.watch(forYouFeed).reversed.toList();
 
     if (tweets.isEmpty) {
@@ -86,6 +92,8 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
     }
 
     return Scaffold(
+      extendBody: true,
+      extendBodyBehindAppBar: true,
       body: RefreshIndicator(
         onRefresh: _onRefresh,
         child: PageView.builder(

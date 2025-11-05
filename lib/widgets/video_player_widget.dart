@@ -146,16 +146,25 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       );
     }
 
+    final videoWidget =
+        widget.disableFullscreen
+            ? SizedBox(
+              width: widget.width ?? MediaQuery.of(context).size.width,
+              height: widget.height ?? MediaQuery.of(context).size.height,
+              child: VideoPlayer(_controller!),
+            )
+            : AspectRatio(
+              aspectRatio: _aspectRatio,
+              child: VideoPlayer(_controller!),
+            );
+    if (widget.disableFullscreen) return videoWidget;
     return GestureDetector(
       onTap: _togglePlayPause,
       onDoubleTap: _openFullScreen,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          AspectRatio(
-            aspectRatio: _aspectRatio,
-            child: VideoPlayer(_controller!),
-          ),
+          videoWidget,
           if (!_controller!.value.isPlaying)
             Container(
               color: Colors.black38,

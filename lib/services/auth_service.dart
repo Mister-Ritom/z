@@ -78,6 +78,7 @@ class AuthService {
       return await FirebaseAuth.instance.signInWithPopup(googleProvider);
     }
     // Trigger the authentication flow
+    await _googleSignIn.initialize();
     final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
 
     // Obtain the auth details from the request
