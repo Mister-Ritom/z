@@ -17,6 +17,7 @@ class AppImage extends StatelessWidget {
   final VoidCallback? onDoubleTap;
   final Widget? placeholder;
   final Widget? errorWidget;
+  final void Function(double aspectRatio)? onAspectRatioCalculated;
 
   const AppImage._({
     super.key,
@@ -31,9 +32,9 @@ class AppImage extends StatelessWidget {
     this.onDoubleTap,
     this.placeholder,
     this.errorWidget,
+    this.onAspectRatioCalculated,
   });
 
-  /// For local assets
   factory AppImage.asset(
     String path, {
     Key? key,
@@ -45,6 +46,7 @@ class AppImage extends StatelessWidget {
     BlendMode? colorBlendMode,
     FilterQuality filterQuality = FilterQuality.low,
     VoidCallback? onDoubleTap,
+    void Function(double aspectRatio)? onAspectRatioCalculated,
   }) {
     return AppImage._(
       key: key,
@@ -57,10 +59,10 @@ class AppImage extends StatelessWidget {
       colorBlendMode: colorBlendMode,
       filterQuality: filterQuality,
       onDoubleTap: onDoubleTap,
+      onAspectRatioCalculated: onAspectRatioCalculated,
     );
   }
 
-  /// For network images — uses CachedNetworkImage internally
   factory AppImage.network(
     String url, {
     Key? key,
@@ -74,6 +76,7 @@ class AppImage extends StatelessWidget {
     VoidCallback? onDoubleTap,
     Widget? placeholder,
     Widget? errorWidget,
+    void Function(double aspectRatio)? onAspectRatioCalculated,
   }) {
     return AppImage._(
       key: key,
@@ -88,10 +91,10 @@ class AppImage extends StatelessWidget {
       onDoubleTap: onDoubleTap,
       placeholder: placeholder,
       errorWidget: errorWidget,
+      onAspectRatioCalculated: onAspectRatioCalculated,
     );
   }
 
-  /// For file-based images
   factory AppImage.file(
     File file, {
     Key? key,
@@ -103,6 +106,7 @@ class AppImage extends StatelessWidget {
     BlendMode? colorBlendMode,
     FilterQuality filterQuality = FilterQuality.low,
     VoidCallback? onDoubleTap,
+    void Function(double aspectRatio)? onAspectRatioCalculated,
   }) {
     return AppImage._(
       key: key,
@@ -115,10 +119,10 @@ class AppImage extends StatelessWidget {
       colorBlendMode: colorBlendMode,
       filterQuality: filterQuality,
       onDoubleTap: onDoubleTap,
+      onAspectRatioCalculated: onAspectRatioCalculated,
     );
   }
 
-  /// Internal helper for the async version
   static Widget xFile(
     XFile file, {
     Key? key,
@@ -130,6 +134,7 @@ class AppImage extends StatelessWidget {
     BlendMode? colorBlendMode,
     FilterQuality filterQuality = FilterQuality.low,
     VoidCallback? onDoubleTap,
+    void Function(double aspectRatio)? onAspectRatioCalculated,
   }) {
     return FutureBuilder<ImageProvider>(
       future: _loadImageProvider(file),
@@ -140,7 +145,6 @@ class AppImage extends StatelessWidget {
         if (snapshot.hasError) {
           return const Icon(Icons.error, color: Colors.red);
         }
-
         return AppImage._(
           key: key,
           imageProvider: snapshot.data!,
@@ -152,12 +156,12 @@ class AppImage extends StatelessWidget {
           colorBlendMode: colorBlendMode,
           filterQuality: filterQuality,
           onDoubleTap: onDoubleTap,
+          onAspectRatioCalculated: onAspectRatioCalculated,
         );
       },
     );
   }
 
-  /// Loads image provider depending on platform
   static Future<ImageProvider> _loadImageProvider(XFile file) async {
     if (kIsWeb) {
       final bytes = await file.readAsBytes();
@@ -200,8 +204,23 @@ class AppImage extends StatelessWidget {
     );
   }
 
+  void _calculateAspectRatio() {
+    final imageStream = imageProvider.resolve(const ImageConfiguration());
+    imageStream.addListener(
+      ImageStreamListener((info, _) {
+        final width = info.image.width;
+        final height = info.image.height;
+        if (height != 0) {
+          onAspectRatioCalculated?.call(width / height);
+        }
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    _calculateAspectRatio();
+
     Widget displayWidget;
 
     if (imageProvider is CachedNetworkImageProvider) {

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/app_image.dart';
 import 'package:z/widgets/photo_view_screen.dart';
 import 'package:z/widgets/video_player_widget.dart';
@@ -7,10 +6,13 @@ import 'package:z/widgets/video_player_widget.dart';
 class MediaCarousel extends StatefulWidget {
   final List<String> mediaUrls;
   final bool Function(String s) isVideo;
+  final double maxHeight;
+
   const MediaCarousel({
     super.key,
     required this.mediaUrls,
     required this.isVideo,
+    this.maxHeight = 400,
   });
 
   @override
@@ -20,6 +22,7 @@ class MediaCarousel extends StatefulWidget {
 class _MediaCarouselState extends State<MediaCarousel> {
   late final PageController _pageController;
   double _currentPage = 0;
+  final Map<int, double> _aspectRatios = {};
 
   @override
   void initState() {
@@ -41,80 +44,109 @@ class _MediaCarouselState extends State<MediaCarousel> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (widget.mediaUrls.isEmpty) {
-      return SizedBox.shrink();
-    } else if (widget.mediaUrls.length == 1 &&
-        widget.isVideo(widget.mediaUrls[0]) &&
-        Helpers.isGlassSupported) {
-      //Glasss support is used to check if its desktop
-      return VideoPlayerWidget(isFile: false, url: widget.mediaUrls[0]);
-    } else {
-      return SizedBox(height: 200, child: _buildPageview());
-    }
+  double _getItemWidth(double screenWidth) {
+    final showMultiple = screenWidth > 700;
+    final visiblePages = showMultiple ? (screenWidth ~/ 300).clamp(1, 4) : 1;
+    return screenWidth / visiblePages;
   }
 
-  Widget _buildPageview() {
+  double _currentHeight(double screenWidth) {
+    final index = _currentPage.round();
+    final itemWidth = _getItemWidth(screenWidth);
+    final ratio = _aspectRatios[index] ?? 16 / 9;
+    return (itemWidth / ratio).clamp(100, widget.maxHeight);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.mediaUrls.isEmpty) return const SizedBox.shrink();
+
     final screenWidth = MediaQuery.of(context).size.width;
-    final showMultiple = screenWidth > 700; // threshold for wider screens
+    final height = _currentHeight(screenWidth);
+    final itemWidth = _getItemWidth(screenWidth);
+
+    return SizedBox(
+      height: height,
+      child: _buildPageview(screenWidth, itemWidth),
+    );
+  }
+
+  Widget _buildPageview(double screenWidth, double itemWidth) {
+    final showMultiple = screenWidth > 700;
     final visiblePages = showMultiple ? (screenWidth ~/ 300).clamp(1, 4) : 1;
     final viewportFraction = 1 / visiblePages;
 
     return Stack(
       alignment: Alignment.center,
       children: [
-        SizedBox(
-          width: screenWidth,
-          child: PageView.builder(
-            controller:
-                viewportFraction == 1
-                    ? _pageController
-                    : PageController(viewportFraction: viewportFraction),
-            onPageChanged:
-                (index) => setState(() => _currentPage = index.toDouble()),
-            itemCount: widget.mediaUrls.length,
-            itemBuilder: (context, index) {
-              final url = widget.mediaUrls[index];
-              final isActive = index == _currentPage.round();
+        PageView.builder(
+          controller:
+              viewportFraction == 1
+                  ? _pageController
+                  : PageController(viewportFraction: viewportFraction),
+          itemCount: widget.mediaUrls.length,
+          onPageChanged:
+              (index) => setState(() => _currentPage = index.toDouble()),
+          itemBuilder: (context, index) {
+            final url = widget.mediaUrls[index];
+            final ratio = _aspectRatios[index] ?? 16 / 9;
+            final itemHeight = (itemWidth / ratio).clamp(100, widget.maxHeight);
 
-              final child =
-                  widget.isVideo(url)
-                      ? VideoPlayerWidget(
-                        isFile: false,
-                        url: url,
-                        width: screenWidth * viewportFraction,
-                        height: 200,
-                      )
-                      : AppImage.network(
-                        url,
-                        onDoubleTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => PhotoViewScreen(
-                                    images: widget.mediaUrls,
-                                    initialIndex: index,
-                                  ),
-                            ),
-                          );
-                        },
-                      );
+            final child =
+                widget.isVideo(url)
+                    ? VideoPlayerWidget(
+                      isFile: false,
+                      url: url,
+                      width: itemWidth,
+                      height: itemHeight.toDouble(),
+                      onAspectRatioCalculated: (ratio) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() => _aspectRatios[index] = ratio);
+                          }
+                        });
+                      },
+                    )
+                    : AppImage.network(
+                      url,
+                      width: itemWidth,
+                      height: itemHeight.toDouble(),
+                      onAspectRatioCalculated: (ratio) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() => _aspectRatios[index] = ratio);
+                          }
+                        });
+                      },
+                      onDoubleTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => PhotoViewScreen(
+                                  images:
+                                      widget.mediaUrls
+                                          .where((s) => !widget.isVideo(s))
+                                          .toList(),
+                                  initialIndex: index,
+                                ),
+                          ),
+                        );
+                      },
+                    );
 
-              return AnimatedScale(
-                scale: isActive ? 1.0 : 0.95,
-                duration: const Duration(milliseconds: 200),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: child,
-                  ),
+            return AnimatedScale(
+              scale: index == _currentPage.round() ? 1.0 : 0.95,
+              duration: const Duration(milliseconds: 200),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: child,
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
         if (viewportFraction == 1)
           Positioned(

@@ -1,11 +1,9 @@
 import 'dart:developer';
 import 'dart:io';
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart';
-import 'package:z/screens/main_navigation.dart';
 import 'package:z/widgets/video_cache_manager.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
@@ -13,6 +11,7 @@ class VideoPlayerWidget extends StatefulWidget {
   final String url;
   final double? width;
   final double? height;
+  final void Function(double aspectRatio)? onAspectRatioCalculated;
 
   const VideoPlayerWidget({
     super.key,
@@ -20,6 +19,7 @@ class VideoPlayerWidget extends StatefulWidget {
     required this.url,
     this.width,
     this.height,
+    this.onAspectRatioCalculated,
   });
 
   @override
@@ -31,6 +31,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   bool _isInitialized = false;
   bool _isPlaying = false;
   Duration _duration = Duration.zero;
+  double _aspectRatio = 16 / 9;
+
+  double get aspectRatio => _aspectRatio;
 
   @override
   void initState() {
@@ -46,7 +49,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _controller = VideoPlayerController.file(cachedFile.file);
     } else {
       _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
-
       unawaited(cacheManager.downloadFile(widget.url));
     }
   }
@@ -57,13 +59,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     } else {
       await _setupCacheController();
     }
-    if (_controller == null) {
-      throw Exception("Controller not initialized");
-    }
+    if (_controller == null) throw Exception("Controller not initialized");
+
     try {
       await _controller!.initialize();
       _controller!.setLooping(true);
       _duration = _controller!.value.duration;
+      _aspectRatio = _controller!.value.aspectRatio;
+      widget.onAspectRatioCalculated?.call(_aspectRatio);
       await _controller!.pause();
       if (mounted) setState(() => _isInitialized = true);
     } catch (e) {
@@ -73,7 +76,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   Future<void> _togglePlayPause() async {
     if (!_isInitialized) return;
-
     if (_controller!.value.isPlaying) {
       await _controller!.pause();
       setState(() => _isPlaying = false);
@@ -85,7 +87,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   Future<void> _openFullScreen() async {
     if (!_isInitialized) return;
-
     await _controller!.pause();
     setState(() => _isPlaying = false);
     if (!mounted || !context.mounted) return;
@@ -96,7 +97,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             (_, __, ___) => FullScreenVideoPlayer(controller: _controller!),
       ),
     );
-
     if (mounted) setState(() {});
   }
 
@@ -109,9 +109,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   void dispose() {
-    if (_controller != null) {
-      _controller!.dispose();
-    }
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -133,40 +131,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              if (widget.width != null && widget.height != null)
-                SizedBox(
-                  width: widget.width,
-                  height: widget.height,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ColorFiltered(
-                          colorFilter: ColorFilter.mode(
-                            Colors.black.withOpacityAlpha(0.2),
-                            BlendMode.darken,
-                          ),
-                          child: VideoPlayer(_controller!),
-                        ),
-                        BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                          child: const SizedBox.expand(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              AspectRatio(
-                aspectRatio: _controller!.value.aspectRatio,
-                child: VideoPlayer(_controller!),
-              ),
-            ],
+          AspectRatio(
+            aspectRatio: _aspectRatio,
+            child: VideoPlayer(_controller!),
           ),
-
           if (!_isPlaying)
             Container(
               color: Colors.black38,
