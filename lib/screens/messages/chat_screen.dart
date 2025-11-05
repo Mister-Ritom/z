@@ -113,13 +113,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    if (!_scrollController.hasClients) return;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate dynamic extra offset — only if content is taller than screen
+    final extraOffset = maxScroll > screenHeight ? screenHeight * 0.2 : 0.0;
+
+    // Prevent overscrolling beyond available content
+    final target = (maxScroll + extraOffset).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+
+    _scrollController.jumpTo(target);
   }
 
   void _markReadMessages() {
@@ -217,6 +225,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 if (messages.isEmpty) {
                   return const Center(child: Text('No messages yet'));
                 }
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients &&
+                      _scrollController.offset <
+                          _scrollController.position.maxScrollExtent - 100) {
+                    // Only scroll automatically if not already near the bottom
+                    _scrollToBottom();
+                  }
+                });
 
                 return ListView.builder(
                   controller: _scrollController,

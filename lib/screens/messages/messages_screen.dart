@@ -74,11 +74,15 @@ class MessagesScreen extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color:
-                            conversation.unreadCount > 0
+                            conversation.unreadCount > 0 &&
+                                    conversation.lastMessageSender !=
+                                        currentUser.id
                                 ? Theme.of(context).colorScheme.inverseSurface
                                 : Colors.grey, // gray if seen
                         fontWeight:
-                            conversation.unreadCount > 0
+                            conversation.unreadCount > 0 &&
+                                    conversation.lastMessageSender !=
+                                        currentUser.id
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                       ),
@@ -91,7 +95,8 @@ class MessagesScreen extends ConsumerWidget {
                           timeago.format(conversation.lastMessageAt),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        if (conversation.unreadCount > 0)
+                        if (conversation.unreadCount > 0 &&
+                            conversation.lastMessageSender != currentUser.id)
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
