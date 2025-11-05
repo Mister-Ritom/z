@@ -56,73 +56,98 @@ class _MediaCarouselState extends State<MediaCarousel> {
   }
 
   Widget _buildPageview() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final showMultiple = screenWidth > 700; // threshold for wider screens
+    final visiblePages = showMultiple ? (screenWidth ~/ 300).clamp(1, 4) : 1;
+    final viewportFraction = 1 / visiblePages;
+
     return Stack(
       alignment: Alignment.center,
       children: [
         SizedBox(
-          width: MediaQuery.of(context).size.width,
-          child: PageView(
-            controller: _pageController,
-            children:
-                widget.mediaUrls.map((url) {
-                  if (widget.isVideo(url)) {
-                    return VideoPlayerWidget(
-                      isFile: false,
-                      url: url,
-                      width: MediaQuery.of(context).size.width,
-                      height: 200,
-                    );
-                  } else {
-                    return AppImage.network(
-                      url,
-                      onDoubleTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => PhotoViewScreen(
-                                  images: widget.mediaUrls,
-                                  initialIndex: _currentPage.toInt(),
-                                ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                }).toList(),
-          ),
-        ),
-        Positioned(
-          bottom: 8,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.mediaUrls.length, (index) {
-              final isActive = (_currentPage.round() == index);
-              return InkWell(
-                onTap: () {
-                  _pageController.animateToPage(
-                    index,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color:
-                        isActive
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey.shade400,
-                    shape: BoxShape.circle,
+          width: screenWidth,
+          child: PageView.builder(
+            controller:
+                viewportFraction == 1
+                    ? _pageController
+                    : PageController(viewportFraction: viewportFraction),
+            onPageChanged:
+                (index) => setState(() => _currentPage = index.toDouble()),
+            itemCount: widget.mediaUrls.length,
+            itemBuilder: (context, index) {
+              final url = widget.mediaUrls[index];
+              final isActive = index == _currentPage.round();
+
+              final child =
+                  widget.isVideo(url)
+                      ? VideoPlayerWidget(
+                        isFile: false,
+                        url: url,
+                        width: screenWidth * viewportFraction,
+                        height: 200,
+                      )
+                      : AppImage.network(
+                        url,
+                        onDoubleTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => PhotoViewScreen(
+                                    images: widget.mediaUrls,
+                                    initialIndex: index,
+                                  ),
+                            ),
+                          );
+                        },
+                      );
+
+              return AnimatedScale(
+                scale: isActive ? 1.0 : 0.95,
+                duration: const Duration(milliseconds: 200),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: child,
                   ),
                 ),
               );
-            }),
+            },
           ),
         ),
+        if (viewportFraction == 1)
+          Positioned(
+            bottom: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.mediaUrls.length, (index) {
+                final isActive = (_currentPage.round() == index);
+                return InkWell(
+                  onTap: () {
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color:
+                          isActive
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
       ],
     );
   }
