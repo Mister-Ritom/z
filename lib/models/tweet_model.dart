@@ -4,8 +4,7 @@ class TweetModel {
   final String? parentTweetId; // For replies
   final String? quotedTweetId; // For quote tweets
   final String text;
-  final List<String> imageUrls;
-  final List<String> videoUrls;
+  final List<String> mediaUrls;
   final DateTime createdAt;
   final int likesCount;
   final int retweetsCount;
@@ -24,8 +23,7 @@ class TweetModel {
     this.parentTweetId,
     this.quotedTweetId,
     required this.text,
-    this.imageUrls = const [],
-    this.videoUrls = const [],
+    this.mediaUrls = const [],
     required this.createdAt,
     this.likesCount = 0,
     this.retweetsCount = 0,
@@ -46,8 +44,7 @@ class TweetModel {
       parentTweetId: map['parentTweetId'],
       quotedTweetId: map['quotedTweetId'],
       text: map['text'] ?? '',
-      imageUrls: List<String>.from(map['imageUrls'] ?? []),
-      videoUrls: List<String>.from(map['videoUrls'] ?? []),
+      mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       likesCount: map['likesCount'] ?? 0,
       retweetsCount: map['retweetsCount'] ?? 0,
@@ -69,8 +66,7 @@ class TweetModel {
       'parentTweetId': parentTweetId,
       'quotedTweetId': quotedTweetId,
       'text': text,
-      'imageUrls': imageUrls,
-      'videoUrls': videoUrls,
+      'mediaUrls': mediaUrls,
       'createdAt': createdAt,
       'likesCount': likesCount,
       'retweetsCount': retweetsCount,
@@ -111,8 +107,7 @@ class TweetModel {
       parentTweetId: parentTweetId ?? this.parentTweetId,
       quotedTweetId: quotedTweetId ?? this.quotedTweetId,
       text: text ?? this.text,
-      imageUrls: imageUrls ?? this.imageUrls,
-      videoUrls: videoUrls ?? this.videoUrls,
+      mediaUrls: imageUrls ?? this.mediaUrls,
       createdAt: createdAt ?? this.createdAt,
       likesCount: likesCount ?? this.likesCount,
       retweetsCount: retweetsCount ?? this.retweetsCount,

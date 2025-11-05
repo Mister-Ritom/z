@@ -51,7 +51,7 @@ class TweetCard extends ConsumerWidget {
     );
     final isRetweeted = tweet.retweetedBy.contains(currentUser.id);
 
-    final mediaUrls = [...tweet.imageUrls, ...tweet.videoUrls];
+    final mediaUrls = tweet.mediaUrls;
 
     return InkWell(
       onTap: onTap,
@@ -118,7 +118,7 @@ class TweetCard extends ConsumerWidget {
                   ),
                   MediaCarousel(
                     mediaUrls: mediaUrls,
-                    isVideo: (s) => tweet.videoUrls.contains(s),
+                    isVideo: (s) => s.endsWith(".mp4") || s.endsWith(".mov"),
                   ),
 
                   const SizedBox(height: 12),
@@ -220,8 +220,8 @@ class TweetCard extends ConsumerWidget {
           null,
           onTap: () async {
             final file =
-                tweet.imageUrls.isNotEmpty
-                    ? await cachedImageToXFile(tweet.imageUrls[0])
+                tweet.mediaUrls.isNotEmpty
+                    ? await cachedImageToXFile(tweet.mediaUrls[0])
                     : null;
             await SharePlus.instance.share(
               ShareParams(

@@ -519,11 +519,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     // Filter tweets with media
                     final mediaTweets =
                         tweets
-                            .where(
-                              (tweet) =>
-                                  tweet.imageUrls.isNotEmpty ||
-                                  tweet.videoUrls.isNotEmpty,
-                            )
+                            .where((tweet) => tweet.mediaUrls.isNotEmpty)
                             .toList();
                     if (mediaTweets.isEmpty) {
                       return const Center(child: Text('No media yet'));
