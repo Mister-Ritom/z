@@ -154,22 +154,25 @@ class TweetService {
   }
 
   // Get tweets feed (For You tab)
-  Stream<List<TweetModel>> getForYouFeed() {
-    return _firestore
+  Stream<List<TweetModel>> getForYouFeed({DocumentSnapshot? lastDoc}) {
+    Query query = _firestore
         .collection(AppConstants.tweetsCollection)
         .where('parentTweetId', isNull: true)
         .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
-        .limit(AppConstants.tweetsPerPage)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map(
-                    (doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}),
-                  )
-                  .toList(),
-        );
+        .limit(AppConstants.tweetsPerPage);
+
+    if (lastDoc != null) {
+      query = query.startAfterDocument(lastDoc);
+    }
+
+    return query.snapshots().map(
+      (snapshot) =>
+          snapshot.docs.map((doc) {
+            final data = doc.data() as Map;
+            return TweetModel.fromMap({'id': doc.id, ...data}, snapshot: doc);
+          }).toList(),
+    );
   }
 
   // Get tweets from followed users (Following tab)

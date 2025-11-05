@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class TweetModel {
   final String id;
   final String userId;
@@ -16,10 +18,12 @@ class TweetModel {
   final List<String> hashtags;
   final List<String> mentions;
   final bool isDeleted;
+  final DocumentSnapshot? docSnapshot;
 
   TweetModel({
     required this.id,
     required this.userId,
+    this.docSnapshot,
     this.parentTweetId,
     this.quotedTweetId,
     required this.text,
@@ -37,9 +41,13 @@ class TweetModel {
     this.isDeleted = false,
   });
 
-  factory TweetModel.fromMap(Map<String, dynamic> map) {
+  factory TweetModel.fromMap(
+    Map<String, dynamic> map, {
+    DocumentSnapshot? snapshot,
+  }) {
     return TweetModel(
       id: map['id'] ?? '',
+      docSnapshot: snapshot,
       userId: map['userId'] ?? '',
       parentTweetId: map['parentTweetId'],
       quotedTweetId: map['quotedTweetId'],
@@ -102,6 +110,7 @@ class TweetModel {
   }) {
     return TweetModel(
       id: id ?? this.id,
+      docSnapshot: docSnapshot,
       userId: userId ?? this.userId,
       parentTweetId: parentTweetId ?? this.parentTweetId,
       quotedTweetId: quotedTweetId ?? this.quotedTweetId,

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:z/utils/constants.dart';
 import '../services/tweet_service.dart';
 import '../models/tweet_model.dart';
 
@@ -6,10 +7,47 @@ final tweetServiceProvider = Provider<TweetService>((ref) {
   return TweetService();
 });
 
-final forYouFeedProvider = StreamProvider<List<TweetModel>>((ref) {
-  final tweetService = ref.watch(tweetServiceProvider);
-  return tweetService.getForYouFeed();
-});
+final forYouFeedProvider =
+    StateNotifierProvider<ForYouFeedNotifier, List<TweetModel>>((ref) {
+      final tweetService = ref.watch(tweetServiceProvider);
+      return ForYouFeedNotifier(tweetService);
+    });
+
+class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
+  final TweetService _tweetService;
+  bool _isLoading = false;
+  bool _hasMore = true;
+
+  ForYouFeedNotifier(this._tweetService) : super([]) {
+    loadInitial();
+  }
+
+  Future<void> loadInitial() async {
+    if (_isLoading) return;
+    _isLoading = true;
+
+    try {
+      final firstPage = await _tweetService.getForYouFeed().first;
+      state = firstPage;
+      _hasMore = firstPage.length == AppConstants.tweetsPerPage;
+    } catch (_) {}
+    _isLoading = false;
+  }
+
+  Future<void> loadMore() async {
+    if (_isLoading || !_hasMore || state.isEmpty) return;
+    _isLoading = true;
+
+    try {
+      final lastDoc = state.last.docSnapshot;
+      final nextPage =
+          await _tweetService.getForYouFeed(lastDoc: lastDoc).first;
+      state = [...state, ...nextPage];
+      _hasMore = nextPage.length == AppConstants.tweetsPerPage;
+    } catch (_) {}
+    _isLoading = false;
+  }
+}
 
 final followingFeedProvider = StreamProvider.family<List<TweetModel>, String>((
   ref,

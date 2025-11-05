@@ -335,51 +335,82 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 }
 
-class _ForYouTab extends ConsumerWidget {
+class _ForYouTab extends ConsumerStatefulWidget {
+  const _ForYouTab({Key? key}) : super(key: key);
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tweetsAsync = ref.watch(forYouFeedProvider);
-    return tweetsAsync.when(
-      data: (tweets) {
-        if (tweets.isEmpty) return const Center(child: Text('No tweets yet'));
-        return ListView.builder(
-          itemCount: tweets.length,
-          itemBuilder: (context, index) {
-            final tweet = tweets[index];
-            final userAsync = ref.watch(userProfileProvider(tweet.userId));
-            return userAsync.when(
-              data:
-                  (user) => TweetCard(
-                    tweet: tweet,
-                    user: user,
-                    onTap: () => context.push('/tweet/${tweet.id}'),
-                    onUserTap: () {
-                      if (user != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => ProfileScreen(userId: user.id),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-              loading: () => const TweetCardShimmer(),
-              error: (_, __) => const SizedBox.shrink(),
-            );
-          },
-        );
-      },
-      loading:
-          () => ListView.builder(
-            itemCount: 10,
-            itemBuilder: (context, index) => const TweetCardShimmer(),
-          ),
-      error: (e, st) {
-        log("Error: $e");
-        return Center(child: Text('Error: $e'));
-      },
+  ConsumerState<_ForYouTab> createState() => _ForYouTabState();
+}
+
+class _ForYouTabState extends ConsumerState<_ForYouTab> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(forYouFeedProvider.notifier).loadInitial();
+    });
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final scrollPos = _scrollController.position;
+    if (scrollPos.pixels >= scrollPos.maxScrollExtent - 200) {
+      ref.read(forYouFeedProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onRefresh() async {
+    await ref.read(forYouFeedProvider.notifier).loadInitial();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tweets = ref.watch(forYouFeedProvider);
+
+    if (tweets.isEmpty) {
+      return const Center(child: Text('No tweets yet'));
+    }
+
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: tweets.length,
+        itemBuilder: (context, index) {
+          final tweet = tweets[index];
+          final userAsync = ref.watch(userProfileProvider(tweet.userId));
+
+          return userAsync.when(
+            data:
+                (user) => TweetCard(
+                  tweet: tweet,
+                  user: user,
+                  onTap: () => context.push('/tweet/${tweet.id}'),
+                  onUserTap: () {
+                    if (user != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProfileScreen(userId: user.id),
+                        ),
+                      );
+                    }
+                  },
+                ),
+            loading: () => const TweetCardShimmer(),
+            error: (_, __) => const SizedBox.shrink(),
+          );
+        },
+      ),
     );
   }
 }
