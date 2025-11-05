@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/utils/constants.dart';
 import '../services/tweet_service.dart';
@@ -8,17 +10,21 @@ final tweetServiceProvider = Provider<TweetService>((ref) {
 });
 
 final forYouFeedProvider =
-    StateNotifierProvider<ForYouFeedNotifier, List<TweetModel>>((ref) {
+    StateNotifierProvider.family<ForYouFeedNotifier, List<TweetModel>, bool>((
+      ref,
+      isReel,
+    ) {
       final tweetService = ref.watch(tweetServiceProvider);
-      return ForYouFeedNotifier(tweetService);
+      return ForYouFeedNotifier(tweetService, isReel);
     });
 
 class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
   final TweetService _tweetService;
+  final bool isReel;
   bool _isLoading = false;
   bool _hasMore = true;
 
-  ForYouFeedNotifier(this._tweetService) : super([]) {
+  ForYouFeedNotifier(this._tweetService, this.isReel) : super([]) {
     loadInitial();
   }
 
@@ -27,10 +33,12 @@ class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
     _isLoading = true;
 
     try {
-      final firstPage = await _tweetService.getForYouFeed().first;
+      final firstPage = await _tweetService.getForYouFeed(isReel: isReel).first;
       state = firstPage;
       _hasMore = firstPage.length == AppConstants.tweetsPerPage;
-    } catch (_) {}
+    } catch (e) {
+      log("Something went wrong", error: e);
+    }
     _isLoading = false;
   }
 
@@ -41,10 +49,14 @@ class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
     try {
       final lastDoc = state.last.docSnapshot;
       final nextPage =
-          await _tweetService.getForYouFeed(lastDoc: lastDoc).first;
+          await _tweetService
+              .getForYouFeed(lastDoc: lastDoc, isReel: isReel)
+              .first;
       state = [...state, ...nextPage];
       _hasMore = nextPage.length == AppConstants.tweetsPerPage;
-    } catch (_) {}
+    } catch (e) {
+      log("Something went wrong", error: e);
+    }
     _isLoading = false;
   }
 }

@@ -22,8 +22,11 @@ class TweetComposer extends ConsumerStatefulWidget {
 
 class _TweetComposerState extends ConsumerState<TweetComposer> {
   final _textController = TextEditingController();
-  final ValueNotifier<List<XFile>> _selectedMedia = ValueNotifier([]);
-  int remainingChars = AppConstants.maxTweetLength;
+  final selectedMediaProvider = StateProvider<List<XFile>>((ref) => []);
+  final remainingCharsProvider = StateProvider(
+    (ref) => AppConstants.maxTweetLength,
+  );
+  final isReelProvider = StateProvider((ref) => false);
 
   @override
   void initState() {
@@ -31,8 +34,9 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
     _textController.addListener(() {
       final len = _textController.text.length;
       final newRemaining = AppConstants.maxTweetLength - len;
+      final remainingChars = ref.watch(remainingCharsProvider);
       if (remainingChars != newRemaining) {
-        setState(() => remainingChars = newRemaining);
+        ref.read(remainingCharsProvider.notifier).state = newRemaining;
       }
     });
   }
@@ -40,30 +44,45 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
   @override
   void dispose() {
     _textController.dispose();
-    _selectedMedia.dispose();
     super.dispose();
   }
 
   Future<void> _pickMedia() async {
     final picker = ImagePicker();
-    final media = await picker.pickMultipleMedia();
-    if (media.isEmpty) return;
+    final isReel = ref.read(isReelProvider);
 
-    final total = _selectedMedia.value.length + media.length;
-    if (total > AppConstants.maxImagesPerTweet) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Maximum ${AppConstants.maxImagesPerTweet} media files allowed',
+    if (isReel) {
+      final video = await picker.pickVideo(source: ImageSource.gallery);
+      if (video == null) return;
+      ref.read(selectedMediaProvider.notifier).state = [video];
+    } else {
+      final media = await picker.pickMultipleMedia();
+      if (media.isEmpty) return;
+
+      final currentMedia = ref.read(selectedMediaProvider);
+      final total = currentMedia.length + media.length;
+      if (total > AppConstants.maxImagesPerTweet) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Maximum ${AppConstants.maxImagesPerTweet} media files allowed',
+              ),
             ),
-          ),
-        );
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    _selectedMedia.value = [..._selectedMedia.value, ...media];
+      ref.read(selectedMediaProvider.notifier).state = [
+        ...currentMedia,
+        ...media,
+      ];
+    }
+  }
+
+  Future<void> _addSong() async {
+    // TODO: Implement song picker for reels
   }
 
   Future<void> _sendTweet() async {
@@ -71,14 +90,22 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
     if (currentUser == null) return;
 
     final text = _textController.text.trim();
-    final media = _selectedMedia.value;
+    final media = ref.read(selectedMediaProvider);
+    final isReel = ref.read(isReelProvider);
 
-    if (text.isEmpty && media.isEmpty) return;
+    if (text.isEmpty && media.isEmpty) {
+      if (isReel && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A reel must have a video')),
+        );
+      }
+      return;
+    }
 
     if (text.length > AppConstants.maxTweetLength) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tweet exceeds character limit')),
+          const SnackBar(content: Text('Text exceeds character limit')),
         );
       }
       return;
@@ -89,41 +116,42 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
             .collection(AppConstants.tweetsCollection)
             .doc()
             .id;
-
     final tweetService = ref.read(tweetServiceProvider);
     final uploadService = ref.read(uploadNotifierProvider.notifier);
 
-    Future(() async {
-      try {
-        List<String> mediaUrls = [];
-        if (media.isNotEmpty) {
-          await uploadService.uploadFiles(
-            files: media,
-            type: UploadType.tweet,
-            referenceId: id,
-            onComplete: (urls) async {
-              mediaUrls = urls;
-              await tweetService.createTweet(
-                tweetId: id,
-                userId: currentUser.id,
-                text: text,
-                mediaUrls: mediaUrls,
-                parentTweetId: widget.replyToTweetId,
-              );
-            },
-          );
-        } else {
-          await tweetService.createTweet(
-            tweetId: id,
-            userId: currentUser.id,
-            text: text,
-            parentTweetId: widget.replyToTweetId,
-          );
-        }
-      } catch (e, st) {
-        log('Failed async tweet upload', error: e, stackTrace: st);
+    try {
+      if (media.isNotEmpty) {
+        uploadService.uploadFiles(
+          files: media,
+          type: isReel ? UploadType.reels : UploadType.tweet,
+          referenceId: id,
+          onComplete: (urls) async {
+            await tweetService.createTweet(
+              tweetId: id,
+              userId: currentUser.id,
+              text: text,
+              mediaUrls: urls,
+              parentTweetId: widget.replyToTweetId,
+              isReel: isReel,
+            );
+          },
+        );
+      } else if (isReel && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A reel must have a video')),
+        );
+        return;
+      } else {
+        await tweetService.createTweet(
+          tweetId: id,
+          userId: currentUser.id,
+          text: text,
+          parentTweetId: widget.replyToTweetId,
+        );
       }
-    });
+    } catch (e, st) {
+      log('Failed async tweet upload', error: e, stackTrace: st);
+    }
 
     widget.onTweetSent?.call();
     if (mounted) Navigator.of(context).pop();
@@ -132,6 +160,9 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final remainingChars = ref.watch(remainingCharsProvider);
+    final isReel = ref.watch(isReelProvider);
+    final media = ref.watch(selectedMediaProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -142,9 +173,25 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
         actions: [
           Padding(
             padding: const EdgeInsets.all(8.0),
+            child: DropdownButton<bool>(
+              value: isReel,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: false, child: Text('Tweet')),
+                DropdownMenuItem(value: true, child: Text('Reel')),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                ref.read(isReelProvider.notifier).state = value;
+                ref.read(selectedMediaProvider.notifier).state = [];
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
               onPressed: _sendTweet,
-              child: const Text('Tweet'),
+              child: Text(isReel ? 'Reel' : 'Tweet'),
             ),
           ),
         ],
@@ -188,20 +235,40 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _MediaPreview(
-                      mediaNotifier: _selectedMedia,
-                      onRemoveMedia: (file) {
-                        _selectedMedia.value = List.from(_selectedMedia.value)
-                          ..remove(file);
-                      },
-                    ),
+                    if (isReel && media.isNotEmpty)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 300,
+                        child: VideoPlayerWidget(
+                          isFile: true,
+                          url: media.first.path,
+                        ),
+                      )
+                    else if (!isReel)
+                      _MediaPreview(
+                        mediaNotifier: media,
+                        onRemoveMedia: (file) {
+                          ref
+                              .read(selectedMediaProvider.notifier)
+                              .state = List.from(media)..remove(file);
+                        },
+                      ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.perm_media_outlined),
-                          onPressed: _pickMedia,
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.perm_media_outlined),
+                              onPressed: _pickMedia,
+                            ),
+                            if (isReel)
+                              IconButton(
+                                icon: const Icon(Icons.music_note),
+                                onPressed: _addSong,
+                              ),
+                          ],
                         ),
                         Text(
                           remainingChars.toString(),
@@ -224,7 +291,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 }
 
 class _MediaPreview extends StatelessWidget {
-  final ValueNotifier<List<XFile>> mediaNotifier;
+  final List<XFile> mediaNotifier;
   final void Function(XFile file) onRemoveMedia;
 
   const _MediaPreview({
@@ -234,50 +301,42 @@ class _MediaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<XFile>>(
-      valueListenable: mediaNotifier,
-      builder: (_, media, __) {
-        if (media.isEmpty) return const SizedBox.shrink();
+    if (mediaNotifier.isEmpty) return const SizedBox.shrink();
 
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children:
-              media.map((file) {
-                final isVideo =
-                    file.path.toLowerCase().endsWith('.mp4') ||
-                    file.path.toLowerCase().endsWith('.mov') ||
-                    file.path.toLowerCase().endsWith('.avi');
-                return Stack(
-                  children: [
-                    isVideo
-                        ? SizedBox(
-                          width: 100,
-                          height: 100,
-                          child: VideoPlayerWidget(
-                            isFile: true,
-                            url: file.path,
-                          ),
-                        )
-                        : AppImage.xFile(
-                          file,
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.cover,
-                        ),
-                    Positioned(
-                      top: 2,
-                      right: 2,
-                      child: IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: () => onRemoveMedia(file),
-                      ),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children:
+          mediaNotifier.map((file) {
+            final isVideo =
+                file.path.toLowerCase().endsWith('.mp4') ||
+                file.path.toLowerCase().endsWith('.mov') ||
+                file.path.toLowerCase().endsWith('.avi');
+            return Stack(
+              children: [
+                isVideo
+                    ? SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: VideoPlayerWidget(isFile: true, url: file.path),
+                    )
+                    : AppImage.xFile(
+                      file,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
                     ),
-                  ],
-                );
-              }).toList(),
-        );
-      },
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => onRemoveMedia(file),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
     );
   }
 }

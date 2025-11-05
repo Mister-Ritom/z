@@ -14,6 +14,7 @@ class TweetModel {
   final List<String> likedBy;
   final List<String> retweetedBy;
   final bool isThread;
+  final bool isReel;
   final String? threadParentId;
   final List<String> hashtags;
   final List<String> mentions;
@@ -23,6 +24,7 @@ class TweetModel {
   TweetModel({
     required this.id,
     required this.userId,
+    this.isReel = false,
     this.docSnapshot,
     this.parentTweetId,
     this.quotedTweetId,
@@ -47,6 +49,7 @@ class TweetModel {
   }) {
     return TweetModel(
       id: map['id'] ?? '',
+      isReel: map['isReel'] ?? false,
       docSnapshot: snapshot,
       userId: map['userId'] ?? '',
       parentTweetId: map['parentTweetId'],
@@ -71,6 +74,7 @@ class TweetModel {
     return {
       'id': id,
       'userId': userId,
+      'isReel': isReel,
       'parentTweetId': parentTweetId,
       'quotedTweetId': quotedTweetId,
       'text': text,
@@ -103,6 +107,7 @@ class TweetModel {
     List<String>? likedBy,
     List<String>? retweetedBy,
     bool? isThread,
+    bool? isReel,
     String? threadParentId,
     List<String>? hashtags,
     List<String>? mentions,
@@ -123,6 +128,7 @@ class TweetModel {
       likedBy: likedBy ?? this.likedBy,
       retweetedBy: retweetedBy ?? this.retweetedBy,
       isThread: isThread ?? this.isThread,
+      isReel: isReel ?? this.isReel,
       threadParentId: threadParentId ?? this.threadParentId,
       hashtags: hashtags ?? this.hashtags,
       mentions: mentions ?? this.mentions,

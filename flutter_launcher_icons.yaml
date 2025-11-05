@@ -1,0 +1,22 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/icon_black.png"
+  image_path_ios: "assets/icons/icon_black.png"
+  image_path_ios_dark_transparent: "assets/icons/icon_white.png"
+  remove_alpha_ios: true
+  desaturate_tinted_to_grayscale_ios: false
+  background_color_ios: "#ffffff"
+  web:
+    generate: true
+    image_path: "assets/icons/icon_black.png"
+    background_color: "#ffffff"
+    theme_color: "#000000"
+  windows:
+    generate: true
+    image_path: "assets/icons/icon_black.png"
+    icon_size: 128
+  macos:
+    generate: true
+    image_path: "assets/icons/icon_black.png"
+  min_sdk_android: 21

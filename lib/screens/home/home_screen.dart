@@ -101,7 +101,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
     final uploads = ref.watch(uploadNotifierProvider);
     final tweetUploads =
-        uploads.where((task) => task.type == UploadType.tweet).toList();
+        uploads
+            .where(
+              (task) =>
+                  task.type == UploadType.tweet ||
+                  task.type == UploadType.reels,
+            )
+            .toList();
     final totalProgress =
         tweetUploads.isEmpty
             ? null
@@ -283,6 +289,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           width: 48,
           height: 48,
         ),
+        centerTitle: true,
         actions: [
           unreadMessagesAsync.when(
             data:
@@ -336,7 +343,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 }
 
 class _ForYouTab extends ConsumerStatefulWidget {
-  const _ForYouTab({Key? key}) : super(key: key);
+  const _ForYouTab();
 
   @override
   ConsumerState<_ForYouTab> createState() => _ForYouTabState();
@@ -344,12 +351,13 @@ class _ForYouTab extends ConsumerStatefulWidget {
 
 class _ForYouTabState extends ConsumerState<_ForYouTab> {
   final ScrollController _scrollController = ScrollController();
+  get forYouFeed => forYouFeedProvider(false);
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(forYouFeedProvider.notifier).loadInitial();
+      ref.read(forYouFeed.notifier).loadInitial();
     });
     _scrollController.addListener(_onScroll);
   }
@@ -357,7 +365,7 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
   void _onScroll() {
     final scrollPos = _scrollController.position;
     if (scrollPos.pixels >= scrollPos.maxScrollExtent - 200) {
-      ref.read(forYouFeedProvider.notifier).loadMore();
+      ref.read(forYouFeed.notifier).loadMore();
     }
   }
 
@@ -368,12 +376,12 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
   }
 
   Future<void> _onRefresh() async {
-    await ref.read(forYouFeedProvider.notifier).loadInitial();
+    await ref.read(forYouFeed.notifier).loadInitial();
   }
 
   @override
   Widget build(BuildContext context) {
-    final tweets = ref.watch(forYouFeedProvider);
+    final tweets = ref.watch(forYouFeed);
 
     if (tweets.isEmpty) {
       return const Center(child: Text('No tweets yet'));

@@ -6,68 +6,82 @@ import '../utils/helpers.dart';
 
 class TweetService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  // Search tweets by query (text startsWith, hashtags, or mentions)
-  Future<List<TweetModel>> searchTweets(String query) async {
+
+  Query _tweetQuery({bool? isReel, bool parentOnly = true}) {
+    Query query = _firestore
+        .collection(AppConstants.tweetsCollection)
+        .where('isDeleted', isEqualTo: false);
+
+    if (isReel != null) query = query.where('isReel', isEqualTo: isReel);
+    if (parentOnly) query = query.where('parentTweetId', isNull: true);
+
+    return query;
+  }
+
+  Future<List<TweetModel>> searchTweets(String query, {bool? isReel}) async {
     try {
       final lowerQuery = query.toLowerCase();
-
       final tweetsRef = _firestore.collection(AppConstants.tweetsCollection);
 
-      // Step 1: Search by hashtags
       final hashtagResults =
           await tweetsRef
               .where('hashtags', arrayContains: lowerQuery)
               .where('isDeleted', isEqualTo: false)
+              .where('isReel', isEqualTo: isReel ?? false)
               .get();
 
-      // Step 2: Search by mentions
       final mentionResults =
           await tweetsRef
               .where('mentions', arrayContains: lowerQuery)
               .where('isDeleted', isEqualTo: false)
+              .where('isReel', isEqualTo: isReel ?? false)
               .get();
 
-      // Step 3: Search by text that *starts with* query
       final textResults =
           await tweetsRef
               .where('isDeleted', isEqualTo: false)
+              .where('isReel', isEqualTo: isReel ?? false)
               .orderBy('text')
               .startAt([lowerQuery])
               .endAt(['$lowerQuery\uf8ff'])
               .get();
 
-      // Step 4: Combine all docs and remove duplicates
       final allDocs = [
         ...hashtagResults.docs,
         ...mentionResults.docs,
         ...textResults.docs,
       ];
-
       final uniqueDocs = {for (var doc in allDocs) doc.id: doc}.values.toList();
 
-      // Step 5: Convert to TweetModel list
       final tweets =
           uniqueDocs
-              .map((doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}))
+              .map((doc) {
+                if (doc.exists) {
+                  return TweetModel.fromMap({
+                    'id': doc.id,
+                    ...doc.data() as Map,
+                  });
+                }
+                return null;
+              })
+              .whereType<TweetModel>()
               .toList();
 
-      // Step 6: Sort by createdAt descending (newest first)
       tweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
       return tweets;
     } catch (e) {
       throw Exception('Failed to search tweets: $e');
     }
   }
 
-  // Create a tweet
   Future<TweetModel> createTweet({
-    required tweetId,
+    required String tweetId,
     required String userId,
     required String text,
     List<String> mediaUrls = const [],
     String? parentTweetId,
     String? quotedTweetId,
+    bool isReel = false,
   }) async {
     try {
       final hashtags = Helpers.extractHashtags(text);
@@ -83,28 +97,25 @@ class TweetService {
         createdAt: DateTime.now(),
         hashtags: hashtags,
         mentions: mentions,
+        isReel: isReel,
       );
 
-      // Save tweet to Firestore
       await _firestore
           .collection(AppConstants.tweetsCollection)
           .doc(tweet.id)
           .set(tweet.toMap());
 
-      // Update user's tweet count
       await _firestore
           .collection(AppConstants.usersCollection)
           .doc(userId)
           .update({'tweetsCount': FieldValue.increment(1)});
 
-      // If it's a reply, update parent tweet's reply count
       if (parentTweetId != null) {
         await _firestore
             .collection(AppConstants.tweetsCollection)
             .doc(parentTweetId)
             .update({'repliesCount': FieldValue.increment(1)});
 
-        // Create notification
         final parentTweet = await getTweetById(parentTweetId);
         if (parentTweet != null && parentTweet.userId != userId) {
           await Helpers.createNotification(
@@ -116,7 +127,6 @@ class TweetService {
         }
       }
 
-      // Send notifications to mentioned users
       for (final mention in mentions) {
         final mentionedUsername = mention.substring(1);
         final mentionedUser = await _getUserByUsername(mentionedUsername);
@@ -136,7 +146,6 @@ class TweetService {
     }
   }
 
-  // Get tweet by ID
   Future<TweetModel?> getTweetById(String tweetId) async {
     try {
       final doc =
@@ -145,38 +154,41 @@ class TweetService {
               .doc(tweetId)
               .get();
 
-      if (!doc.exists) return null;
+      if (!doc.exists || doc.data() == null) return null;
 
-      return TweetModel.fromMap({'id': doc.id, ...doc.data()!});
+      return TweetModel.fromMap({'id': doc.id, ...doc.data() as Map});
     } catch (e) {
       return null;
     }
   }
 
-  // Get tweets feed (For You tab)
-  Stream<List<TweetModel>> getForYouFeed({DocumentSnapshot? lastDoc}) {
-    Query query = _firestore
-        .collection(AppConstants.tweetsCollection)
-        .where('parentTweetId', isNull: true)
-        .where('isDeleted', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .limit(AppConstants.tweetsPerPage);
+  Stream<List<TweetModel>> getForYouFeed({
+    DocumentSnapshot? lastDoc,
+    required bool isReel,
+  }) {
+    Query query = _tweetQuery(
+      isReel: isReel,
+    ).orderBy('createdAt', descending: true).limit(AppConstants.tweetsPerPage);
 
-    if (lastDoc != null) {
-      query = query.startAfterDocument(lastDoc);
-    }
-
+    if (lastDoc != null) query = query.startAfterDocument(lastDoc);
     return query.snapshots().map(
       (snapshot) =>
-          snapshot.docs.map((doc) {
-            final data = doc.data() as Map;
-            return TweetModel.fromMap({'id': doc.id, ...data}, snapshot: doc);
-          }).toList(),
+          snapshot.docs
+              .map((doc) {
+                if (doc.exists && doc.data() != null) {
+                  return TweetModel.fromMap({
+                    'id': doc.id,
+                    ...doc.data() as Map,
+                  }, snapshot: doc);
+                }
+                return null;
+              })
+              .whereType<TweetModel>()
+              .toList(),
     );
   }
 
-  // Get tweets from followed users (Following tab)
-  Stream<List<TweetModel>> getFollowingFeed(String userId) {
+  Stream<List<TweetModel>> getFollowingFeed(String userId, {bool? isReel}) {
     return _firestore
         .collection(AppConstants.followingCollection)
         .doc(userId)
@@ -187,96 +199,86 @@ class TweetService {
 
           final followingIds =
               followingSnapshot.docs.map((doc) => doc.id).toList();
+          final List<TweetModel> allTweets = [];
 
-          // Firestore limit for whereIn is 10, so we need to handle more than 10
-          if (followingIds.length <= 10) {
-            // Single query if 10 or fewer
+          for (int i = 0; i < followingIds.length; i += 10) {
+            final batch = followingIds.sublist(
+              i,
+              i + 10 > followingIds.length ? followingIds.length : i + 10,
+            );
             final tweetsQuery =
-                await _firestore
-                    .collection(AppConstants.tweetsCollection)
-                    .where('userId', whereIn: followingIds)
-                    .where('parentTweetId', isNull: true)
-                    .where('isDeleted', isEqualTo: false)
+                await _tweetQuery(isReel: isReel)
+                    .where('userId', whereIn: batch)
                     .orderBy('createdAt', descending: true)
                     .limit(AppConstants.tweetsPerPage)
                     .get();
 
-            return tweetsQuery.docs
-                .map((doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}))
-                .toList();
-          } else {
-            // Multiple queries for more than 10
-            final List<TweetModel> allTweets = [];
-            for (int i = 0; i < followingIds.length; i += 10) {
-              final batch = followingIds.sublist(
-                i,
-                i + 10 > followingIds.length ? followingIds.length : i + 10,
-              );
-              final tweetsQuery =
-                  await _firestore
-                      .collection(AppConstants.tweetsCollection)
-                      .where('userId', whereIn: batch)
-                      .where('parentTweetId', isNull: true)
-                      .where('isDeleted', isEqualTo: false)
-                      .orderBy('createdAt', descending: true)
-                      .limit(AppConstants.tweetsPerPage)
-                      .get();
-
-              allTweets.addAll(
-                tweetsQuery.docs
-                    .map(
-                      (doc) =>
-                          TweetModel.fromMap({'id': doc.id, ...doc.data()}),
-                    )
-                    .toList(),
-              );
-            }
-            // Sort all tweets by createdAt and limit
-            allTweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-            return allTweets.take(AppConstants.tweetsPerPage).toList();
+            allTweets.addAll(
+              tweetsQuery.docs
+                  .map((doc) {
+                    if (doc.exists && doc.data() != null) {
+                      return TweetModel.fromMap({
+                        'id': doc.id,
+                        ...doc.data() as Map,
+                      });
+                    }
+                    return null;
+                  })
+                  .whereType<TweetModel>()
+                  .toList(),
+            );
           }
+
+          allTweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return allTweets.take(AppConstants.tweetsPerPage).toList();
         });
   }
 
-  // Get user's tweets
-  Stream<List<TweetModel>> getUserTweets(String userId) {
-    return _firestore
-        .collection(AppConstants.tweetsCollection)
+  Stream<List<TweetModel>> getUserTweets(String userId, {bool? isReel}) {
+    return _tweetQuery(isReel: isReel)
         .where('userId', isEqualTo: userId)
-        .where('parentTweetId', isNull: true)
-        .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snapshot) =>
               snapshot.docs
-                  .map(
-                    (doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}),
-                  )
+                  .map((doc) {
+                    if (doc.exists && doc.data() != null) {
+                      return TweetModel.fromMap({
+                        'id': doc.id,
+                        ...doc.data() as Map,
+                      });
+                    }
+                    return null;
+                  })
+                  .whereType<TweetModel>()
                   .toList(),
         );
   }
 
-  // Get user's replies
-  Stream<List<TweetModel>> getUserReplies(String userId) {
-    return _firestore
-        .collection(AppConstants.tweetsCollection)
+  Stream<List<TweetModel>> getUserReplies(String userId, {bool? isReel}) {
+    return _tweetQuery(isReel: isReel, parentOnly: false)
         .where('userId', isEqualTo: userId)
-        .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snapshot) =>
               snapshot.docs
-                  .where((doc) => doc.data()['parentTweetId'] != null)
-                  .map(
-                    (doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}),
-                  )
+                  .where((doc) => (doc.data() as Map)['parentTweetId'] != null)
+                  .map((doc) {
+                    if (doc.exists && doc.data() != null) {
+                      return TweetModel.fromMap({
+                        'id': doc.id,
+                        ...doc.data() as Map,
+                      });
+                    }
+                    return null;
+                  })
+                  .whereType<TweetModel>()
                   .toList(),
         );
   }
 
-  // Get user's liked tweets
   Stream<List<TweetModel>> getUserLikedTweets(String userId) {
     return _firestore
         .collection(AppConstants.tweetsCollection)
@@ -286,17 +288,22 @@ class TweetService {
         .map((snapshot) {
           final tweets =
               snapshot.docs
-                  .map(
-                    (doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}),
-                  )
+                  .map((doc) {
+                    if (doc.exists) {
+                      return TweetModel.fromMap({
+                        'id': doc.id,
+                        ...doc.data() as Map,
+                      });
+                    }
+                    return null;
+                  })
+                  .whereType<TweetModel>()
                   .toList();
-          // Sort by createdAt descending
           tweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return tweets;
         });
   }
 
-  // Get user's retweeted tweets
   Stream<List<TweetModel>> getUserRetweetedTweets(String userId) {
     return _firestore
         .collection(AppConstants.tweetsCollection)
@@ -306,35 +313,44 @@ class TweetService {
         .map((snapshot) {
           final tweets =
               snapshot.docs
-                  .map(
-                    (doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}),
-                  )
+                  .map((doc) {
+                    if (doc.exists) {
+                      return TweetModel.fromMap({
+                        'id': doc.id,
+                        ...doc.data() as Map,
+                      });
+                    }
+                    return null;
+                  })
+                  .whereType<TweetModel>()
                   .toList();
-          // Sort by createdAt descending
           tweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return tweets;
         });
   }
 
-  // Get tweet replies
-  Stream<List<TweetModel>> getTweetReplies(String tweetId) {
-    return _firestore
-        .collection(AppConstants.tweetsCollection)
+  Stream<List<TweetModel>> getTweetReplies(String tweetId, {bool? isReel}) {
+    return _tweetQuery(isReel: isReel, parentOnly: false)
         .where('parentTweetId', isEqualTo: tweetId)
-        .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snapshot) =>
               snapshot.docs
-                  .map(
-                    (doc) => TweetModel.fromMap({'id': doc.id, ...doc.data()}),
-                  )
+                  .map((doc) {
+                    if (doc.exists && doc.data() != null) {
+                      return TweetModel.fromMap({
+                        'id': doc.id,
+                        ...doc.data() as Map,
+                      });
+                    }
+                    return null;
+                  })
+                  .whereType<TweetModel>()
                   .toList(),
         );
   }
 
-  // Like a tweet
   Future<void> likeTweet(String tweetId, String userId) async {
     try {
       final tweetRef = _firestore
@@ -343,7 +359,7 @@ class TweetService {
 
       await _firestore.runTransaction((transaction) async {
         final tweetDoc = await transaction.get(tweetRef);
-        if (!tweetDoc.exists) return;
+        if (!tweetDoc.exists || tweetDoc.data() == null) return;
 
         final tweet = TweetModel.fromMap({
           'id': tweetDoc.id,
@@ -351,19 +367,16 @@ class TweetService {
         });
 
         if (tweet.likedBy.contains(userId)) {
-          // Unlike
           transaction.update(tweetRef, {
             'likesCount': FieldValue.increment(-1),
             'likedBy': FieldValue.arrayRemove([userId]),
           });
         } else {
-          // Like
           transaction.update(tweetRef, {
             'likesCount': FieldValue.increment(1),
             'likedBy': FieldValue.arrayUnion([userId]),
           });
 
-          // Create notification
           if (tweet.userId != userId) {
             await Helpers.createNotification(
               userId: tweet.userId,
@@ -379,7 +392,6 @@ class TweetService {
     }
   }
 
-  // Retweet
   Future<void> retweet(String tweetId, String userId) async {
     try {
       final tweetRef = _firestore
@@ -388,7 +400,7 @@ class TweetService {
 
       await _firestore.runTransaction((transaction) async {
         final tweetDoc = await transaction.get(tweetRef);
-        if (!tweetDoc.exists) return;
+        if (!tweetDoc.exists || tweetDoc.data() == null) return;
 
         final tweet = TweetModel.fromMap({
           'id': tweetDoc.id,
@@ -396,19 +408,16 @@ class TweetService {
         });
 
         if (tweet.retweetedBy.contains(userId)) {
-          // Un-retweet
           transaction.update(tweetRef, {
             'retweetsCount': FieldValue.increment(-1),
             'retweetedBy': FieldValue.arrayRemove([userId]),
           });
         } else {
-          // Retweet
           transaction.update(tweetRef, {
             'retweetsCount': FieldValue.increment(1),
             'retweetedBy': FieldValue.arrayUnion([userId]),
           });
 
-          // Create notification
           if (tweet.userId != userId) {
             await Helpers.createNotification(
               userId: tweet.userId,
@@ -424,7 +433,6 @@ class TweetService {
     }
   }
 
-  // Delete tweet
   Future<void> deleteTweet(String tweetId) async {
     try {
       await _firestore
@@ -436,7 +444,6 @@ class TweetService {
     }
   }
 
-  // Bookmark tweet
   Future<void> bookmarkTweet(String tweetId, String userId) async {
     try {
       await _firestore
@@ -452,7 +459,6 @@ class TweetService {
     }
   }
 
-  // Remove bookmark
   Future<void> removeBookmark(String tweetId, String userId) async {
     try {
       await _firestore
@@ -478,7 +484,6 @@ class TweetService {
     }
   }
 
-  // Helper: Get user by username
   Future<dynamic> _getUserByUsername(String username) async {
     try {
       final query =

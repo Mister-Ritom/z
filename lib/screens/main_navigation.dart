@@ -32,12 +32,12 @@ class MainNavigation extends ConsumerStatefulWidget {
 class _MainNavigationState extends ConsumerState<MainNavigation> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    HomeScreen(),
-    SearchScreen(),
-    ReelsScreen(),
-    StoriesScreen(),
-    NotificationsScreen(),
+  List<Widget> get _pages => [
+    const HomeScreen(),
+    const SearchScreen(),
+    ReelsScreen(isActive: _currentIndex == 2),
+    const StoriesScreen(),
+    const NotificationsScreen(),
   ];
 
   void _markNotificationsRead(String userId) {

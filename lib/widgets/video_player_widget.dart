@@ -12,14 +12,24 @@ class VideoPlayerWidget extends StatefulWidget {
   final double? width;
   final double? height;
   final void Function(double aspectRatio)? onAspectRatioCalculated;
+  final void Function(VideoPlayerController controller)? onControllerChange;
+
+  /// For Reels-style autoplay control
+  final bool? isPlaying;
+
+  /// Disable fullscreen double-tap for Reels
+  final bool disableFullscreen;
 
   const VideoPlayerWidget({
     super.key,
     required this.isFile,
     required this.url,
+    this.onControllerChange,
     this.width,
     this.height,
     this.onAspectRatioCalculated,
+    this.isPlaying,
+    this.disableFullscreen = false,
   });
 
   @override
@@ -29,7 +39,6 @@ class VideoPlayerWidget extends StatefulWidget {
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
-  bool _isPlaying = false;
   Duration _duration = Duration.zero;
   double _aspectRatio = 16 / 9;
 
@@ -39,6 +48,18 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   void initState() {
     super.initState();
     _initVideo();
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoPlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_isInitialized && widget.isPlaying != null) {
+      if (widget.isPlaying! && !_controller!.value.isPlaying) {
+        _controller!.play();
+      } else if (!widget.isPlaying! && _controller!.value.isPlaying) {
+        _controller!.pause();
+      }
+    }
   }
 
   Future<void> _setupCacheController() async {
@@ -62,6 +83,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     if (_controller == null) throw Exception("Controller not initialized");
 
     try {
+      if (widget.onControllerChange != null) {
+        widget.onControllerChange!(_controller!);
+      }
       await _controller!.initialize();
       _controller!.setLooping(true);
       _duration = _controller!.value.duration;
@@ -78,17 +102,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     if (!_isInitialized) return;
     if (_controller!.value.isPlaying) {
       await _controller!.pause();
-      setState(() => _isPlaying = false);
     } else {
       await _controller!.play();
-      setState(() => _isPlaying = true);
     }
   }
 
   Future<void> _openFullScreen() async {
-    if (!_isInitialized) return;
+    if (!_isInitialized || widget.disableFullscreen) return;
     await _controller!.pause();
-    setState(() => _isPlaying = false);
     if (!mounted || !context.mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder(
@@ -135,7 +156,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             aspectRatio: _aspectRatio,
             child: VideoPlayer(_controller!),
           ),
-          if (!_isPlaying)
+          if (!_controller!.value.isPlaying)
             Container(
               color: Colors.black38,
               child: const Icon(
