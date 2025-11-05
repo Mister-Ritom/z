@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +12,7 @@ import 'package:z/screens/stories/stories_screen.dart';
 import 'package:z/screens/notifications/notifications_screen.dart';
 import 'package:z/providers/notification_provider.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/glass_widget.dart';
 import 'package:z/widgets/tweet_composer.dart';
 
@@ -78,7 +78,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         ),
       ),
       bottomNavigationBar:
-          (kIsWeb)
+          (!Helpers.isGlassSupported)
               ? _buildWebNav(theme, isDark, currentUser)
               : _buildMobileGlassNav(theme, isDark, currentUser),
       floatingActionButton: GlassFAB(
@@ -93,86 +93,51 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     );
   }
 
-  // 🌐 WEB NAVIGATION (no glass effect)
   Widget _buildWebNav(ThemeData theme, bool isDark, dynamic currentUser) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: OCLiquidGlassGroup(
-        settings: OCLiquidGlassSettings(
-          refractStrength: -0.08,
-          blurRadiusPx: 3.0,
-          specStrength: 25.0,
-          lightbandColor: isDark ? Colors.cyanAccent : Colors.blueAccent,
-        ),
-        child: OCLiquidGlass(
-          width: double.infinity,
-          height: 70,
-          borderRadius: 24,
-          color:
-              isDark
-                  ? Colors.white.withOpacityAlpha(0.05)
-                  : Colors.black.withOpacityAlpha(0.05),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_pages.length, (index) {
-                final isSelected = index == _currentIndex;
-                final color =
-                    isSelected
-                        ? theme.colorScheme.secondary
-                        : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      height: 70,
+      decoration: BoxDecoration(
+        color: (isDark ? Colors.white : Colors.black).withOpacityAlpha(0.05),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacityAlpha(0.1), blurRadius: 10),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(_pages.length, (index) {
+          final isSelected = index == _currentIndex;
+          final color =
+              isSelected
+                  ? theme.colorScheme.secondary
+                  : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
+          final icon = _getIcon(index);
 
-                final icon = _getIcon(index);
-
-                if (index == 4 && currentUser != null) {
-                  final notificationsAsync = ref.watch(
-                    unreadNotificationsCountProvider(currentUser.id),
-                  );
-                  return Expanded(
-                    child: notificationsAsync.when(
-                      data:
-                          (count) => _buildNavItem(
-                            index: index,
-                            icon: icon,
-                            color: color,
-                            isSelected: isSelected,
-                            onTap: () => _onItemTapped(index),
-                            badgeCount: count,
-                          ),
-                      loading:
-                          () => _buildNavItem(
-                            index: index,
-                            icon: icon,
-                            color: color,
-                            isSelected: isSelected,
-                            onTap: () => _onItemTapped(index),
-                          ),
-                      error:
-                          (e, _) => _buildNavItem(
-                            index: index,
-                            icon: icon,
-                            color: color,
-                            isSelected: isSelected,
-                            onTap: () => _onItemTapped(index),
-                          ),
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _onItemTapped(index),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: color, size: isSelected ? 28 : 24),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: isSelected ? 1 : 0,
+                    child: Text(
+                      _getLabel(index),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: color,
+                      ),
                     ),
-                  );
-                }
-
-                return Expanded(
-                  child: _buildNavItem(
-                    index: index,
-                    icon: icon,
-                    color: color,
-                    isSelected: isSelected,
-                    onTap: () => _onItemTapped(index),
                   ),
-                );
-              }),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        }),
       ),
     );
   }

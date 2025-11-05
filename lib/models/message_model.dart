@@ -4,8 +4,7 @@ class MessageModel {
   final String senderId;
   final String receiverId;
   final String text;
-  final List<String>? imageUrls;
-  final String? videoUrl;
+  final List<String>? mediaUrls;
   final DateTime createdAt;
   final bool isRead;
   final bool isDeleted;
@@ -16,8 +15,7 @@ class MessageModel {
     required this.senderId,
     required this.receiverId,
     required this.text,
-    this.imageUrls,
-    this.videoUrl,
+    this.mediaUrls,
     required this.createdAt,
     this.isRead = false,
     this.isDeleted = false,
@@ -30,8 +28,7 @@ class MessageModel {
       senderId: map['senderId'] ?? '',
       receiverId: map['receiverId'] ?? '',
       text: map['text'] ?? '',
-      imageUrls: List<String>.from(map['imageUrls'] ?? []),
-      videoUrl: map['videoUrl'],
+      mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       isRead: map['isRead'] ?? false,
       isDeleted: map['isDeleted'] ?? false,
@@ -45,8 +42,7 @@ class MessageModel {
       'senderId': senderId,
       'receiverId': receiverId,
       'text': text,
-      'imageUrls': imageUrls,
-      'videoUrl': videoUrl,
+      'mediaUrls': mediaUrls,
       'createdAt': createdAt,
       'isRead': isRead,
       'isDeleted': isDeleted,

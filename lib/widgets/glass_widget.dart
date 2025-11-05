@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:oc_liquid_glass/oc_liquid_glass.dart';
-import 'package:flutter/foundation.dart';
+import 'package:z/utils/helpers.dart';
 
 /// A universal glass container that uses oc_liquid_glass for realistic GPU-accelerated effects.
 /// Falls back to a blurred container on web or unsupported platforms.
@@ -22,7 +22,7 @@ class GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb) {
+    if (!Helpers.isGlassSupported) {
       // Fallback for web (blur effect only)
       return Container(
         width: width,
@@ -138,7 +138,7 @@ class GlassFAB extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb) {
+    if (!Helpers.isGlassSupported) {
       // Web fallback with matching look and size
       return SizedBox(
         width: size,

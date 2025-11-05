@@ -6,8 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:z/utils/constants.dart';
-import 'package:z/widgets/app_image.dart';
-import 'package:z/widgets/video_player_widget.dart';
+import 'package:z/widgets/media_carousel.dart';
 import '../models/tweet_model.dart';
 import '../models/user_model.dart';
 import '../providers/tweet_provider.dart';
@@ -117,16 +116,10 @@ class TweetCard extends ConsumerWidget {
                     tweet.text,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
-                  if (mediaUrls.length == 1 &&
-                      tweet.videoUrls.contains(mediaUrls[0]))
-                    VideoPlayerWidget(isFile: false, url: mediaUrls[0])
-                  else if (mediaUrls.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 200,
-                      child: MediaCarousel(mediaUrls: mediaUrls, tweet: tweet),
-                    ),
-                  ],
+                  MediaCarousel(
+                    mediaUrls: mediaUrls,
+                    isVideo: (s) => tweet.videoUrls.contains(s),
+                  ),
 
                   const SizedBox(height: 12),
                   _buildActions(
@@ -342,103 +335,6 @@ class TweetCard extends ConsumerWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-class MediaCarousel extends StatefulWidget {
-  final List<String> mediaUrls;
-  final TweetModel tweet; // or whatever your tweet object is
-  const MediaCarousel({
-    super.key,
-    required this.mediaUrls,
-    required this.tweet,
-  });
-
-  @override
-  State<MediaCarousel> createState() => _MediaCarouselState();
-}
-
-class _MediaCarouselState extends State<MediaCarousel> {
-  late final PageController _pageController;
-  double _currentPage = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController();
-
-    _pageController.addListener(() {
-      if (_pageController.hasClients) {
-        setState(() {
-          _currentPage = _pageController.page ?? 0;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        SizedBox(
-          width: MediaQuery.of(context).size.width,
-          child: PageView(
-            controller: _pageController,
-            children:
-                widget.mediaUrls.map((url) {
-                  if (widget.tweet.videoUrls.contains(url)) {
-                    return VideoPlayerWidget(
-                      isFile: false,
-                      url: url,
-                      width: MediaQuery.of(context).size.width,
-                      height: 200,
-                    );
-                  } else {
-                    return AppImage.network(url);
-                  }
-                }).toList(),
-          ),
-        ),
-        Positioned(
-          bottom: 8,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.mediaUrls.length, (index) {
-              final isActive = (_currentPage.round() == index);
-              return InkWell(
-                onTap: () {
-                  _pageController.animateToPage(
-                    index,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color:
-                        isActive
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey.shade400,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ],
     );
   }
 }

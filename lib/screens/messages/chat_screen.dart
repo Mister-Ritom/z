@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:developer';
-
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:z/models/notification_model.dart';
+import 'package:z/providers/storage_provider.dart';
 import 'package:z/utils/helpers.dart';
 import '../../models/user_model.dart';
 import '../../providers/message_provider.dart';
@@ -29,6 +31,8 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _picker = ImagePicker();
+  List<XFile> _selectedFiles = [];
 
   @override
   void dispose() {
@@ -37,22 +41,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
+  Future<void> _pickMedia() async {
+    try {
+      final List<XFile> files = await _picker.pickMultipleMedia();
+      if (files.isNotEmpty) {
+        setState(() => _selectedFiles = files);
+      }
+    } catch (e) {
+      log('Error picking media: $e');
+    }
+  }
+
+  String _getConversationId() {
+    final ids = [widget.currentUserId, widget.otherUserId]..sort();
+    return '${ids[0]}_${ids[1]}';
+  }
+
   Future<void> _sendMessage() async {
+    if (_selectedFiles.isNotEmpty) {
+      final files = [..._selectedFiles];
+      setState(() => _selectedFiles = []);
+      final uploadNotifier = ref.read(uploadNotifierProvider.notifier);
+      final referenceId = _getConversationId();
+      uploadNotifier.uploadFiles(
+        files: files,
+        type: UploadType.document,
+        referenceId: referenceId,
+        onComplete: (urls) {
+          _sendMessageText(referenceId: referenceId, mediaUrls: urls);
+        },
+      );
+    } else {
+      await _sendMessageText();
+    }
+  }
+
+  Future<void> _sendMessageText({
+    String? referenceId,
+    List<String>? mediaUrls,
+  }) async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _selectedFiles.isEmpty) return;
 
     try {
       final messageService = ref.read(messageServiceProvider);
-      await messageService.sendMessage(
-        senderId: widget.currentUserId,
-        receiverId: widget.otherUserId,
-        text: text,
-      );
-      Helpers.createNotification(
-        userId: widget.otherUserId,
-        fromUserId: widget.currentUserId,
-        type: NotificationType.message,
-      );
+
+      if (text.isNotEmpty) {
+        await messageService.sendMessage(
+          referenceId: referenceId,
+          senderId: widget.currentUserId,
+          receiverId: widget.otherUserId,
+          text: text,
+          mediaUrls: mediaUrls,
+        );
+        Helpers.createNotification(
+          userId: widget.otherUserId,
+          fromUserId: widget.currentUserId,
+          type: NotificationType.message,
+        );
+      }
+
       _messageController.clear();
       _scrollToBottom();
     } catch (e) {
@@ -83,6 +131,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         widget.currentUserId,
       ),
     );
+  }
+
+  Widget _buildPreview(XFile file) {
+    final ext = file.path.split('.').last.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.file(
+          File(file.path),
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else if (['mp4', 'mov', 'avi', 'mkv'].contains(ext)) {
+      return Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.videocam, size: 40),
+      );
+    } else {
+      return Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.insert_drive_file, size: 40),
+      );
+    }
   }
 
   @override
@@ -128,7 +211,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
-          // Messages
           Expanded(
             child: messagesAsync.when(
               data: (messages) {
@@ -155,7 +237,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
-          // Input
+          if (_selectedFiles.isNotEmpty)
+            SizedBox(
+              height: 90,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedFiles.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final file = _selectedFiles[index];
+                  return Stack(
+                    children: [
+                      _buildPreview(file),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedFiles.removeAt(index);
+                            });
+                          },
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -172,9 +293,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.photo),
-                  onPressed: () {
-                    // Pick image
-                  },
+                  onPressed: _pickMedia,
                 ),
                 Expanded(
                   child: TextField(

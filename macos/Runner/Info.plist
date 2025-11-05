@@ -28,5 +28,24 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
+	<!-- Google Sign-In configuration -->
+	<key>GIDClientID</key>
+	<string>385298524193-8bremu8ucbhu3h7jkbl4atk4kkhm5fc6.apps.googleusercontent.com</string>
+
+<!-- Required for URL scheme redirection -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+			<!-- Replace with the reversed client ID -->
+			<string>com.googleusercontent.apps.385298524193-8bremu8ucbhu3h7jkbl4atk4kkhm5fc6</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -16,11 +16,13 @@ class MessageService {
     required String senderId,
     required String receiverId,
     required String text,
-    List<String>? imageUrls,
+    String? referenceId,
+    List<String>? mediaUrls,
     String? videoUrl,
   }) async {
     try {
-      final conversationId = _getConversationId(senderId, receiverId);
+      final conversationId =
+          referenceId ?? _getConversationId(senderId, receiverId);
 
       final message = MessageModel(
         id: _firestore.collection(AppConstants.messagesCollection).doc().id,
@@ -28,8 +30,7 @@ class MessageService {
         senderId: senderId,
         receiverId: receiverId,
         text: text,
-        imageUrls: imageUrls,
-        videoUrl: videoUrl,
+        mediaUrls: mediaUrls,
         createdAt: DateTime.now(),
       );
 

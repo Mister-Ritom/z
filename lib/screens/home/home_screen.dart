@@ -100,14 +100,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       unreadMessageCountProvider(currentUser.id),
     );
     final uploads = ref.watch(uploadNotifierProvider);
-
+    final tweetUploads =
+        uploads.where((task) => task.type == UploadType.tweet).toList();
     final totalProgress =
-        uploads.isEmpty
+        tweetUploads.isEmpty
             ? null
-            : uploads
-                    .where((task) => task.type == UploadType.tweet)
-                    .map((e) => e.progress)
-                    .reduce((a, b) => a + b) /
+            : tweetUploads.map((e) => e.progress).reduce((a, b) => a + b) /
                 uploads.length;
 
     return Scaffold(

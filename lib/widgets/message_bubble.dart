@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:z/widgets/app_image.dart';
-import 'package:z/widgets/video_player_widget.dart';
+import 'package:z/widgets/media_carousel.dart';
 import '../models/message_model.dart';
-import 'photo_view_screen.dart';
 
 class MessageBubble extends StatelessWidget {
   final MessageModel message;
@@ -62,21 +60,10 @@ class MessageBubble extends StatelessWidget {
               ),
 
             // Image Grid
-            if (message.imageUrls != null && message.imageUrls!.isNotEmpty)
-              _buildImageGrid(context, message.imageUrls!),
-
-            // Video
-            if (message.videoUrl != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: VideoPlayerWidget(
-                    isFile: false,
-                    url: message.videoUrl!,
-                  ),
-                ),
-              ),
+            MediaCarousel(
+              mediaUrls: message.mediaUrls ?? [],
+              isVideo: (s) => s.endsWith(".mp4") || s.endsWith(".mov"),
+            ),
 
             const SizedBox(height: 4),
 
@@ -110,67 +97,6 @@ class MessageBubble extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildImageGrid(BuildContext context, List<String> urls) {
-    final displayCount = urls.length > 4 ? 4 : urls.length;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: GridView.builder(
-        itemCount: displayCount,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 6,
-          mainAxisSpacing: 6,
-        ),
-        itemBuilder: (context, index) {
-          final imageUrl = urls[index];
-          final isLastVisible = index == 3 && urls.length > 4;
-          final remaining = urls.length - 4;
-
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder:
-                      (_) => PhotoViewScreen(images: urls, initialIndex: index),
-                ),
-              );
-            },
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: AppImage.network(imageUrl, fit: BoxFit.cover),
-                ),
-                if (isLastVisible)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '+$remaining',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }

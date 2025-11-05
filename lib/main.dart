@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'utils/firebase_options.dart';
+import 'package:z/firebase_options.dart';
 import 'utils/supabase_config.dart';
 import 'providers/theme_provider.dart';
 import 'utils/router.dart';
@@ -11,14 +11,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
-    debugPrint('Firebase initialization error: $e');
-    debugPrint('Please configure Firebase in firebase_options.dart');
-  }
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Initialize Supabase
   try {
