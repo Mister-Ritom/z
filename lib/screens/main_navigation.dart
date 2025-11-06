@@ -71,28 +71,35 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
 
     return Scaffold(
       extendBody: true,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeInOut,
-        child: IndexedStack(
-          key: ValueKey(_currentIndex),
-          index: _currentIndex,
-          children: _pages,
-        ),
+      body: Stack(
+        children: [
+          IndexedStack(index: _currentIndex, children: _pages),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child:
+                (Helpers.isGlassSupported && glassMorphismEnabled)
+                    ? _buildMobileGlassNav(theme, isDark, currentUser)
+                    : _buildWebNav(theme, isDark, currentUser),
+          ),
+        ],
       ),
-      bottomNavigationBar:
-          (Helpers.isGlassSupported && glassMorphismEnabled)
-              ? _buildMobileGlassNav(theme, isDark, currentUser)
-              : _buildWebNav(theme, isDark, currentUser),
-      floatingActionButton: GlassFAB(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const TweetComposer()),
-          );
-        },
-        child: const Icon(Icons.edit),
-      ),
+      floatingActionButton:
+          _currentIndex != 2
+              ? Padding(
+                padding: const EdgeInsets.only(bottom: 48),
+                child: GlassFAB(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TweetComposer(),
+                      ),
+                    );
+                  },
+                  child: const Icon(Icons.edit),
+                ),
+              )
+              : null,
     );
   }
 

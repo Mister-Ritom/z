@@ -147,15 +147,15 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
 
     final videoWidget =
-        widget.disableFullscreen
+        widget.width != null && widget.height != null
             ? SizedBox(
-              width: widget.width ?? MediaQuery.of(context).size.width,
-              height: widget.height ?? MediaQuery.of(context).size.height,
+              width: widget.width,
+              height: widget.height,
               child: VideoPlayer(_controller!),
             )
             : AspectRatio(
               aspectRatio: _aspectRatio,
-              child: VideoPlayer(_controller!),
+              child: Center(child: VideoPlayer(_controller!)),
             );
     if (widget.disableFullscreen) return videoWidget;
     return GestureDetector(

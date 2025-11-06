@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:z/models/comment_model.dart';
 import '../models/tweet_model.dart';
 import '../models/notification_model.dart';
 import '../utils/constants.dart';
@@ -414,6 +415,9 @@ class TweetService {
           .collection(AppConstants.tweetsCollection)
           .doc(tweetId);
 
+      bool liked = false;
+      String tweetOwnerId = '';
+
       await _firestore.runTransaction((transaction) async {
         final tweetDoc = await transaction.get(tweetRef);
         if (!tweetDoc.exists || tweetDoc.data() == null) return;
@@ -423,27 +427,32 @@ class TweetService {
           ...tweetDoc.data()!,
         });
 
+        tweetOwnerId = tweet.userId;
+
         if (tweet.likedBy.contains(userId)) {
           transaction.update(tweetRef, {
             'likesCount': FieldValue.increment(-1),
             'likedBy': FieldValue.arrayRemove([userId]),
           });
+          liked = false;
         } else {
           transaction.update(tweetRef, {
             'likesCount': FieldValue.increment(1),
             'likedBy': FieldValue.arrayUnion([userId]),
           });
-
-          if (tweet.userId != userId) {
-            await Helpers.createNotification(
-              userId: tweet.userId,
-              fromUserId: userId,
-              type: NotificationType.like,
-              tweetId: tweetId,
-            );
-          }
+          liked = true;
         }
       });
+
+      // Create notification after transaction finishes
+      if (liked && tweetOwnerId != userId) {
+        await Helpers.createNotification(
+          userId: tweetOwnerId,
+          fromUserId: userId,
+          type: NotificationType.like,
+          tweetId: tweetId,
+        );
+      }
     } catch (e) {
       throw Exception('Failed to like tweet: $e');
     }
@@ -557,5 +566,67 @@ class TweetService {
     } catch (e) {
       return null;
     }
+  }
+
+  // Add a comment
+  Future<void> addComment(CommentModel comment) async {
+    await _firestore
+        .collection('comments')
+        .doc(comment.id)
+        .set(comment.toMap());
+  }
+
+  // Paginated stream of comments for a specific post
+  Stream<List<CommentModel>> streamCommentsForPostPaginated(
+    String postId,
+    int limit, {
+    DocumentSnapshot? startAfterDoc,
+  }) {
+    Query query = _firestore
+        .collection('comments')
+        .where('postId', isEqualTo: postId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+
+    if (startAfterDoc != null) {
+      query = query.startAfterDocument(startAfterDoc);
+    }
+
+    return query.snapshots().map(
+      (snapshot) =>
+          snapshot.docs
+              .map(
+                (doc) => CommentModel.fromMap(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ),
+              )
+              .toList(),
+    );
+  }
+
+  // Stream replies to a specific comment
+  Stream<List<CommentModel>> streamReplies(String parentCommentId) {
+    return _firestore
+        .collection('comments')
+        .where('parentCommentId', isEqualTo: parentCommentId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => CommentModel.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  // Get number of comments for a post
+  Future<int> getCommentsCount(String postId) async {
+    final snapshot =
+        await _firestore
+            .collection('comments')
+            .where('postId', isEqualTo: postId)
+            .get();
+    return snapshot.size;
   }
 }

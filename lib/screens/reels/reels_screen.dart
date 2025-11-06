@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:z/providers/tweet_provider.dart';
-import 'package:z/widgets/video_player_widget.dart';
+import 'package:z/widgets/reel_video_widget.dart';
 
 class ReelsScreen extends ConsumerStatefulWidget {
   final bool isActive; // parent tells if this page is active
@@ -67,9 +67,10 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
     super.build(context);
     final screenSize = Size(
       MediaQuery.of(context).size.width,
-      MediaQuery.of(context).size.height +
-          MediaQuery.of(context).padding.top +
-          MediaQuery.of(context).padding.bottom,
+      (MediaQuery.of(context).size.height +
+              MediaQuery.of(context).padding.top +
+              MediaQuery.of(context).padding.bottom) -
+          80,
     );
 
     final tweets = ref.watch(forYouFeed).reversed.toList();
@@ -109,22 +110,14 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
           },
           itemBuilder: (context, index) {
             final tweet = tweets[index];
-            return SizedBox(
-              width: screenSize.width,
-              height: screenSize.height,
-              child: VideoPlayerWidget(
-                isFile: false,
-                url: tweet.mediaUrls[0],
-                width: screenSize.width,
-                height: screenSize.height,
-                isPlaying: widget.isActive && index == _currentIndex,
-                onControllerChange:
-                    (controller) => setState(() {
-                      _currentController = controller;
-                    }),
-                disableFullscreen:
-                    true, // disable double-tap fullscreen for Reels
-              ),
+            return ReelVideoWidget(
+              screenSize: screenSize,
+              tweet: tweet,
+              shouldPlay: widget.isActive && index == _currentIndex,
+              onControllerChange:
+                  (controller) => setState(() {
+                    _currentController = controller;
+                  }),
             );
           },
         ),

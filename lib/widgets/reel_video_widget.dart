@@ -1,0 +1,442 @@
+import 'dart:developer';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:uuid/uuid.dart';
+import 'package:video_player/video_player.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:z/models/comment_model.dart';
+import 'package:z/models/tweet_model.dart';
+import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/profile_provider.dart';
+import 'package:z/providers/tweet_provider.dart';
+import 'package:z/utils/constants.dart';
+import 'package:z/widgets/tweet_card.dart';
+import 'package:z/widgets/video_player_widget.dart';
+
+class ReelVideoWidget extends ConsumerWidget {
+  final Size screenSize;
+  final TweetModel tweet;
+  final bool shouldPlay;
+  final void Function(VideoPlayerController controller) onControllerChange;
+  final void Function()? onUserTap;
+
+  const ReelVideoWidget({
+    super.key,
+    required this.screenSize,
+    required this.tweet,
+    required this.shouldPlay,
+    required this.onControllerChange,
+    this.onUserTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+
+    final userAsync = ref.watch(userProfileProvider(tweet.userId));
+    final isBookmarkedAsync = ref.watch(
+      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser?.id ?? '')),
+    );
+    final isBookmarking = ref.watch(bookmarkingProvider(tweet.id));
+
+    final isFollowingAsync = ref.watch(
+      isFollowingProvider({
+        'currentUserId': currentUser?.id ?? '',
+        'targetUserId': tweet.userId,
+      }),
+    );
+    final isFollowing = isFollowingAsync.valueOrNull ?? false;
+
+    return userAsync.when(
+      data: (user) {
+        final isBookmarked = isBookmarkedAsync.valueOrNull ?? false;
+
+        return Container(
+          width: screenSize.width,
+          height: screenSize.height,
+          margin: const EdgeInsets.only(bottom: 80),
+          child: AspectRatio(
+            aspectRatio: 9 / 16,
+            child: Stack(
+              children: [
+                Center(
+                  child: VideoPlayerWidget(
+                    isFile: false,
+                    url: tweet.mediaUrls[0],
+                    isPlaying: shouldPlay,
+                    onControllerChange: onControllerChange,
+                    disableFullscreen: true,
+                  ),
+                ),
+                Positioned(
+                  right: 12,
+                  bottom: 80,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      _actionButton(
+                        tweet.likedBy.contains(currentUser?.id)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        tweet.likesCount,
+                        color:
+                            tweet.likedBy.contains(currentUser?.id)
+                                ? Colors.pink
+                                : Colors.white,
+                        isLoading: ref.watch(
+                          likingProvider(tweet.id),
+                        ), // show loading
+                        onTap: () async {
+                          if (currentUser == null) return;
+                          final tweetService = ref.read(tweetServiceProvider);
+
+                          // set loading to true
+                          ref.read(likingProvider(tweet.id).notifier).state =
+                              true;
+
+                          await tweetService.likeTweet(
+                            tweet.id,
+                            currentUser.id,
+                          );
+                          ref.read(likingProvider(tweet.id).notifier).state =
+                              false;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+                      _actionButton(
+                        Icons.comment_outlined,
+                        tweet.repliesCount,
+                        onTap: () {
+                          if (currentUser == null) return;
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder:
+                                (_) => CommentSheet(
+                                  tweetId: tweet.id,
+                                  currentUserId: currentUser.id,
+                                ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _actionButton(
+                        Icons.share_outlined,
+                        null,
+                        onTap: () async {
+                          await Share.share(
+                            "Take a look at ${user?.displayName ?? user?.username}'s post ${AppConstants.appUrl}/tweet/${tweet.id}",
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _actionButton(
+                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                        null,
+                        color:
+                            isBookmarked
+                                ? Theme.of(context).colorScheme.inverseSurface
+                                : Colors.grey,
+                        isLoading: isBookmarking,
+                        onTap:
+                            isBookmarking || currentUser == null
+                                ? null
+                                : () async {
+                                  final tweetService = ref.read(
+                                    tweetServiceProvider,
+                                  );
+                                  ref
+                                      .read(
+                                        bookmarkingProvider(tweet.id).notifier,
+                                      )
+                                      .state = true;
+                                  try {
+                                    if (isBookmarked) {
+                                      await tweetService.removeBookmark(
+                                        tweet.id,
+                                        currentUser.id,
+                                      );
+                                    } else {
+                                      await tweetService.bookmarkTweet(
+                                        tweet.id,
+                                        currentUser.id,
+                                      );
+                                    }
+                                    ref.invalidate(
+                                      isBookmarkedProvider((
+                                        tweetId: tweet.id,
+                                        userId: currentUser.id,
+                                      )),
+                                    );
+                                  } finally {
+                                    ref
+                                        .read(
+                                          bookmarkingProvider(
+                                            tweet.id,
+                                          ).notifier,
+                                        )
+                                        .state = false;
+                                  }
+                                },
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  left: 16,
+                  bottom: 16,
+                  right: 72,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: onUserTap,
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundImage:
+                                  user?.profilePictureUrl != null
+                                      ? CachedNetworkImageProvider(
+                                        user!.profilePictureUrl!,
+                                      )
+                                      : null,
+                              child:
+                                  user?.profilePictureUrl == null
+                                      ? Text(
+                                        user!.displayName[0].toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                      : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      user?.displayName ?? 'User',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    if (user?.isVerified ?? false) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.verified,
+                                        size: 18,
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.secondary,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                Text(
+                                  '@${user?.username} · ${timeago.format(tweet.createdAt)}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  tweet.text,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isFollowing && currentUser?.id != user?.id)
+                            ElevatedButton(
+                              onPressed: () async {
+                                final profileService = ref.read(
+                                  profileServiceProvider,
+                                );
+                                if (currentUser != null) {
+                                  await profileService.followUser(
+                                    currentUser.id,
+                                    user!.id,
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.secondary,
+                              ),
+                              child: const Text('Follow'),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: const Icon(
+                    Icons.music_note,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _actionButton(
+    IconData icon,
+    int? count, {
+    Color color = Colors.white,
+    VoidCallback? onTap,
+    bool isLoading = false,
+  }) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          child:
+              isLoading
+                  ? const CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  )
+                  : Icon(icon, color: color, size: 28),
+        ),
+        if (count != null && count > 0) ...[
+          const SizedBox(height: 4),
+          Text(count.toString(), style: TextStyle(color: color, fontSize: 12)),
+        ],
+      ],
+    );
+  }
+}
+
+class CommentSheet extends ConsumerStatefulWidget {
+  final String tweetId;
+  final String currentUserId;
+
+  const CommentSheet({
+    super.key,
+    required this.tweetId,
+    required this.currentUserId,
+  });
+
+  @override
+  ConsumerState<CommentSheet> createState() => _CommentSheetState();
+}
+
+class _CommentSheetState extends ConsumerState<CommentSheet> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final tweetService = ref.read(tweetServiceProvider);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.3,
+      maxChildSize: 0.95,
+      builder: (_, controller) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: StreamBuilder<List<CommentModel>>(
+                  stream: tweetService.streamCommentsForPostPaginated(
+                    widget.tweetId,
+                    50,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      log("Error", error: snapshot.error);
+                    }
+                    final comments = snapshot.data ?? [];
+                    return ListView.builder(
+                      controller: controller,
+                      itemCount: comments.length,
+                      itemBuilder: (_, index) {
+                        final comment = comments[index];
+                        return ListTile(
+                          title: Text(comment.text),
+                          subtitle: Text(comment.userId),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: const InputDecoration(
+                        hintText: 'Add a comment...',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send),
+                    onPressed: () async {
+                      final text = _controller.text.trim();
+                      if (text.isEmpty) return;
+                      final comment = CommentModel(
+                        id: const Uuid().v4(),
+                        postId: widget.tweetId,
+                        userId: widget.currentUserId,
+                        text: text,
+                        createdAt: DateTime.now(),
+                      );
+                      await tweetService.addComment(comment);
+                      _controller.clear();
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
