@@ -1,7 +1,6 @@
-import 'dart:developer';
+import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:z/utils/constants.dart';
 import '../services/tweet_service.dart';
 import '../models/tweet_model.dart';
 
@@ -24,6 +23,8 @@ class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
   bool _isLoading = false;
   bool _hasMore = true;
 
+  final List<StreamSubscription<List<TweetModel>>> _pageSubs = [];
+
   ForYouFeedNotifier(this._tweetService, this.isReel) : super([]) {
     loadInitial();
   }
@@ -32,13 +33,9 @@ class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
     if (_isLoading) return;
     _isLoading = true;
 
-    try {
-      final firstPage = await _tweetService.getForYouFeed(isReel: isReel).first;
-      state = firstPage;
-      _hasMore = firstPage.length == AppConstants.tweetsPerPage;
-    } catch (e) {
-      log("Something went wrong", error: e);
-    }
+    final firstPageStream = _tweetService.getForYouFeed(isReel: isReel);
+    _subscribeToPage(firstPageStream);
+
     _isLoading = false;
   }
 
@@ -46,18 +43,41 @@ class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
     if (_isLoading || !_hasMore || state.isEmpty) return;
     _isLoading = true;
 
-    try {
-      final lastDoc = state.last.docSnapshot;
-      final nextPage =
-          await _tweetService
-              .getForYouFeed(lastDoc: lastDoc, isReel: isReel)
-              .first;
-      state = [...state, ...nextPage];
-      _hasMore = nextPage.length == AppConstants.tweetsPerPage;
-    } catch (e) {
-      log("Something went wrong", error: e);
-    }
+    final lastDoc = state.last.docSnapshot;
+    final nextPageStream = _tweetService.getForYouFeed(
+      lastDoc: lastDoc,
+      isReel: isReel,
+    );
+    _subscribeToPage(nextPageStream);
+
     _isLoading = false;
+  }
+
+  void _subscribeToPage(Stream<List<TweetModel>> pageStream) {
+    final sub = pageStream.listen((tweets) {
+      if (tweets.isEmpty) {
+        _hasMore = false;
+      } else {
+        // Create a map of current tweets by ID
+        final currentMap = {for (var t in state) t.id: t};
+
+        // Merge or update tweets from server
+        for (var tweet in tweets) {
+          currentMap[tweet.id] = tweet; // This will replace if already exists
+        }
+
+        state = currentMap.values.toList();
+      }
+    });
+    _pageSubs.add(sub);
+  }
+
+  @override
+  void dispose() {
+    for (var sub in _pageSubs) {
+      sub.cancel();
+    }
+    super.dispose();
   }
 }
 
