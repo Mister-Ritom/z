@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:oc_liquid_glass/oc_liquid_glass.dart';
+import 'package:z/providers/settings_provider.dart';
 
 import 'package:z/screens/home/home_screen.dart';
 import 'package:z/screens/search/search_screen.dart';
@@ -65,6 +66,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final glassMorphismEnabled =
+        ref.watch(settingsProvider).glassMorphismEnabled;
 
     return Scaffold(
       extendBody: true,
@@ -78,9 +81,9 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         ),
       ),
       bottomNavigationBar:
-          (!Helpers.isGlassSupported)
-              ? _buildWebNav(theme, isDark, currentUser)
-              : _buildMobileGlassNav(theme, isDark, currentUser),
+          (Helpers.isGlassSupported && glassMorphismEnabled)
+              ? _buildMobileGlassNav(theme, isDark, currentUser)
+              : _buildWebNav(theme, isDark, currentUser),
       floatingActionButton: GlassFAB(
         onPressed: () {
           Navigator.push(
@@ -95,49 +98,48 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
 
   Widget _buildWebNav(ThemeData theme, bool isDark, dynamic currentUser) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      height: 70,
-      decoration: BoxDecoration(
-        color: (isDark ? Colors.white : Colors.black).withOpacityAlpha(0.05),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacityAlpha(0.1), blurRadius: 10),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(_pages.length, (index) {
-          final isSelected = index == _currentIndex;
-          final color =
-              isSelected
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
-          final icon = _getIcon(index);
-
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => _onItemTapped(index),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, color: color, size: isSelected ? 28 : 24),
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 300),
-                    opacity: isSelected ? 1 : 0,
-                    child: Text(
-                      _getLabel(index),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: color,
-                      ),
+      color: theme.scaffoldBackgroundColor, // ensures color extends to bottom
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 72,
+            child: Card(
+              margin: EdgeInsets.zero,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(_pages.length, (index) {
+                  final isSelected = _currentIndex == index;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _onItemTapped(index),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _getIcon(index),
+                          color: isSelected ? Colors.blue : Colors.grey,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getLabel(index),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isSelected ? Colors.blue : Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  );
+                }),
               ),
             ),
-          );
-        }),
+          ),
+        ),
       ),
     );
   }

@@ -11,6 +11,11 @@ import '../screens/notifications/notifications_screen.dart';
 import '../screens/messages/messages_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/tweet/tweet_detail_screen.dart';
+import '../info/bookmarks/bookmarks_screen.dart';
+import '../info/settings/settings_screen.dart';
+import '../info/feedback/feedback_screen.dart';
+import '../info/terms/terms_screen.dart';
+import '../info/privacy/privacy_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(currentUserProvider);
@@ -71,6 +76,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           final tweetId = state.pathParameters['tweetId'] ?? '';
           return TweetDetailScreen(tweetId: tweetId);
         },
+      ),
+      GoRoute(
+        path: '/bookmarks',
+        builder: (context, state) => const BookmarksScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/feedback',
+        builder: (context, state) => const FeedbackScreen(),
+      ),
+      GoRoute(path: '/terms', builder: (context, state) => const TermsScreen()),
+      GoRoute(
+        path: '/privacy',
+        builder: (context, state) => const PrivacyScreen(),
       ),
     ],
     errorBuilder:

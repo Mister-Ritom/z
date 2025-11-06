@@ -181,12 +181,9 @@ class TweetCard extends ConsumerWidget {
                       final tweetService = ref.read(tweetServiceProvider);
                       ref.read(retweetingProvider(tweet.id).notifier).state =
                           true;
-                      try {
-                        await tweetService.retweet(tweet.id, currentUser.id);
-                      } finally {
-                        ref.read(retweetingProvider(tweet.id).notifier).state =
-                            false;
-                      }
+                      await tweetService.retweet(tweet.id, currentUser.id);
+                      ref.read(retweetingProvider(tweet.id).notifier).state =
+                          false;
                     }
                   },
         ),
@@ -205,12 +202,8 @@ class TweetCard extends ConsumerWidget {
                     if (currentUser != null) {
                       final tweetService = ref.read(tweetServiceProvider);
                       ref.read(likingProvider(tweet.id).notifier).state = true;
-                      try {
-                        await tweetService.likeTweet(tweet.id, currentUser.id);
-                      } finally {
-                        ref.read(likingProvider(tweet.id).notifier).state =
-                            false;
-                      }
+                      await tweetService.likeTweet(tweet.id, currentUser.id);
+                      ref.read(likingProvider(tweet.id).notifier).state = false;
                     }
                   },
         ),

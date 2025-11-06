@@ -113,6 +113,12 @@ final userRetweetedTweetsProvider =
       return tweetService.getUserRetweetedTweets(userId);
     });
 
+final userBookmarkedTweetsProvider =
+    StreamProvider.family<List<TweetModel>, String>((ref, userId) {
+      final tweetService = ref.watch(tweetServiceProvider);
+      return tweetService.getUserBookmarkedTweets(userId);
+    });
+
 final tweetProvider = FutureProvider.family<TweetModel?, String>((
   ref,
   tweetId,

@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/firebase_options.dart';
+import 'package:z/providers/settings_provider.dart';
 import 'utils/supabase_config.dart';
-import 'providers/theme_provider.dart';
 import 'utils/router.dart';
 
 void main() async {
@@ -33,7 +33,8 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeNotifier = ref.watch(themeProvider.notifier);
+    final themeNotifier = ref.watch(settingsProvider.notifier);
+    final theme = ref.watch(settingsProvider).theme;
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
@@ -42,9 +43,9 @@ class MyApp extends ConsumerWidget {
       theme: themeNotifier.getThemeData(Brightness.light),
       darkTheme: themeNotifier.getThemeData(Brightness.dark),
       themeMode:
-          ref.watch(themeProvider) == AppTheme.light
+          theme == AppTheme.light
               ? ThemeMode.light
-              : ref.watch(themeProvider) == AppTheme.dark
+              : theme == AppTheme.dark
               ? ThemeMode.dark
               : ThemeMode.system,
       routerConfig: router,

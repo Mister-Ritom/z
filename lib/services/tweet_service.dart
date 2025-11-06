@@ -351,6 +351,63 @@ class TweetService {
         );
   }
 
+  Stream<List<TweetModel>> getUserBookmarkedTweets(String userId) {
+    return _firestore
+        .collection(AppConstants.bookmarksCollection)
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .asyncMap((snapshot) async {
+          if (snapshot.docs.isEmpty) return <TweetModel>[];
+
+          final tweetIds =
+              snapshot.docs
+                  .map((d) => (d.data() as Map)['tweetId'] as String)
+                  .toList();
+
+          final List<TweetModel> allTweets = [];
+          for (int i = 0; i < tweetIds.length; i += 10) {
+            final batch = tweetIds.sublist(
+              i,
+              i + 10 > tweetIds.length ? tweetIds.length : i + 10,
+            );
+            final tweetsQuery =
+                await _firestore
+                    .collection(AppConstants.tweetsCollection)
+                    .where('isDeleted', isEqualTo: false)
+                    .where(FieldPath.documentId, whereIn: batch)
+                    .get();
+
+            allTweets.addAll(
+              tweetsQuery.docs
+                  .map(
+                    (doc) => TweetModel.fromMap({
+                      'id': doc.id,
+                      ...doc.data() as Map,
+                    }),
+                  )
+                  .toList(),
+            );
+          }
+
+          // Sort by bookmark createdAt order from snapshot
+          final createdAtById = {
+            for (final d in snapshot.docs)
+              (d.data() as Map)['tweetId'] as String:
+                  (d.data() as Map)['createdAt'],
+          };
+          allTweets.sort((a, b) {
+            final aTs = createdAtById[a.id];
+            final bTs = createdAtById[b.id];
+            final aDate = aTs is Timestamp ? aTs.toDate() : DateTime.now();
+            final bDate = bTs is Timestamp ? bTs.toDate() : DateTime.now();
+            return bDate.compareTo(aDate);
+          });
+
+          return allTweets;
+        });
+  }
+
   Future<void> likeTweet(String tweetId, String userId) async {
     try {
       final tweetRef = _firestore

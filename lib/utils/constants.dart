@@ -38,6 +38,5 @@ class AppConstants {
   static const Duration cacheExpiration = Duration(hours: 1);
 
   //Web
-  static const String appUrl =
-      "z-temp.com"; //Temporary util i public the website
+  static const String appUrl = "https://zananta.vercel.app";
 }

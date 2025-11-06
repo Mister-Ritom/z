@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:z/providers/message_provider.dart';
+import 'package:z/providers/settings_provider.dart';
 import 'package:z/providers/storage_provider.dart';
-import 'package:z/providers/theme_provider.dart';
 import 'package:z/utils/helpers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/tweet_provider.dart';
@@ -245,22 +245,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 IconButton(
                   tooltip: 'Change theme',
-                  icon: Icon(switch (ref.watch(themeProvider)) {
+                  icon: Icon(switch (ref.watch(settingsProvider).theme) {
                     AppTheme.light => Icons.light_mode_outlined,
                     AppTheme.dark => Icons.dark_mode_outlined,
                     AppTheme.system => Icons.brightness_auto_outlined,
                   }),
                   onPressed: () {
-                    ref.read(themeProvider.notifier).setTheme(switch (ref.read(
-                      themeProvider,
-                    )) {
+                    final settings = ref.read(settingsProvider);
+                    final notifier = ref.read(settingsProvider.notifier);
+
+                    final nextTheme = switch (settings.theme) {
                       AppTheme.light => AppTheme.dark,
                       AppTheme.dark => AppTheme.system,
                       AppTheme.system => AppTheme.light,
-                    });
+                    };
+
+                    notifier.setTheme(nextTheme);
                   },
                 ),
-                Text(switch (ref.watch(themeProvider)) {
+                Text(switch (ref.watch(settingsProvider).theme) {
                   AppTheme.light => "Light",
                   AppTheme.dark => "Dark",
                   AppTheme.system => "System",
