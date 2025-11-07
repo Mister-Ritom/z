@@ -14,7 +14,7 @@ import '../models/user_model.dart';
 import '../providers/tweet_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/helpers.dart';
-import '../screens/tweet/tweet_detail_screen.dart';
+import '../info/tweet/tweet_detail_screen.dart';
 
 final retweetingProvider = StateProvider.family<bool, String>(
   (ref, tweetId) => false,

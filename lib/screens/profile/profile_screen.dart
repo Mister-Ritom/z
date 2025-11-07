@@ -13,7 +13,7 @@ import '../../widgets/tweet_card.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../utils/helpers.dart';
 import 'edit_profile_screen.dart';
-import '../tweet/tweet_detail_screen.dart';
+import '../../info/tweet/tweet_detail_screen.dart';
 import 'followers_screen.dart';
 import 'following_screen.dart';
 

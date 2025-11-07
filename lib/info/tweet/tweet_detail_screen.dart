@@ -7,7 +7,7 @@ import '../../providers/profile_provider.dart';
 import '../../widgets/tweet_card.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../widgets/tweet_composer.dart';
-import '../profile/profile_screen.dart';
+import '../../screens/profile/profile_screen.dart';
 
 class TweetDetailScreen extends ConsumerWidget {
   final String tweetId;
