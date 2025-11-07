@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,12 +8,44 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:z/models/comment_model.dart';
 import 'package:z/models/tweet_model.dart';
+import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/tweet_provider.dart';
 import 'package:z/utils/constants.dart';
 import 'package:z/widgets/tweet_card.dart';
 import 'package:z/widgets/video_player_widget.dart';
+
+final videoLikedStreamProvider =
+    StreamProvider.family<bool, (String userId, String videoId)>((ref, params) {
+      final (userId, videoId) = params;
+      final service = ref.watch(shortVideoAnalyticsProvider);
+      return service.isLikedStream(userId, videoId);
+    });
+
+final videoViewsStreamProvider = StreamProvider.family<int, String>((
+  ref,
+  videoId,
+) {
+  final service = ref.watch(shortVideoAnalyticsProvider);
+  return service.viewsStream(videoId);
+});
+
+final videoCommentsCountStreamProvider = StreamProvider.family<int, String>((
+  ref,
+  videoId,
+) {
+  final service = ref.watch(shortVideoAnalyticsProvider);
+  return service.commentsCountStream(videoId);
+});
+
+final videoSharesStreamProvider = StreamProvider.family<int, String>((
+  ref,
+  videoId,
+) {
+  final service = ref.watch(shortVideoAnalyticsProvider);
+  return service.sharesStream(videoId);
+});
 
 class ReelVideoWidget extends ConsumerWidget {
   final Size screenSize;
@@ -36,13 +66,21 @@ class ReelVideoWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
-
     if (currentUser == null) {
       context.go("login");
-      return Text("Sign in");
+      return const Text("Sign in");
     }
 
     final userAsync = ref.watch(userProfileProvider(tweet.userId));
+    final isLikedStream = ref.watch(
+      videoLikedStreamProvider((currentUser.uid, tweet.id)),
+    );
+    final commentsStream = ref.watch(
+      videoCommentsCountStreamProvider(tweet.id),
+    );
+    final sharesStream = ref.watch(videoSharesStreamProvider(tweet.id));
+
+    final analytics = ref.read(shortVideoAnalyticsProvider);
     final isBookmarkedAsync = ref.watch(
       isBookmarkedProvider((tweetId: tweet.id, userId: currentUser.uid)),
     );
@@ -84,37 +122,26 @@ class ReelVideoWidget extends ConsumerWidget {
                     children: [
                       const SizedBox(height: 16),
                       _actionButton(
-                        tweet.likedBy.contains(currentUser.uid)
+                        isLikedStream.valueOrNull == true
                             ? Icons.favorite
                             : Icons.favorite_border,
-                        tweet.likesCount,
+                        null,
                         color:
-                            tweet.likedBy.contains(currentUser.uid)
+                            isLikedStream.valueOrNull == true
                                 ? Colors.pink
                                 : Colors.white,
-                        isLoading: ref.watch(
-                          likingProvider(tweet.id),
-                        ), // show loading
                         onTap: () async {
-                          final tweetService = ref.read(tweetServiceProvider);
-
-                          // set loading to true
-                          ref.read(likingProvider(tweet.id).notifier).state =
-                              true;
-
-                          await tweetService.likeTweet(
-                            tweet.id,
+                          await analytics.toggleLike(
                             currentUser.uid,
+                            tweet.id,
+                            tweet.hashtags,
                           );
-                          ref.read(likingProvider(tweet.id).notifier).state =
-                              false;
                         },
                       ),
-
                       const SizedBox(height: 16),
                       _actionButton(
                         Icons.comment_outlined,
-                        tweet.repliesCount,
+                        commentsStream.valueOrNull,
                         onTap: () {
                           showModalBottomSheet(
                             context: context,
@@ -131,12 +158,13 @@ class ReelVideoWidget extends ConsumerWidget {
                       const SizedBox(height: 16),
                       _actionButton(
                         Icons.share_outlined,
-                        null,
+                        sharesStream.valueOrNull,
                         onTap: () async {
-                          await (SharePlus.instance).share(
+                          await analytics.share(tweet.id);
+                          await SharePlus.instance.share(
                             ShareParams(
                               text:
-                                  "Take a look at ${user?.displayName ?? user?.username}'s post ${AppConstants.appUrl}/tweet/${tweet.id}",
+                                  "Check out ${user?.displayName}'s reel: ${AppConstants.appUrl}/reel/${tweet.id}",
                             ),
                           );
                         },
@@ -288,14 +316,10 @@ class ReelVideoWidget extends ConsumerWidget {
                     ],
                   ),
                 ),
-                Positioned(
+                const Positioned(
                   right: 16,
                   bottom: 16,
-                  child: const Icon(
-                    Icons.music_note,
-                    color: Colors.white,
-                    size: 30,
-                  ),
+                  child: Icon(Icons.music_note, color: Colors.white, size: 30),
                 ),
               ],
             ),
@@ -338,7 +362,6 @@ class ReelVideoWidget extends ConsumerWidget {
 class CommentSheet extends ConsumerStatefulWidget {
   final String tweetId;
   final String currentUserId;
-
   const CommentSheet({
     super.key,
     required this.tweetId,
@@ -355,7 +378,6 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
   @override
   Widget build(BuildContext context) {
     final tweetService = ref.read(tweetServiceProvider);
-
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.3,
@@ -385,9 +407,6 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                     50,
                   ),
                   builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      log("Error", error: snapshot.error);
-                    }
                     final comments = snapshot.data ?? [];
                     return ListView.builder(
                       controller: controller,

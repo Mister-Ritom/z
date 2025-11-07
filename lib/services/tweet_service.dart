@@ -102,7 +102,11 @@ class TweetService {
       );
 
       await _firestore
-          .collection(AppConstants.tweetsCollection)
+          .collection(
+            isReel
+                ? AppConstants.shortsCollection
+                : AppConstants.tweetsCollection,
+          )
           .doc(tweet.id)
           .set(tweet.toMap());
 
@@ -407,96 +411,6 @@ class TweetService {
 
           return allTweets;
         });
-  }
-
-  Future<void> likeTweet(String tweetId, String userId) async {
-    try {
-      final tweetRef = _firestore
-          .collection(AppConstants.tweetsCollection)
-          .doc(tweetId);
-
-      bool liked = false;
-      String tweetOwnerId = '';
-
-      await _firestore.runTransaction((transaction) async {
-        final tweetDoc = await transaction.get(tweetRef);
-        if (!tweetDoc.exists || tweetDoc.data() == null) return;
-
-        final tweet = TweetModel.fromMap({
-          'id': tweetDoc.id,
-          ...tweetDoc.data()!,
-        });
-
-        tweetOwnerId = tweet.userId;
-
-        if (tweet.likedBy.contains(userId)) {
-          transaction.update(tweetRef, {
-            'likesCount': FieldValue.increment(-1),
-            'likedBy': FieldValue.arrayRemove([userId]),
-          });
-          liked = false;
-        } else {
-          transaction.update(tweetRef, {
-            'likesCount': FieldValue.increment(1),
-            'likedBy': FieldValue.arrayUnion([userId]),
-          });
-          liked = true;
-        }
-      });
-
-      // Create notification after transaction finishes
-      if (liked && tweetOwnerId != userId) {
-        await Helpers.createNotification(
-          userId: tweetOwnerId,
-          fromUserId: userId,
-          type: NotificationType.like,
-          tweetId: tweetId,
-        );
-      }
-    } catch (e) {
-      throw Exception('Failed to like tweet: $e');
-    }
-  }
-
-  Future<void> retweet(String tweetId, String userId) async {
-    try {
-      final tweetRef = _firestore
-          .collection(AppConstants.tweetsCollection)
-          .doc(tweetId);
-
-      await _firestore.runTransaction((transaction) async {
-        final tweetDoc = await transaction.get(tweetRef);
-        if (!tweetDoc.exists || tweetDoc.data() == null) return;
-
-        final tweet = TweetModel.fromMap({
-          'id': tweetDoc.id,
-          ...tweetDoc.data()!,
-        });
-
-        if (tweet.retweetedBy.contains(userId)) {
-          transaction.update(tweetRef, {
-            'retweetsCount': FieldValue.increment(-1),
-            'retweetedBy': FieldValue.arrayRemove([userId]),
-          });
-        } else {
-          transaction.update(tweetRef, {
-            'retweetsCount': FieldValue.increment(1),
-            'retweetedBy': FieldValue.arrayUnion([userId]),
-          });
-
-          if (tweet.userId != userId) {
-            await Helpers.createNotification(
-              userId: tweet.userId,
-              fromUserId: userId,
-              type: NotificationType.retweet,
-              tweetId: tweetId,
-            );
-          }
-        }
-      });
-    } catch (e) {
-      throw Exception('Failed to retweet: $e');
-    }
   }
 
   Future<void> deleteTweet(String tweetId) async {

@@ -9,10 +9,8 @@ import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/profile_picture.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/tweet_provider.dart';
-import '../../providers/profile_provider.dart';
 import '../../widgets/tweet_card.dart';
 import '../../widgets/loading_shimmer.dart';
-import '../profile/profile_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -402,30 +400,7 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
         itemCount: tweets.length,
         itemBuilder: (context, index) {
           final tweet = tweets[index];
-          final userAsync = ref.watch(userProfileProvider(tweet.userId));
-
-          return userAsync.when(
-            data: (user) {
-              if (user == null) {
-                return Text("Something went wrong");
-              }
-              return TweetCard(
-                tweet: tweet,
-                user: user,
-                onTap: () => context.push('/tweet/${tweet.id}'),
-                onUserTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ProfileScreen(userId: user.id),
-                    ),
-                  );
-                },
-              );
-            },
-            loading: () => const TweetCardShimmer(),
-            error: (_, __) => const SizedBox.shrink(),
-          );
+          return TweetCard(tweet: tweet);
         },
       ),
     );
@@ -450,29 +425,7 @@ class _FollowingTab extends ConsumerWidget {
           itemCount: tweets.length,
           itemBuilder: (context, index) {
             final tweet = tweets[index];
-            final userAsync = ref.watch(userProfileProvider(tweet.userId));
-            return userAsync.when(
-              data: (user) {
-                if (user == null) {
-                  return Text("Something went wrong");
-                }
-                return TweetCard(
-                  tweet: tweet,
-                  user: user,
-                  onTap: () => context.push('/tweet/${tweet.id}'),
-                  onUserTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProfileScreen(userId: user.id),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const TweetCardShimmer(),
-              error: (_, __) => const SizedBox.shrink(),
-            );
+            return TweetCard(tweet: tweet);
           },
         );
       },

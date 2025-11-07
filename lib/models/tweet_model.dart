@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class TweetModel {
   final String id;
   final String userId;
+  final String? originalUserId;
   final String? parentTweetId; // For replies
   final String? quotedTweetId; // For quote tweets
   final String text;
@@ -11,8 +12,6 @@ class TweetModel {
   final int likesCount;
   final int retweetsCount;
   final int repliesCount;
-  final List<String> likedBy;
-  final List<String> retweetedBy;
   final bool isThread;
   final bool isReel;
   final String? threadParentId;
@@ -24,6 +23,7 @@ class TweetModel {
   TweetModel({
     required this.id,
     required this.userId,
+    this.originalUserId,
     this.isReel = false,
     this.docSnapshot,
     this.parentTweetId,
@@ -34,8 +34,6 @@ class TweetModel {
     this.likesCount = 0,
     this.retweetsCount = 0,
     this.repliesCount = 0,
-    this.likedBy = const [],
-    this.retweetedBy = const [],
     this.isThread = false,
     this.threadParentId,
     this.hashtags = const [],
@@ -50,6 +48,7 @@ class TweetModel {
     return TweetModel(
       id: map['id'] ?? '',
       isReel: map['isReel'] ?? false,
+      originalUserId: map['originalUserId'],
       docSnapshot: snapshot,
       userId: map['userId'] ?? '',
       parentTweetId: map['parentTweetId'],
@@ -60,8 +59,6 @@ class TweetModel {
       likesCount: map['likesCount'] ?? 0,
       retweetsCount: map['retweetsCount'] ?? 0,
       repliesCount: map['repliesCount'] ?? 0,
-      likedBy: List<String>.from(map['likedBy'] ?? []),
-      retweetedBy: List<String>.from(map['retweetedBy'] ?? []),
       isThread: map['isThread'] ?? false,
       threadParentId: map['threadParentId'],
       hashtags: List<String>.from(map['hashtags'] ?? []),
@@ -83,8 +80,6 @@ class TweetModel {
       'likesCount': likesCount,
       'retweetsCount': retweetsCount,
       'repliesCount': repliesCount,
-      'likedBy': likedBy,
-      'retweetedBy': retweetedBy,
       'isThread': isThread,
       'threadParentId': threadParentId,
       'hashtags': hashtags,
@@ -104,8 +99,6 @@ class TweetModel {
     int? likesCount,
     int? retweetsCount,
     int? repliesCount,
-    List<String>? likedBy,
-    List<String>? retweetedBy,
     bool? isThread,
     bool? isReel,
     String? threadParentId,
@@ -125,8 +118,6 @@ class TweetModel {
       likesCount: likesCount ?? this.likesCount,
       retweetsCount: retweetsCount ?? this.retweetsCount,
       repliesCount: repliesCount ?? this.repliesCount,
-      likedBy: likedBy ?? this.likedBy,
-      retweetedBy: retweetedBy ?? this.retweetedBy,
       isThread: isThread ?? this.isThread,
       isReel: isReel ?? this.isReel,
       threadParentId: threadParentId ?? this.threadParentId,

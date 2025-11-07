@@ -2,6 +2,7 @@ class AppConstants {
   // Firebase Collections
   static const String usersCollection = 'users';
   static const String tweetsCollection = 'tweets';
+  static const String shortsCollection = 'tweets';
   static const String notificationsCollection = 'notifications';
   static const String messagesCollection = 'messages';
   static const String followersCollection = 'followers';

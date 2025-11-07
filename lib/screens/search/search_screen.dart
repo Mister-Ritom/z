@@ -1,9 +1,6 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:z/screens/profile/profile_screen.dart';
-import 'package:z/widgets/loading_shimmer.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/tweet_provider.dart';
 import '../../widgets/user_card.dart';
@@ -113,29 +110,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
           ...tweets.map((tweet) {
-            final userAsync = ref.watch(userProfileProvider(tweet.userId));
-            return userAsync.when(
-              data: (user) {
-                if (user == null) {
-                  return Text("User not found");
-                }
-                return TweetCard(
-                  tweet: tweet,
-                  user: user,
-                  onTap: () => context.push('/tweet/${tweet.id}'),
-                  onUserTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProfileScreen(userId: user.id),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const TweetCardShimmer(),
-              error: (_, __) => const SizedBox.shrink(),
-            );
+            return TweetCard(tweet: tweet);
           }),
         ],
       ],

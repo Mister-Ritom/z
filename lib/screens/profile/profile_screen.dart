@@ -13,7 +13,6 @@ import '../../widgets/tweet_card.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../utils/helpers.dart';
 import 'edit_profile_screen.dart';
-import '../../info/tweet/tweet_detail_screen.dart';
 import 'followers_screen.dart';
 import 'following_screen.dart';
 
@@ -409,36 +408,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                         : AsyncValue.data(user);
 
                                 return tweetUserAsync.when(
-                                  data:
-                                      (tweetUser) => TweetCard(
-                                        tweet: tweet,
-                                        user: tweetUser ?? user,
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (context) =>
-                                                      TweetDetailScreen(
-                                                        tweetId: tweet.id,
-                                                      ),
-                                            ),
-                                          );
-                                        },
-                                        onUserTap: () {
-                                          if (tweetUser != null) {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder:
-                                                    (context) => ProfileScreen(
-                                                      userId: tweetUser.id,
-                                                    ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
+                                  data: (tweetUser) => TweetCard(tweet: tweet),
                                   loading: () => const TweetCardShimmer(),
                                   error: (_, __) => const SizedBox.shrink(),
                                 );
@@ -484,21 +454,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           itemCount: replies.length,
                           itemBuilder: (context, index) {
                             final tweet = replies[index];
-                            return TweetCard(
-                              tweet: tweet,
-                              user: user,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => TweetDetailScreen(
-                                          tweetId: tweet.id,
-                                        ),
-                                  ),
-                                );
-                              },
-                            );
+                            return TweetCard(tweet: tweet);
                           },
                         );
                       },
@@ -529,20 +485,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       itemCount: mediaTweets.length,
                       itemBuilder: (context, index) {
                         final tweet = mediaTweets[index];
-                        return TweetCard(
-                          tweet: tweet,
-                          user: user,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) =>
-                                        TweetDetailScreen(tweetId: tweet.id),
-                              ),
-                            );
-                          },
-                        );
+                        return TweetCard(tweet: tweet);
                       },
                     );
                   },
@@ -572,45 +515,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           itemCount: likedTweets.length,
                           itemBuilder: (context, index) {
                             final tweet = likedTweets[index];
-                            final tweetUserAsync = ref.watch(
-                              userProfileProvider(tweet.userId),
-                            );
-
-                            return tweetUserAsync.when(
-                              data: (tweetUser) {
-                                if (tweetUser == null) {
-                                  return Text("User not found");
-                                }
-                                return TweetCard(
-                                  tweet: tweet,
-                                  user: tweetUser,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => TweetDetailScreen(
-                                              tweetId: tweet.id,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                  onUserTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => ProfileScreen(
-                                              userId: tweetUser.id,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                              loading: () => const TweetCardShimmer(),
-                              error: (_, __) => const SizedBox.shrink(),
-                            );
+                            return TweetCard(tweet: tweet);
                           },
                         );
                       },

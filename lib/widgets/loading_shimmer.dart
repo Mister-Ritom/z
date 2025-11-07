@@ -59,7 +59,7 @@ class TweetCardShimmer extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: List.generate(
-                    5,
+                    4,
                     (index) => const LoadingShimmer(width: 56, height: 20),
                   ),
                 ),

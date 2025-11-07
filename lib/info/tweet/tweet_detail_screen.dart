@@ -7,7 +7,6 @@ import '../../providers/profile_provider.dart';
 import '../../widgets/tweet_card.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../widgets/tweet_composer.dart';
-import '../../screens/profile/profile_screen.dart';
 
 class TweetDetailScreen extends ConsumerWidget {
   final String tweetId;
@@ -41,19 +40,7 @@ class TweetDetailScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Main tweet
-                    TweetCard(
-                      tweet: tweet,
-                      user: user,
-                      onUserTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => ProfileScreen(userId: user.id),
-                          ),
-                        );
-                      },
-                    ),
+                    TweetCard(tweet: tweet),
                     const Divider(),
                     // Reply composer button
                     Padding(
@@ -108,7 +95,6 @@ class TweetDetailScreen extends ConsumerWidget {
                                 }
                                 return TweetCard(
                                   tweet: reply,
-                                  user: replyUser,
                                   showThreadLine: true,
                                   onTap: () {
                                     Navigator.push(
@@ -117,17 +103,6 @@ class TweetDetailScreen extends ConsumerWidget {
                                         builder:
                                             (context) => TweetDetailScreen(
                                               tweetId: reply.id,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                  onUserTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => ProfileScreen(
-                                              userId: replyUser.id,
                                             ),
                                       ),
                                     );
