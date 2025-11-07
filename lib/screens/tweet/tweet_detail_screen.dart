@@ -20,9 +20,7 @@ class TweetDetailScreen extends ConsumerWidget {
     final repliesAsync = ref.watch(tweetRepliesProvider(tweetId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tweet'),
-      ),
+      appBar: AppBar(title: const Text('Tweet')),
       body: tweetAsync.when(
         data: (tweet) {
           if (tweet == null) {
@@ -50,7 +48,8 @@ class TweetDetailScreen extends ConsumerWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ProfileScreen(userId: user.id),
+                            builder:
+                                (context) => ProfileScreen(userId: user.id),
                           ),
                         );
                       },
@@ -64,9 +63,9 @@ class TweetDetailScreen extends ConsumerWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => TweetComposer(
-                                replyToTweetId: tweet.id,
-                              ),
+                              builder:
+                                  (context) =>
+                                      TweetComposer(replyToTweetId: tweet.id),
                             ),
                           );
                         },
@@ -98,49 +97,57 @@ class TweetDetailScreen extends ConsumerWidget {
                           itemCount: replies.length,
                           itemBuilder: (context, index) {
                             final reply = replies[index];
-                            final replyUserAsync =
-                                ref.watch(userProfileProvider(reply.userId));
+                            final replyUserAsync = ref.watch(
+                              userProfileProvider(reply.userId),
+                            );
 
                             return replyUserAsync.when(
-                              data: (replyUser) => TweetCard(
-                                tweet: reply,
-                                user: replyUser,
-                                showThreadLine: true,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => TweetDetailScreen(
-                                        tweetId: reply.id,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                onUserTap: () {
-                                  if (replyUser != null) {
+                              data: (replyUser) {
+                                if (replyUser == null) {
+                                  return Text("Something went wrong");
+                                }
+                                return TweetCard(
+                                  tweet: reply,
+                                  user: replyUser,
+                                  showThreadLine: true,
+                                  onTap: () {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) =>
-                                            ProfileScreen(userId: replyUser.id),
+                                        builder:
+                                            (context) => TweetDetailScreen(
+                                              tweetId: reply.id,
+                                            ),
                                       ),
                                     );
-                                  }
-                                },
-                              ),
+                                  },
+                                  onUserTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => ProfileScreen(
+                                              userId: replyUser.id,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
                               loading: () => const TweetCardShimmer(),
                               error: (_, __) => const SizedBox.shrink(),
                             );
                           },
                         );
                       },
-                      loading: () => ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: 3,
-                        itemBuilder:
-                            (context, index) => const TweetCardShimmer(),
-                      ),
+                      loading:
+                          () => ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: 3,
+                            itemBuilder:
+                                (context, index) => const TweetCardShimmer(),
+                          ),
                       error: (error, stack) {
                         log("Error: $error");
                         return Padding(
@@ -166,4 +173,3 @@ class TweetDetailScreen extends ConsumerWidget {
     );
   }
 }
-

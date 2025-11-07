@@ -12,13 +12,15 @@ class NotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final notificationsAsync = ref.watch(notificationsProvider(currentUser.id));
+    final notificationsAsync = ref.watch(
+      notificationsProvider(currentUser.uid),
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),

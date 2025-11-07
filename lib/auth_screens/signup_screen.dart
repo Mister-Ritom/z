@@ -72,7 +72,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ).showSnackBar(SnackBar(content: Text('Sign up failed: $e')));
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

@@ -1,5 +1,4 @@
 import 'dart:developer';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +6,7 @@ import 'package:z/providers/message_provider.dart';
 import 'package:z/providers/settings_provider.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/utils/helpers.dart';
+import 'package:z/widgets/profile_picture.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/tweet_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -91,13 +91,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final unreadMessagesAsync = ref.watch(
-      unreadMessageCountProvider(currentUser.id),
+      unreadMessageCountProvider(currentUser.uid),
     );
     final uploads = ref.watch(uploadNotifierProvider);
     final tweetUploads =
@@ -123,13 +123,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             UserAccountsDrawerHeader(
               decoration: BoxDecoration(
                 color:
-                    currentUser.coverPhotoUrl == null
+                    (ref.watch(
+                              currentUserModelProvider,
+                            )).valueOrNull?.coverPhotoUrl ==
+                            null
                         ? Theme.of(context).colorScheme.surface
                         : null,
                 image:
-                    currentUser.coverPhotoUrl != null
+                    (ref.watch(
+                              currentUserModelProvider,
+                            )).valueOrNull?.coverPhotoUrl !=
+                            null
                         ? DecorationImage(
-                          image: NetworkImage(currentUser.coverPhotoUrl!),
+                          image: NetworkImage(
+                            (ref.watch(
+                              currentUserModelProvider,
+                            )).valueOrNull!.coverPhotoUrl!,
+                          ),
                           fit: BoxFit.cover,
                           colorFilter: ColorFilter.mode(
                             Colors.black.withValues(alpha: 0.5),
@@ -139,29 +149,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         : null,
               ),
               accountName: Text(
-                currentUser.displayName,
-                style: Theme.of(context).textTheme.bodyMedium,
+                currentUser.displayName ?? "No Name",
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
               ),
               accountEmail: Text(
-                currentUser.email,
-                style: Theme.of(context).textTheme.bodyMedium,
+                currentUser.email ?? "No Email",
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
               ),
               currentAccountPicture: InkWell(
                 onTap: () {
                   Navigator.pop(context);
-                  context.push('/profile/${currentUser.id}');
+                  context.push('/profile/${currentUser.uid}');
                 },
-                child: CircleAvatar(
-                  backgroundImage:
-                      currentUser.profilePictureUrl != null
-                          ? CachedNetworkImageProvider(
-                            currentUser.profilePictureUrl!,
-                          )
-                          : null,
-                  child:
-                      currentUser.profilePictureUrl == null
-                          ? Text(currentUser.displayName[0].toUpperCase())
-                          : null,
+                child: ProfilePicture(
+                  pfp: currentUser.photoURL,
+                  name: currentUser.displayName,
                 ),
               ),
             ),
@@ -172,7 +178,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               title: const Text('Profile'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/profile/${currentUser.id}');
+                context.push('/profile/${currentUser.uid}');
               },
             ),
 
@@ -273,23 +279,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
         ),
       ),
+
       appBar: AppBar(
         leading: GestureDetector(
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: CircleAvatar(
-              backgroundImage:
-                  currentUser.profilePictureUrl != null
-                      ? NetworkImage(currentUser.profilePictureUrl!)
-                      : null,
-              child:
-                  currentUser.profilePictureUrl == null
-                      ? Text(
-                        currentUser.displayName[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 14),
-                      )
-                      : null,
+            child: ProfilePicture(
+              pfp: currentUser.photoURL,
+              name: currentUser.displayName,
             ),
           ),
         ),
@@ -342,7 +340,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [_ForYouTab(), _FollowingTab(userId: currentUser.id)],
+              children: [_ForYouTab(), _FollowingTab(userId: currentUser.uid)],
             ),
           ),
         ],
@@ -407,22 +405,24 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
           final userAsync = ref.watch(userProfileProvider(tweet.userId));
 
           return userAsync.when(
-            data:
-                (user) => TweetCard(
-                  tweet: tweet,
-                  user: user,
-                  onTap: () => context.push('/tweet/${tweet.id}'),
-                  onUserTap: () {
-                    if (user != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProfileScreen(userId: user.id),
-                        ),
-                      );
-                    }
-                  },
-                ),
+            data: (user) {
+              if (user == null) {
+                return Text("Something went wrong");
+              }
+              return TweetCard(
+                tweet: tweet,
+                user: user,
+                onTap: () => context.push('/tweet/${tweet.id}'),
+                onUserTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileScreen(userId: user.id),
+                    ),
+                  );
+                },
+              );
+            },
             loading: () => const TweetCardShimmer(),
             error: (_, __) => const SizedBox.shrink(),
           );
@@ -452,23 +452,24 @@ class _FollowingTab extends ConsumerWidget {
             final tweet = tweets[index];
             final userAsync = ref.watch(userProfileProvider(tweet.userId));
             return userAsync.when(
-              data:
-                  (user) => TweetCard(
-                    tweet: tweet,
-                    user: user,
-                    onTap: () => context.push('/tweet/${tweet.id}'),
-                    onUserTap: () {
-                      if (user != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => ProfileScreen(userId: user.id),
-                          ),
-                        );
-                      }
-                    },
-                  ),
+              data: (user) {
+                if (user == null) {
+                  return Text("Something went wrong");
+                }
+                return TweetCard(
+                  tweet: tweet,
+                  user: user,
+                  onTap: () => context.push('/tweet/${tweet.id}'),
+                  onUserTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileScreen(userId: user.id),
+                      ),
+                    );
+                  },
+                );
+              },
               loading: () => const TweetCardShimmer(),
               error: (_, __) => const SizedBox.shrink(),
             );

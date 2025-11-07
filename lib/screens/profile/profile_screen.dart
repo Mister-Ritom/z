@@ -577,35 +577,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             );
 
                             return tweetUserAsync.when(
-                              data:
-                                  (tweetUser) => TweetCard(
-                                    tweet: tweet,
-                                    user: tweetUser,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder:
-                                              (context) => TweetDetailScreen(
-                                                tweetId: tweet.id,
-                                              ),
-                                        ),
-                                      );
-                                    },
-                                    onUserTap: () {
-                                      if (tweetUser != null) {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder:
-                                                (context) => ProfileScreen(
-                                                  userId: tweetUser.id,
-                                                ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
+                              data: (tweetUser) {
+                                if (tweetUser == null) {
+                                  return Text("User not found");
+                                }
+                                return TweetCard(
+                                  tweet: tweet,
+                                  user: tweetUser,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => TweetDetailScreen(
+                                              tweetId: tweet.id,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                  onUserTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => ProfileScreen(
+                                              userId: tweetUser.id,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
                               loading: () => const TweetCardShimmer(),
                               error: (_, __) => const SizedBox.shrink(),
                             );

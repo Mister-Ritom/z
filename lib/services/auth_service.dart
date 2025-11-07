@@ -32,6 +32,10 @@ class AuthService {
 
       if (userCredential.user == null) return null;
 
+      await _auth.currentUser?.updateDisplayName(displayName);
+
+      await _auth.currentUser?.reload();
+
       // Create user document in Firestore
       final userModel = UserModel(
         id: userCredential.user!.uid,

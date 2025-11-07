@@ -1,7 +1,9 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:z/providers/auth_provider.dart';
 import '../../models/user_model.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/storage_provider.dart';
@@ -61,18 +63,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
-
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
     setState(() => _isLoading = true);
 
     try {
       final profileService = ref.read(profileServiceProvider);
       final storageService = ref.read(storageServiceProvider);
-      String? profilePictureUrl = widget.user.profilePictureUrl;
-      String? coverPhotoUrl = widget.user.coverPhotoUrl;
+      String? newPfp = widget.user.profilePictureUrl;
+      String? newCover = widget.user.coverPhotoUrl;
 
       // Upload profile picture
       if (_profilePicture != null) {
-        profilePictureUrl = await storageService.uploadProfilePicture(
+        newPfp = await storageService.uploadProfilePicture(
           _profilePicture!.readAsBytesSync(),
           widget.user.id,
         );
@@ -80,23 +83,34 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
       // Upload cover photo
       if (_coverPhoto != null) {
-        coverPhotoUrl = await storageService.uploadCoverPhoto(
+        newCover = await storageService.uploadCoverPhoto(
           _coverPhoto!.readAsBytesSync(),
           widget.user.id,
         );
       }
 
+      final displayName = _displayNameController.text.trim();
+      final bio = _bioController.text.trim();
+
+      final nameChanged = widget.user.displayName != displayName;
+      final bioChanged = widget.user.bio != bio;
+      final pfpChanged = newPfp != widget.user.profilePictureUrl;
+      final coverChanged = newCover != widget.user.coverPhotoUrl;
+
       // Update profile
       await profileService.updateProfile(
         userId: widget.user.id,
-        displayName: _displayNameController.text.trim(),
-        bio:
-            _bioController.text.trim().isEmpty
-                ? null
-                : _bioController.text.trim(),
-        profilePictureUrl: profilePictureUrl,
-        coverPhotoUrl: coverPhotoUrl,
+        displayName: nameChanged ? displayName : null,
+        bio: bioChanged ? bio : null,
+        profilePictureUrl: pfpChanged ? newPfp : null,
+        coverPhotoUrl: coverChanged ? newCover : null,
       );
+
+      await currentUser.updateProfile(
+        displayName: nameChanged ? displayName : null,
+        photoURL: pfpChanged ? newPfp : null,
+      );
+      await currentUser.reload();
 
       if (mounted) {
         Navigator.pop(context);
@@ -105,6 +119,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         ).showSnackBar(const SnackBar(content: Text('Profile updated')));
       }
     } catch (e) {
+      log("Error", error: e);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -220,7 +235,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       labelText: 'Display Name',
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
+                      if (value == null || value.length < 3) {
                         return 'Display name is required';
                       }
                       return null;

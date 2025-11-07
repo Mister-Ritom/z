@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:z/utils/constants.dart';
 import 'package:z/widgets/media_carousel.dart';
+import 'package:z/widgets/profile_picture.dart';
 import '../models/tweet_model.dart';
 import '../models/user_model.dart';
 import '../providers/tweet_provider.dart';
@@ -26,7 +28,7 @@ final bookmarkingProvider = StateProvider.family<bool, String>(
 
 class TweetCard extends ConsumerWidget {
   final TweetModel tweet;
-  final UserModel? user;
+  final UserModel user;
   final bool showThreadLine;
   final Function()? onTap;
   final Function()? onUserTap;
@@ -34,7 +36,7 @@ class TweetCard extends ConsumerWidget {
   const TweetCard({
     super.key,
     required this.tweet,
-    this.user,
+    required this.user,
     this.showThreadLine = false,
     this.onTap,
     this.onUserTap,
@@ -42,14 +44,17 @@ class TweetCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
-    if (currentUser == null) return const SizedBox.shrink();
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    if (currentUser == null) {
+      context.go("/login");
+      return Text("Sign in");
+    }
 
-    final isLiked = tweet.likedBy.contains(currentUser.id);
+    final isLiked = tweet.likedBy.contains(currentUser.uid);
     final isBookmarked = ref.watch(
-      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser.id)),
+      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser.uid)),
     );
-    final isRetweeted = tweet.retweetedBy.contains(currentUser.id);
+    final isRetweeted = tweet.retweetedBy.contains(currentUser.uid);
 
     final mediaUrls = tweet.mediaUrls;
 
@@ -62,16 +67,9 @@ class TweetCard extends ConsumerWidget {
           children: [
             GestureDetector(
               onTap: onUserTap,
-              child: CircleAvatar(
-                radius: 24,
-                backgroundImage:
-                    user?.profilePictureUrl != null
-                        ? CachedNetworkImageProvider(user!.profilePictureUrl!)
-                        : null,
-                child:
-                    user?.profilePictureUrl == null
-                        ? Text(user?.displayName[0].toUpperCase() ?? 'U')
-                        : null,
+              child: ProfilePicture(
+                name: user.displayName,
+                pfp: user.profilePictureUrl,
               ),
             ),
             const SizedBox(width: 12),
@@ -84,12 +82,12 @@ class TweetCard extends ConsumerWidget {
                       GestureDetector(
                         onTap: onUserTap,
                         child: Text(
-                          user?.displayName ?? 'User',
+                          user.displayName,
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      if (user?.isVerified ?? false) ...[
+                      if (user.isVerified) ...[
                         const SizedBox(width: 4),
                         Icon(
                           Icons.verified,
@@ -99,7 +97,7 @@ class TweetCard extends ConsumerWidget {
                       ],
                       const SizedBox(width: 4),
                       Text(
-                        '@${user?.username ?? 'user'}',
+                        '@${user.username}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(width: 4),
@@ -128,6 +126,7 @@ class TweetCard extends ConsumerWidget {
                     isLiked,
                     isRetweeted,
                     isBookmarked.value ?? false,
+                    currentUser.uid,
                   ),
                 ],
               ),
@@ -144,6 +143,7 @@ class TweetCard extends ConsumerWidget {
     bool isLiked,
     bool isRetweeted,
     bool isBookmarked,
+    String currentUserId,
   ) {
     final isRetweeting = ref.watch(retweetingProvider(tweet.id));
     final isLiking = ref.watch(likingProvider(tweet.id));
@@ -175,16 +175,12 @@ class TweetCard extends ConsumerWidget {
               isRetweeting
                   ? null
                   : () async {
-                    final currentUser =
-                        ref.read(currentUserModelProvider).valueOrNull;
-                    if (currentUser != null) {
-                      final tweetService = ref.read(tweetServiceProvider);
-                      ref.read(retweetingProvider(tweet.id).notifier).state =
-                          true;
-                      await tweetService.retweet(tweet.id, currentUser.id);
-                      ref.read(retweetingProvider(tweet.id).notifier).state =
-                          false;
-                    }
+                    final tweetService = ref.read(tweetServiceProvider);
+                    ref.read(retweetingProvider(tweet.id).notifier).state =
+                        true;
+                    await tweetService.retweet(tweet.id, currentUserId);
+                    ref.read(retweetingProvider(tweet.id).notifier).state =
+                        false;
                   },
         ),
         _buildActionButton(
@@ -197,14 +193,10 @@ class TweetCard extends ConsumerWidget {
               isLiking
                   ? null
                   : () async {
-                    final currentUser =
-                        ref.read(currentUserModelProvider).valueOrNull;
-                    if (currentUser != null) {
-                      final tweetService = ref.read(tweetServiceProvider);
-                      ref.read(likingProvider(tweet.id).notifier).state = true;
-                      await tweetService.likeTweet(tweet.id, currentUser.id);
-                      ref.read(likingProvider(tweet.id).notifier).state = false;
-                    }
+                    final tweetService = ref.read(tweetServiceProvider);
+                    ref.read(likingProvider(tweet.id).notifier).state = true;
+                    await tweetService.likeTweet(tweet.id, currentUserId);
+                    ref.read(likingProvider(tweet.id).notifier).state = false;
                   },
         ),
         _buildActionButton(
@@ -218,9 +210,9 @@ class TweetCard extends ConsumerWidget {
                     : null;
             await SharePlus.instance.share(
               ShareParams(
-                title: "Share ${user?.displayName ?? user?.username}'s post",
+                title: "Share ${user.displayName}'s post",
                 text:
-                    "Take a look at ${user?.displayName ?? user?.username}'s post ${AppConstants.appUrl}/tweet/${tweet.id}",
+                    "Take a look at ${user.displayName}'s post ${AppConstants.appUrl}/tweet/${tweet.id}",
                 previewThumbnail: file,
                 excludedCupertinoActivities: [
                   CupertinoActivityType.addToHomeScreen,
@@ -245,34 +237,30 @@ class TweetCard extends ConsumerWidget {
               isBookmarking
                   ? null
                   : () async {
-                    final currentUser =
-                        ref.read(currentUserModelProvider).valueOrNull;
-                    if (currentUser != null) {
-                      final tweetService = ref.read(tweetServiceProvider);
-                      ref.read(bookmarkingProvider(tweet.id).notifier).state =
-                          true;
-                      try {
-                        if (isBookmarked) {
-                          await tweetService.removeBookmark(
-                            tweet.id,
-                            currentUser.id,
-                          );
-                        } else {
-                          await tweetService.bookmarkTweet(
-                            tweet.id,
-                            currentUser.id,
-                          );
-                        }
-                        ref.invalidate(
-                          isBookmarkedProvider((
-                            tweetId: tweet.id,
-                            userId: currentUser.id,
-                          )),
+                    final tweetService = ref.read(tweetServiceProvider);
+                    ref.read(bookmarkingProvider(tweet.id).notifier).state =
+                        true;
+                    try {
+                      if (isBookmarked) {
+                        await tweetService.removeBookmark(
+                          tweet.id,
+                          currentUserId,
                         );
-                      } finally {
-                        ref.read(bookmarkingProvider(tweet.id).notifier).state =
-                            false;
+                      } else {
+                        await tweetService.bookmarkTweet(
+                          tweet.id,
+                          currentUserId,
+                        );
                       }
+                      ref.invalidate(
+                        isBookmarkedProvider((
+                          tweetId: tweet.id,
+                          userId: currentUserId,
+                        )),
+                      );
+                    } finally {
+                      ref.read(bookmarkingProvider(tweet.id).notifier).state =
+                          false;
                     }
                   },
         ),

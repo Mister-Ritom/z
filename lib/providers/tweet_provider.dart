@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/tweet_service.dart';
@@ -152,5 +153,10 @@ final isBookmarkedProvider =
       args,
     ) async {
       final tweetService = ref.watch(tweetServiceProvider);
-      return await tweetService.isBookmarked(args.tweetId, args.userId);
+      try {
+        return await tweetService.isBookmarked(args.tweetId, args.userId);
+      } catch (e, st) {
+        log("Error checking bookmark", error: e, stackTrace: st);
+        return false;
+      }
     });

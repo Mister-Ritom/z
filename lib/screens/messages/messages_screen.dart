@@ -12,13 +12,15 @@ class MessagesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final conversationsAsync = ref.watch(conversationsProvider(currentUser.id));
+    final conversationsAsync = ref.watch(
+      conversationsProvider(currentUser.uid),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -43,7 +45,7 @@ class MessagesScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final conversation = conversations[index];
               final otherUserId =
-                  conversation.user1Id == currentUser.id
+                  conversation.user1Id == currentUser.uid
                       ? conversation.user2Id
                       : conversation.user1Id;
 
@@ -76,13 +78,13 @@ class MessagesScreen extends ConsumerWidget {
                         color:
                             conversation.unreadCount > 0 &&
                                     conversation.lastMessageSender !=
-                                        currentUser.id
+                                        currentUser.uid
                                 ? Theme.of(context).colorScheme.inverseSurface
                                 : Colors.grey, // gray if seen
                         fontWeight:
                             conversation.unreadCount > 0 &&
                                     conversation.lastMessageSender !=
-                                        currentUser.id
+                                        currentUser.uid
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                       ),
@@ -96,7 +98,7 @@ class MessagesScreen extends ConsumerWidget {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         if (conversation.unreadCount > 0 &&
-                            conversation.lastMessageSender != currentUser.id)
+                            conversation.lastMessageSender != currentUser.uid)
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
@@ -121,7 +123,7 @@ class MessagesScreen extends ConsumerWidget {
                         MaterialPageRoute(
                           builder:
                               (context) => ChatScreen(
-                                currentUserId: currentUser.id,
+                                currentUserId: currentUser.uid,
                                 otherUserId: otherUserId,
                                 otherUser: user,
                               ),

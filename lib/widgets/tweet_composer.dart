@@ -2,8 +2,10 @@ import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:z/widgets/app_image.dart';
+import 'package:z/widgets/profile_picture.dart';
 import 'package:z/widgets/video_player_widget.dart';
 import '../providers/tweet_provider.dart';
 import '../providers/auth_provider.dart';
@@ -85,10 +87,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
     // TODO: Implement song picker for reels
   }
 
-  Future<void> _sendTweet() async {
-    final currentUser = ref.read(currentUserModelProvider).valueOrNull;
-    if (currentUser == null) return;
-
+  Future<void> _sendTweet(String currentUserId) async {
     final text = _textController.text.trim();
     final media = ref.read(selectedMediaProvider);
     final isReel = ref.read(isReelProvider);
@@ -128,7 +127,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
           onComplete: (urls) async {
             await tweetService.createTweet(
               tweetId: id,
-              userId: currentUser.id,
+              userId: currentUserId,
               text: text,
               mediaUrls: urls,
               parentTweetId: widget.replyToTweetId,
@@ -144,7 +143,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
       } else {
         await tweetService.createTweet(
           tweetId: id,
-          userId: currentUser.id,
+          userId: currentUserId,
           text: text,
           parentTweetId: widget.replyToTweetId,
         );
@@ -159,10 +158,15 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final remainingChars = ref.watch(remainingCharsProvider);
     final isReel = ref.watch(isReelProvider);
     final media = ref.watch(selectedMediaProvider);
+
+    if (currentUser == null) {
+      context.go("/login");
+      return Text("Sign in");
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -190,102 +194,87 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
-              onPressed: _sendTweet,
+              onPressed: () => _sendTweet(currentUser.uid),
               child: Text(isReel ? 'Reel' : 'Tweet'),
             ),
           ),
         ],
       ),
-      body:
-          currentUser == null
-              ? const Center(child: Text('Please sign in'))
-              : Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ProfilePicture(
+                  pfp: currentUser.photoURL,
+                  name: currentUser.displayName,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    maxLength: AppConstants.maxTweetLength,
+                    maxLines: null,
+                    decoration: const InputDecoration(
+                      hintText: "What's happening?",
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (isReel && media.isNotEmpty)
+              SizedBox(
+                width: double.infinity,
+                height: 300,
+                child: VideoPlayerWidget(isFile: true, url: media.first.path),
+              )
+            else if (!isReel)
+              _MediaPreview(
+                mediaNotifier: media,
+                onRemoveMedia: (file) {
+                  ref.read(selectedMediaProvider.notifier).state = List.from(
+                    media,
+                  )..remove(file);
+                },
+              ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundImage:
-                              currentUser.profilePictureUrl != null
-                                  ? NetworkImage(currentUser.profilePictureUrl!)
-                                  : null,
-                          child:
-                              currentUser.profilePictureUrl == null
-                                  ? Text(
-                                    currentUser.displayName[0].toUpperCase(),
-                                  )
-                                  : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _textController,
-                            maxLength: AppConstants.maxTweetLength,
-                            maxLines: null,
-                            decoration: const InputDecoration(
-                              hintText: "What's happening?",
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.perm_media_outlined),
+                      onPressed: _pickMedia,
                     ),
-                    const SizedBox(height: 8),
-                    if (isReel && media.isNotEmpty)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 300,
-                        child: VideoPlayerWidget(
-                          isFile: true,
-                          url: media.first.path,
-                        ),
-                      )
-                    else if (!isReel)
-                      _MediaPreview(
-                        mediaNotifier: media,
-                        onRemoveMedia: (file) {
-                          ref
-                              .read(selectedMediaProvider.notifier)
-                              .state = List.from(media)..remove(file);
-                        },
+                    if (isReel)
+                      IconButton(
+                        icon: const Icon(Icons.music_note),
+                        onPressed: _addSong,
                       ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.perm_media_outlined),
-                              onPressed: _pickMedia,
-                            ),
-                            if (isReel)
-                              IconButton(
-                                icon: const Icon(Icons.music_note),
-                                onPressed: _addSong,
-                              ),
-                          ],
-                        ),
-                        Text(
-                          remainingChars.toString(),
-                          style: TextStyle(
-                            color:
-                                remainingChars < 0
-                                    ? Colors.red
-                                    : remainingChars < 20
-                                    ? Colors.orange
-                                    : null,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
-              ),
+                Text(
+                  remainingChars.toString(),
+                  style: TextStyle(
+                    color:
+                        remainingChars < 0
+                            ? Colors.red
+                            : remainingChars < 20
+                            ? Colors.orange
+                            : null,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

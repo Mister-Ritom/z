@@ -115,23 +115,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ...tweets.map((tweet) {
             final userAsync = ref.watch(userProfileProvider(tweet.userId));
             return userAsync.when(
-              data:
-                  (user) => TweetCard(
-                    tweet: tweet,
-                    user: user,
-                    onTap: () => context.push('/tweet/${tweet.id}'),
-                    onUserTap: () {
-                      if (user != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => ProfileScreen(userId: user.id),
-                          ),
-                        );
-                      }
-                    },
-                  ),
+              data: (user) {
+                if (user == null) {
+                  return Text("User not found");
+                }
+                return TweetCard(
+                  tweet: tweet,
+                  user: user,
+                  onTap: () => context.push('/tweet/${tweet.id}'),
+                  onUserTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileScreen(userId: user.id),
+                      ),
+                    );
+                  },
+                );
+              },
               loading: () => const TweetCardShimmer(),
               error: (_, __) => const SizedBox.shrink(),
             );

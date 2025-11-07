@@ -1,8 +1,8 @@
 import 'dart:developer';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
@@ -35,17 +35,22 @@ class ReelVideoWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+
+    if (currentUser == null) {
+      context.go("login");
+      return Text("Sign in");
+    }
 
     final userAsync = ref.watch(userProfileProvider(tweet.userId));
     final isBookmarkedAsync = ref.watch(
-      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser?.id ?? '')),
+      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser.uid)),
     );
     final isBookmarking = ref.watch(bookmarkingProvider(tweet.id));
 
     final isFollowingAsync = ref.watch(
       isFollowingProvider({
-        'currentUserId': currentUser?.id ?? '',
+        'currentUserId': currentUser.uid,
         'targetUserId': tweet.userId,
       }),
     );
@@ -79,19 +84,18 @@ class ReelVideoWidget extends ConsumerWidget {
                     children: [
                       const SizedBox(height: 16),
                       _actionButton(
-                        tweet.likedBy.contains(currentUser?.id)
+                        tweet.likedBy.contains(currentUser.uid)
                             ? Icons.favorite
                             : Icons.favorite_border,
                         tweet.likesCount,
                         color:
-                            tweet.likedBy.contains(currentUser?.id)
+                            tweet.likedBy.contains(currentUser.uid)
                                 ? Colors.pink
                                 : Colors.white,
                         isLoading: ref.watch(
                           likingProvider(tweet.id),
                         ), // show loading
                         onTap: () async {
-                          if (currentUser == null) return;
                           final tweetService = ref.read(tweetServiceProvider);
 
                           // set loading to true
@@ -100,7 +104,7 @@ class ReelVideoWidget extends ConsumerWidget {
 
                           await tweetService.likeTweet(
                             tweet.id,
-                            currentUser.id,
+                            currentUser.uid,
                           );
                           ref.read(likingProvider(tweet.id).notifier).state =
                               false;
@@ -112,7 +116,6 @@ class ReelVideoWidget extends ConsumerWidget {
                         Icons.comment_outlined,
                         tweet.repliesCount,
                         onTap: () {
-                          if (currentUser == null) return;
                           showModalBottomSheet(
                             context: context,
                             isScrollControlled: true,
@@ -120,7 +123,7 @@ class ReelVideoWidget extends ConsumerWidget {
                             builder:
                                 (_) => CommentSheet(
                                   tweetId: tweet.id,
-                                  currentUserId: currentUser.id,
+                                  currentUserId: currentUser.uid,
                                 ),
                           );
                         },
@@ -130,8 +133,11 @@ class ReelVideoWidget extends ConsumerWidget {
                         Icons.share_outlined,
                         null,
                         onTap: () async {
-                          await Share.share(
-                            "Take a look at ${user?.displayName ?? user?.username}'s post ${AppConstants.appUrl}/tweet/${tweet.id}",
+                          await (SharePlus.instance).share(
+                            ShareParams(
+                              text:
+                                  "Take a look at ${user?.displayName ?? user?.username}'s post ${AppConstants.appUrl}/tweet/${tweet.id}",
+                            ),
                           );
                         },
                       ),
@@ -145,7 +151,7 @@ class ReelVideoWidget extends ConsumerWidget {
                                 : Colors.grey,
                         isLoading: isBookmarking,
                         onTap:
-                            isBookmarking || currentUser == null
+                            isBookmarking
                                 ? null
                                 : () async {
                                   final tweetService = ref.read(
@@ -160,18 +166,18 @@ class ReelVideoWidget extends ConsumerWidget {
                                     if (isBookmarked) {
                                       await tweetService.removeBookmark(
                                         tweet.id,
-                                        currentUser.id,
+                                        currentUser.uid,
                                       );
                                     } else {
                                       await tweetService.bookmarkTweet(
                                         tweet.id,
-                                        currentUser.id,
+                                        currentUser.uid,
                                       );
                                     }
                                     ref.invalidate(
                                       isBookmarkedProvider((
                                         tweetId: tweet.id,
-                                        userId: currentUser.id,
+                                        userId: currentUser.uid,
                                       )),
                                     );
                                   } finally {
@@ -260,18 +266,16 @@ class ReelVideoWidget extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          if (!isFollowing && currentUser?.id != user?.id)
+                          if (!isFollowing && currentUser.uid != user?.id)
                             ElevatedButton(
                               onPressed: () async {
                                 final profileService = ref.read(
                                   profileServiceProvider,
                                 );
-                                if (currentUser != null) {
-                                  await profileService.followUser(
-                                    currentUser.id,
-                                    user!.id,
-                                  );
-                                }
+                                await profileService.followUser(
+                                  currentUser.uid,
+                                  user!.id,
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:

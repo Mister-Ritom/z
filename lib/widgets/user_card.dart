@@ -19,12 +19,15 @@ class UserCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
-    final isOwnProfile = currentUser?.id == user.id;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    if (currentUser == null) {
+      return SizedBox.shrink();
+    }
+    final isOwnProfile = currentUser.uid == user.id;
 
     final isFollowingAsync = ref.watch(
       isFollowingProvider({
-        'currentUserId': currentUser?.id ?? '',
+        'currentUserId': currentUser.uid,
         'targetUserId': user.id,
       }),
     );
@@ -96,16 +99,11 @@ class UserCard extends ConsumerWidget {
             if (showFollowButton && !isOwnProfile)
               ElevatedButton(
                 onPressed: () async {
-                  if (currentUser != null) {
-                    final profileService = ref.read(profileServiceProvider);
-                    if (isFollowing) {
-                      await profileService.unfollowUser(
-                        currentUser.id,
-                        user.id,
-                      );
-                    } else {
-                      await profileService.followUser(currentUser.id, user.id);
-                    }
+                  final profileService = ref.read(profileServiceProvider);
+                  if (isFollowing) {
+                    await profileService.unfollowUser(currentUser.uid, user.id);
+                  } else {
+                    await profileService.followUser(currentUser.uid, user.id);
                   }
                 },
                 style: ElevatedButton.styleFrom(

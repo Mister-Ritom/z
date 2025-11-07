@@ -53,9 +53,9 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   void _onItemTapped(int index) {
     if (index == _currentIndex) return;
 
-    final currentUser = ref.read(currentUserModelProvider).valueOrNull;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (index == 4 && currentUser != null) {
-      _markNotificationsRead(currentUser.id);
+      _markNotificationsRead(currentUser.uid);
     }
 
     setState(() => _currentIndex = index);
@@ -65,10 +65,11 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
     final glassMorphismEnabled =
         ref.watch(settingsProvider).glassMorphismEnabled;
-
+    if (currentUser == null) return SizedBox.shrink();
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -78,8 +79,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
             alignment: Alignment.bottomCenter,
             child:
                 (Helpers.isGlassSupported && glassMorphismEnabled)
-                    ? _buildMobileGlassNav(theme, isDark, currentUser)
-                    : _buildWebNav(theme, isDark, currentUser),
+                    ? _buildMobileGlassNav(theme, isDark, currentUser.uid)
+                    : _buildWebNav(theme, isDark),
           ),
         ],
       ),
@@ -103,7 +104,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     );
   }
 
-  Widget _buildWebNav(ThemeData theme, bool isDark, dynamic currentUser) {
+  Widget _buildWebNav(ThemeData theme, bool isDark) {
     return Container(
       color: theme.scaffoldBackgroundColor, // ensures color extends to bottom
       child: Padding(
@@ -155,7 +156,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   Widget _buildMobileGlassNav(
     ThemeData theme,
     bool isDark,
-    dynamic currentUser,
+    String currentUserId,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -186,9 +187,9 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
                         : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
                 final icon = _getIcon(index);
 
-                if (index == 4 && currentUser != null) {
+                if (index == 4) {
                   final notificationsAsync = ref.watch(
-                    unreadNotificationsCountProvider(currentUser.id),
+                    unreadNotificationsCountProvider(currentUserId),
                   );
                   return Expanded(
                     child: notificationsAsync.when(
