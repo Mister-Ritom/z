@@ -146,18 +146,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         )
                         : null,
               ),
-              accountName: Text(
-                currentUser.displayName ?? "No Name",
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-              ),
-              accountEmail: Text(
-                currentUser.email ?? "No Email",
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-              ),
+              accountName: Text(currentUser.displayName ?? "No Name"),
+              accountEmail: Text(currentUser.email ?? "No Email"),
               currentAccountPicture: InkWell(
                 onTap: () {
                   Navigator.pop(context);
@@ -381,7 +371,7 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
   }
 
   Future<void> _onRefresh() async {
-    await ref.read(forYouFeed.notifier).loadInitial();
+    await ref.read(forYouFeed.notifier).refreshFeed();
   }
 
   @override

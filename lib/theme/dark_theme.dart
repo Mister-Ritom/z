@@ -53,10 +53,7 @@ class DarkTheme {
           fontSize: 15,
           color: const Color(0xFFF7F9F9),
         ),
-        bodyMedium: GoogleFonts.roboto(
-          fontSize: 15,
-          color: const Color(0xFF8B98A5),
-        ),
+        bodyMedium: GoogleFonts.roboto(fontSize: 15, color: Colors.white),
         bodySmall: GoogleFonts.roboto(
           fontSize: 13,
           color: const Color(0xFF8B98A5),

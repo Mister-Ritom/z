@@ -54,10 +54,7 @@ class LightTheme {
           fontSize: 15,
           color: const Color(0xFF0F1419),
         ),
-        bodyMedium: GoogleFonts.roboto(
-          fontSize: 15,
-          color: const Color(0xFF536471),
-        ),
+        bodyMedium: GoogleFonts.roboto(fontSize: 15, color: Colors.black),
         bodySmall: GoogleFonts.roboto(
           fontSize: 13,
           color: const Color(0xFF536471),

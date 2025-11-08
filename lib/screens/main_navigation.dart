@@ -13,6 +13,7 @@ import 'package:z/screens/stories/stories_screen.dart';
 import 'package:z/screens/notifications/notifications_screen.dart';
 import 'package:z/providers/notification_provider.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/screens/stories/story_creation_screen.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/glass_widget.dart';
 import 'package:z/widgets/tweet_composer.dart';
@@ -61,6 +62,23 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     setState(() => _currentIndex = index);
   }
 
+  void _onFabTap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) =>
+                _currentIndex == 3
+                    ? const StoryCreationScreen()
+                    : const TweetComposer(),
+      ),
+    );
+  }
+
+  Icon _getFabIcon() {
+    return Icon(_currentIndex == 3 ? Icons.camera : Icons.edit);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -88,17 +106,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           _currentIndex != 2
               ? Padding(
                 padding: const EdgeInsets.only(bottom: 48),
-                child: GlassFAB(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TweetComposer(),
-                      ),
-                    );
-                  },
-                  child: const Icon(Icons.edit),
-                ),
+                child: GlassFAB(onPressed: _onFabTap, child: _getFabIcon()),
               )
               : null,
     );

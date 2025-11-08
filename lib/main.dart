@@ -38,7 +38,7 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'X Clone',
+      title: 'Z',
       debugShowCheckedModeBanner: false,
       theme: themeNotifier.getThemeData(Brightness.light),
       darkTheme: themeNotifier.getThemeData(Brightness.dark),

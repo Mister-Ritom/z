@@ -112,6 +112,10 @@ class Helpers {
         .set(notification.toMap());
   }
 
+  static bool isVideoPath(String path) {
+    return path.endsWith(".mp4") || path.endsWith(".mov");
+  }
+
   static bool get isGlassSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 }

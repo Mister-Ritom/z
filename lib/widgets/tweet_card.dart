@@ -83,18 +83,25 @@ class TweetCard extends ConsumerWidget {
                 ),
               ],
               const SizedBox(width: 4),
-              Text('·', style: Theme.of(context).textTheme.displayLarge),
+              Text(
+                '·',
+                style: Theme.of(
+                  context,
+                ).textTheme.displayLarge?.copyWith(color: Colors.blueGrey),
+              ),
               const SizedBox(width: 4),
               Text(
                 timeago.format(tweet.createdAt),
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: Colors.blueGrey),
               ),
             ],
           ),
-          subtitle: Text(
-            '@${user.username}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          subtitle: Text('@${user.username}'),
+          subtitleTextStyle: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
         );
       },
       loading: () => const TweetCardShimmer(),
@@ -135,11 +142,14 @@ class TweetCard extends ConsumerWidget {
               RichText(
                 text: TextSpan(
                   text: "Reposted by ",
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                   children: [
                     TextSpan(
                       text: userAsync.valueOrNull!.username,
                       style: const TextStyle(
-                        color: Colors.blue,
+                        color: Colors.blueGrey,
                         fontWeight: FontWeight.bold,
                       ),
                       recognizer:
@@ -152,8 +162,13 @@ class TweetCard extends ConsumerWidget {
                 ),
               ),
             _userWidget(userAsync, originalUserAsync, context),
-            const SizedBox(height: 4),
-            Text(tweet.text, style: Theme.of(context).textTheme.bodyLarge),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                tweet.text,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
             MediaCarousel(
               mediaUrls: mediaUrls,
               isVideo: (s) => s.endsWith(".mp4") || s.endsWith(".mov"),

@@ -28,6 +28,33 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- ======== iOS Permissions ======== -->
+
+<!-- Camera access -->
+<key>NSCameraUsageDescription</key>
+<string>This app requires access to your camera to take photos and videos.</string>
+
+<!-- Microphone access (for video/voice recording) -->
+<key>NSMicrophoneUsageDescription</key>
+<string>This app requires access to your microphone to record audio in videos or voice features.</string>
+
+<!-- Photo Library read/write (for selecting and saving media) -->
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app requires access to your photo library to select or upload images and videos.</string>
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>This app needs permission to save images or videos to your photo library.</string>
+
+<!-- File access (for picking or managing external files, optional) -->
+<key>NSDocumentsFolderUsageDescription</key>
+<string>This app may access your documents folder to pick or manage files.</string>
+
+<!-- Internet access (not required to declare explicitly, but good for clarity) -->
+<key>NSAppTransportSecurity</key>
+<dict>
+  <key>NSAllowsArbitraryLoads</key>
+  <true/>
+</dict>
+
 	<!-- Google Sign-In configuration -->
 <key>GIDClientID</key>
 <string>385298524193-8bremu8ucbhu3h7jkbl4atk4kkhm5fc6.apps.googleusercontent.com</string>

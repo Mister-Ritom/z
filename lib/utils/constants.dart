@@ -10,6 +10,7 @@ class AppConstants {
   static const String likesCollection = 'likes';
   static const String retweetsCollection = 'retweets';
   static const String bookmarksCollection = 'bookmarks';
+  static const String storiesCollection = 'stories';
 
   // Supabase Storage Buckets
   static const String profilePicturesBucket = 'profile-pictures';
@@ -40,4 +41,7 @@ class AppConstants {
 
   //Web
   static const String appUrl = "https://zananta.vercel.app";
+
+  //stories
+  static const int storyExpiryHours = 24;
 }

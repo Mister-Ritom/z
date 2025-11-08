@@ -59,6 +59,7 @@ dependencies:
   oc_liquid_glass: ^0.2.1
   share_plus: ^12.0.1
   package_info_plus: ^9.0.0
+  camera: ^0.11.3
 
 dev_dependencies:
   flutter_test:

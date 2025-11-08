@@ -54,6 +54,22 @@ class ForYouFeedNotifier extends StateNotifier<List<TweetModel>> {
     _isLoading = false;
   }
 
+  Future<void> refreshFeed() async {
+    // Cancel all old subscriptions
+    for (var sub in _pageSubs) {
+      await sub.cancel();
+    }
+    _pageSubs.clear();
+
+    // Reset everything
+    state = [];
+    _hasMore = true;
+    _isLoading = false;
+
+    // Reload the first page
+    await loadInitial();
+  }
+
   void _subscribeToPage(Stream<List<TweetModel>> pageStream) {
     final sub = pageStream.listen((tweets) {
       if (tweets.isEmpty) {
