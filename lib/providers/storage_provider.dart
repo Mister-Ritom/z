@@ -1,21 +1,12 @@
 import 'dart:developer';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 
-final supabaseProvider = Provider<SupabaseClient>((ref) {
-  try {
-    return Supabase.instance.client;
-  } catch (e) {
-    throw Exception('Supabase not initialized. Initialize in main.dart first.');
-  }
-});
-
 final storageServiceProvider = Provider<StorageService>((ref) {
-  final supabase = ref.watch(supabaseProvider);
-  return StorageService(supabase);
+  return StorageService();
 });
 
 final uploadNotifierProvider =
@@ -23,7 +14,7 @@ final uploadNotifierProvider =
       (ref) => UploadNotifier(ref),
     );
 
-enum UploadType { tweet, reels, cover, pfp, document }
+enum UploadType { tweet, reels, cover, pfp, story, document }
 
 class UploadTaskState {
   final String fileName;
@@ -118,39 +109,63 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
 
             switch (type) {
               case UploadType.tweet:
-                if (mimeType.startsWith('image/')) {
-                  downloadUrl = await storage.uploadTweetImage(
-                    fileBytes,
-                    '$referenceId-img-$i',
-                  );
-                } else if (mimeType.startsWith('video/')) {
-                  downloadUrl = await storage.uploadTweetVideo(
-                    fileBytes,
-                    '$referenceId-vid-$i',
+                if (mimeType.startsWith('image/') ||
+                    mimeType.startsWith('video/')) {
+                  final referenceWithIndex =
+                      mimeType.startsWith('image/')
+                          ? '$referenceId-img-$i'
+                          : '$referenceId-vid-$i';
+
+                  downloadUrl = await storage.uploadFile(
+                    file: File(file.path),
+                    type: type,
+                    referenceId: referenceWithIndex,
                   );
                 } else {
                   downloadUrl = await storage.uploadDocument(
-                    fileBytes,
-                    mimeType,
-                    referenceId,
+                    fileBytes: fileBytes,
+                    mimeType: mimeType,
+                    referenceId: referenceId,
                   );
                 }
+                break;
+
+              case UploadType.story:
+                if (!mimeType.startsWith('image/') &&
+                    !mimeType.startsWith('video/')) {
+                  throw Exception("❌ Story can only contain images or videos.");
+                }
+                final storyRef =
+                    mimeType.startsWith('image/')
+                        ? '$referenceId-img-$i'
+                        : '$referenceId-vid-$i';
+
+                downloadUrl = await storage.uploadFile(
+                  file: File(file.path),
+                  type: type,
+                  referenceId: storyRef,
+                );
                 break;
 
               case UploadType.reels:
                 if (!mimeType.startsWith('video/')) {
                   throw Exception("❌ Reels can only contain video files.");
                 }
-                downloadUrl = await storage.uploadReel(fileBytes, referenceId);
+                downloadUrl = await storage.uploadFile(
+                  file: File(file.path),
+                  type: type,
+                  referenceId: referenceId,
+                );
                 break;
 
               case UploadType.cover:
                 if (!mimeType.startsWith('image/')) {
                   throw Exception("❌ Cover photo must be an image.");
                 }
-                downloadUrl = await storage.uploadCoverPhoto(
-                  fileBytes,
-                  referenceId,
+                downloadUrl = await storage.uploadFile(
+                  file: File(file.path),
+                  type: type,
+                  referenceId: referenceId,
                 );
                 break;
 
@@ -158,17 +173,18 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
                 if (!mimeType.startsWith('image/')) {
                   throw Exception("❌ Profile picture must be an image.");
                 }
-                downloadUrl = await storage.uploadProfilePicture(
-                  fileBytes,
-                  referenceId,
+                downloadUrl = await storage.uploadFile(
+                  file: File(file.path),
+                  type: type,
+                  referenceId: referenceId,
                 );
                 break;
 
               case UploadType.document:
                 downloadUrl = await storage.uploadDocument(
-                  fileBytes,
-                  mimeType,
-                  referenceId,
+                  fileBytes: fileBytes,
+                  mimeType: mimeType,
+                  referenceId: referenceId,
                 );
                 break;
             }
@@ -204,9 +220,7 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
       );
     }
 
-    for (final task in tasks) {
-      await task;
-    }
+    await Future.wait(tasks);
 
     log("✅ All uploads done. URLs:\n${uploadedUrls.join("\n")}");
     if (onComplete != null) onComplete(uploadedUrls);

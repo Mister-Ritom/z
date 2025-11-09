@@ -75,17 +75,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
       // Upload profile picture
       if (_profilePicture != null) {
-        newPfp = await storageService.uploadProfilePicture(
-          _profilePicture!.readAsBytesSync(),
-          widget.user.id,
+        newPfp = await storageService.uploadFile(
+          file: _profilePicture!,
+          referenceId: widget.user.id,
+          type: UploadType.pfp,
         );
       }
 
       // Upload cover photo
       if (_coverPhoto != null) {
-        newCover = await storageService.uploadCoverPhoto(
-          _coverPhoto!.readAsBytesSync(),
-          widget.user.id,
+        newCover = await storageService.uploadFile(
+          file: _coverPhoto!,
+          referenceId: widget.user.id,
+          type: UploadType.cover,
         );
       }
 

@@ -6,13 +6,13 @@ class StoryAnalyticsService {
 
   CollectionReference get _analytics => firestore
       .collection('analytics')
-      .doc('stories')
+      .doc(AppConstants.storiesCollection)
       .collection(AppConstants.storiesCollection);
 
   DocumentReference _userRef(String userId, String storyId) => firestore
       .collection('user_interactions')
       .doc(userId)
-      .collection('stories')
+      .collection(AppConstants.storiesCollection)
       .doc(storyId);
 
   Stream<bool> isStoryLikedStream(String userId, String storyId) =>

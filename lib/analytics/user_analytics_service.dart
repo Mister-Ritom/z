@@ -1,16 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:z/utils/constants.dart';
 
 class UserAnalyticsService {
   final firestore = FirebaseFirestore.instance;
 
-  CollectionReference get _analytics =>
-      firestore.collection('analytics').doc('users').collection('users');
+  CollectionReference get _analytics => firestore
+      .collection('analytics')
+      .doc(AppConstants.usersCollection)
+      .collection(AppConstants.usersCollection);
 
   DocumentReference _userInteractionRef(String userId, String targetUserId) =>
       firestore
           .collection('user_interactions')
           .doc(userId)
-          .collection('users')
+          .collection(AppConstants.usersCollection)
           .doc(targetUserId);
 
   Stream<bool> isUserLikedStream(String userId, String targetUserId) =>

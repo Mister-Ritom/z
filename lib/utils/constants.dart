@@ -16,6 +16,7 @@ class AppConstants {
   static const String profilePicturesBucket = 'profile-pictures';
   static const String coverPhotosBucket = 'cover-photos';
   static const String tweetMediaBucket = 'tweet-media';
+  static const String storyMediaBucket = 'stories';
   static const String reelsVideoBucket = 'reels';
   static const String documentsBucket = 'documents';
 
