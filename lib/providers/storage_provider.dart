@@ -14,7 +14,7 @@ final uploadNotifierProvider =
       (ref) => UploadNotifier(ref),
     );
 
-enum UploadType { tweet, reels, cover, pfp, story, document }
+enum UploadType { zap, shorts, cover, pfp, story, document }
 
 class UploadTaskState {
   final String fileName;
@@ -108,7 +108,7 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
             await updateProgress(0.2);
 
             switch (type) {
-              case UploadType.tweet:
+              case UploadType.zap:
                 if (mimeType.startsWith('image/') ||
                     mimeType.startsWith('video/')) {
                   final referenceWithIndex =
@@ -147,9 +147,9 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
                 );
                 break;
 
-              case UploadType.reels:
+              case UploadType.shorts:
                 if (!mimeType.startsWith('video/')) {
-                  throw Exception("❌ Reels can only contain video files.");
+                  throw Exception("❌ Shorts can only contain video files.");
                 }
                 downloadUrl = await storage.uploadFile(
                   file: File(file.path),

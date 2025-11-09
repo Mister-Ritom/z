@@ -1,38 +1,38 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class TweetModel {
+class ZapModel {
   final String id;
   final String userId;
   final String? originalUserId;
-  final String? parentTweetId; // For replies
-  final String? quotedTweetId; // For quote tweets
+  final String? parentZapId; // For replies
+  final String? quotedZapId; // For quote zaps
   final String text;
   final List<String> mediaUrls;
   final DateTime createdAt;
   final int likesCount;
-  final int retweetsCount;
+  final int rezapsCount;
   final int repliesCount;
   final bool isThread;
-  final bool isReel;
+  final bool isShort;
   final String? threadParentId;
   final List<String> hashtags;
   final List<String> mentions;
   final bool isDeleted;
   final DocumentSnapshot? docSnapshot;
 
-  TweetModel({
+  ZapModel({
     required this.id,
     required this.userId,
     this.originalUserId,
-    this.isReel = false,
+    this.isShort = false,
     this.docSnapshot,
-    this.parentTweetId,
-    this.quotedTweetId,
+    this.parentZapId,
+    this.quotedZapId,
     required this.text,
     this.mediaUrls = const [],
     required this.createdAt,
     this.likesCount = 0,
-    this.retweetsCount = 0,
+    this.rezapsCount = 0,
     this.repliesCount = 0,
     this.isThread = false,
     this.threadParentId,
@@ -41,23 +41,23 @@ class TweetModel {
     this.isDeleted = false,
   });
 
-  factory TweetModel.fromMap(
+  factory ZapModel.fromMap(
     Map<String, dynamic> map, {
     DocumentSnapshot? snapshot,
   }) {
-    return TweetModel(
+    return ZapModel(
       id: map['id'] ?? '',
-      isReel: map['isReel'] ?? false,
+      isShort: map['isShort'] ?? false,
       originalUserId: map['originalUserId'],
       docSnapshot: snapshot,
       userId: map['userId'] ?? '',
-      parentTweetId: map['parentTweetId'],
-      quotedTweetId: map['quotedTweetId'],
+      parentZapId: map['parentZapId'],
+      quotedZapId: map['quotedZapId'],
       text: map['text'] ?? '',
       mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       likesCount: map['likesCount'] ?? 0,
-      retweetsCount: map['retweetsCount'] ?? 0,
+      rezapsCount: map['rezapsCount'] ?? 0,
       repliesCount: map['repliesCount'] ?? 0,
       isThread: map['isThread'] ?? false,
       threadParentId: map['threadParentId'],
@@ -71,14 +71,14 @@ class TweetModel {
     return {
       'id': id,
       'userId': userId,
-      'isReel': isReel,
-      'parentTweetId': parentTweetId,
-      'quotedTweetId': quotedTweetId,
+      'isShort': isShort,
+      'parentZapId': parentZapId,
+      'quotedZapId': quotedZapId,
       'text': text,
       'mediaUrls': mediaUrls,
       'createdAt': createdAt,
       'likesCount': likesCount,
-      'retweetsCount': retweetsCount,
+      'rezapsCount': rezapsCount,
       'repliesCount': repliesCount,
       'isThread': isThread,
       'threadParentId': threadParentId,
@@ -88,38 +88,38 @@ class TweetModel {
     };
   }
 
-  TweetModel copyWith({
+  ZapModel copyWith({
     String? id,
     String? userId,
-    String? parentTweetId,
-    String? quotedTweetId,
+    String? parentZapId,
+    String? quotedZapId,
     String? text,
     List<String>? mediaUrls,
     DateTime? createdAt,
     int? likesCount,
-    int? retweetsCount,
+    int? rezapsCount,
     int? repliesCount,
     bool? isThread,
-    bool? isReel,
+    bool? isShort,
     String? threadParentId,
     List<String>? hashtags,
     List<String>? mentions,
     bool? isDeleted,
   }) {
-    return TweetModel(
+    return ZapModel(
       id: id ?? this.id,
       docSnapshot: docSnapshot,
       userId: userId ?? this.userId,
-      parentTweetId: parentTweetId ?? this.parentTweetId,
-      quotedTweetId: quotedTweetId ?? this.quotedTweetId,
+      parentZapId: parentZapId ?? this.parentZapId,
+      quotedZapId: quotedZapId ?? this.quotedZapId,
       text: text ?? this.text,
       mediaUrls: mediaUrls ?? this.mediaUrls,
       createdAt: createdAt ?? this.createdAt,
       likesCount: likesCount ?? this.likesCount,
-      retweetsCount: retweetsCount ?? this.retweetsCount,
+      rezapsCount: rezapsCount ?? this.rezapsCount,
       repliesCount: repliesCount ?? this.repliesCount,
       isThread: isThread ?? this.isThread,
-      isReel: isReel ?? this.isReel,
+      isShort: isShort ?? this.isShort,
       threadParentId: threadParentId ?? this.threadParentId,
       hashtags: hashtags ?? this.hashtags,
       mentions: mentions ?? this.mentions,

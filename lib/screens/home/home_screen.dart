@@ -9,8 +9,8 @@ import 'package:z/providers/storage_provider.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/profile_picture.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/tweet_provider.dart';
-import '../../widgets/tweet_card.dart';
+import '../../providers/zap_provider.dart';
+import '../../widgets/zap_card.dart';
 import '../../widgets/loading_shimmer.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -99,18 +99,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       unreadMessageCountProvider(currentUser.uid),
     );
     final uploads = ref.watch(uploadNotifierProvider);
-    final tweetUploads =
+    final zapUploads =
         uploads
             .where(
               (task) =>
-                  task.type == UploadType.tweet ||
-                  task.type == UploadType.reels,
+                  task.type == UploadType.zap || task.type == UploadType.shorts,
             )
             .toList();
     final totalProgress =
-        tweetUploads.isEmpty
+        zapUploads.isEmpty
             ? null
-            : tweetUploads.map((e) => e.progress).reduce((a, b) => a + b) /
+            : zapUploads.map((e) => e.progress).reduce((a, b) => a + b) /
                 uploads.length;
 
     return Scaffold(
@@ -147,8 +146,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         )
                         : null,
               ),
-              accountName: Text(currentUser.displayName ?? "No Name"),
-              accountEmail: Text(currentUser.email ?? "No Email"),
+              accountName: Text(
+                currentUser.displayName ?? "No Name",
+                style: TextTheme.of(context).bodyMedium,
+              ),
+              accountEmail: Text(
+                currentUser.email ?? "No Email",
+                style: TextTheme.of(context).bodyMedium,
+              ),
               currentAccountPicture: InkWell(
                 onTap: () {
                   Navigator.pop(context);
@@ -392,10 +397,10 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
 
   @override
   Widget build(BuildContext context) {
-    final tweets = ref.watch(forYouFeed);
+    final zaps = ref.watch(forYouFeed);
 
-    if (tweets.isEmpty) {
-      return const Center(child: Text('No tweets yet'));
+    if (zaps.isEmpty) {
+      return const Center(child: Text('No zaps yet'));
     }
 
     return RefreshIndicator(
@@ -403,10 +408,10 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: tweets.length,
+        itemCount: zaps.length,
         itemBuilder: (context, index) {
-          final tweet = tweets[index];
-          return TweetCard(tweet: tweet);
+          final zap = zaps[index];
+          return ZapCard(zap: zap);
         },
       ),
     );
@@ -419,26 +424,26 @@ class _FollowingTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tweetsAsync = ref.watch(followingFeedProvider(userId));
-    return tweetsAsync.when(
-      data: (tweets) {
-        if (tweets.isEmpty) {
+    final zapsAsync = ref.watch(followingFeedProvider(userId));
+    return zapsAsync.when(
+      data: (zaps) {
+        if (zaps.isEmpty) {
           return const Center(
-            child: Text('Follow users to see their tweets here'),
+            child: Text('Follow users to see their zaps here'),
           );
         }
         return ListView.builder(
-          itemCount: tweets.length,
+          itemCount: zaps.length,
           itemBuilder: (context, index) {
-            final tweet = tweets[index];
-            return TweetCard(tweet: tweet);
+            final zap = zaps[index];
+            return ZapCard(zap: zap);
           },
         );
       },
       loading:
           () => ListView.builder(
             itemCount: 10,
-            itemBuilder: (context, index) => const TweetCardShimmer(),
+            itemBuilder: (context, index) => const ZapCardShimmer(),
           ),
       error: (e, st) {
         log("Error: $e");

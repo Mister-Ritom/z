@@ -7,13 +7,13 @@ import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:z/models/comment_model.dart';
-import 'package:z/models/tweet_model.dart';
+import 'package:z/models/zap_model.dart';
 import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
-import 'package:z/providers/tweet_provider.dart';
+import 'package:z/providers/zap_provider.dart';
 import 'package:z/utils/constants.dart';
-import 'package:z/widgets/tweet_card.dart';
+import 'package:z/widgets/zap_card.dart';
 import 'package:z/widgets/video_player_widget.dart';
 
 final videoLikedStreamProvider =
@@ -47,17 +47,17 @@ final videoSharesStreamProvider = StreamProvider.family<int, String>((
   return service.sharesStream(videoId);
 });
 
-class ReelVideoWidget extends ConsumerWidget {
+class ShortVideoWidget extends ConsumerWidget {
   final Size screenSize;
-  final TweetModel tweet;
+  final ZapModel zap;
   final bool shouldPlay;
   final void Function(VideoPlayerController controller) onControllerChange;
   final void Function()? onUserTap;
 
-  const ReelVideoWidget({
+  const ShortVideoWidget({
     super.key,
     required this.screenSize,
-    required this.tweet,
+    required this.zap,
     required this.shouldPlay,
     required this.onControllerChange,
     this.onUserTap,
@@ -71,25 +71,23 @@ class ReelVideoWidget extends ConsumerWidget {
       return const Text("Sign in");
     }
 
-    final userAsync = ref.watch(userProfileProvider(tweet.userId));
+    final userAsync = ref.watch(userProfileProvider(zap.userId));
     final isLikedStream = ref.watch(
-      videoLikedStreamProvider((currentUser.uid, tweet.id)),
+      videoLikedStreamProvider((currentUser.uid, zap.id)),
     );
-    final commentsStream = ref.watch(
-      videoCommentsCountStreamProvider(tweet.id),
-    );
-    final sharesStream = ref.watch(videoSharesStreamProvider(tweet.id));
+    final commentsStream = ref.watch(videoCommentsCountStreamProvider(zap.id));
+    final sharesStream = ref.watch(videoSharesStreamProvider(zap.id));
 
     final analytics = ref.read(shortVideoAnalyticsProvider);
     final isBookmarkedAsync = ref.watch(
-      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser.uid)),
+      isBookmarkedProvider((zapId: zap.id, userId: currentUser.uid)),
     );
-    final isBookmarking = ref.watch(bookmarkingProvider(tweet.id));
+    final isBookmarking = ref.watch(bookmarkingProvider(zap.id));
 
     final isFollowingAsync = ref.watch(
       isFollowingProvider({
         'currentUserId': currentUser.uid,
-        'targetUserId': tweet.userId,
+        'targetUserId': zap.userId,
       }),
     );
     final isFollowing = isFollowingAsync.valueOrNull ?? false;
@@ -109,7 +107,7 @@ class ReelVideoWidget extends ConsumerWidget {
                 Center(
                   child: VideoPlayerWidget(
                     isFile: false,
-                    url: tweet.mediaUrls[0],
+                    url: zap.mediaUrls[0],
                     isPlaying: shouldPlay,
                     onControllerChange: onControllerChange,
                     disableFullscreen: true,
@@ -133,8 +131,8 @@ class ReelVideoWidget extends ConsumerWidget {
                         onTap: () async {
                           await analytics.toggleLike(
                             currentUser.uid,
-                            tweet.id,
-                            tweet.hashtags,
+                            zap.id,
+                            zap.hashtags,
                           );
                         },
                       ),
@@ -149,7 +147,7 @@ class ReelVideoWidget extends ConsumerWidget {
                             backgroundColor: Colors.transparent,
                             builder:
                                 (_) => CommentSheet(
-                                  tweetId: tweet.id,
+                                  zapId: zap.id,
                                   currentUserId: currentUser.uid,
                                 ),
                           );
@@ -160,11 +158,11 @@ class ReelVideoWidget extends ConsumerWidget {
                         Icons.share_outlined,
                         sharesStream.valueOrNull,
                         onTap: () async {
-                          await analytics.share(tweet.id);
+                          await analytics.share(zap.id);
                           await SharePlus.instance.share(
                             ShareParams(
                               text:
-                                  "Check out ${user?.displayName}'s reel: ${AppConstants.appUrl}/reel/${tweet.id}",
+                                  "Check out ${user?.displayName}'s short: ${AppConstants.appUrl}/short/${zap.id}",
                             ),
                           );
                         },
@@ -182,38 +180,36 @@ class ReelVideoWidget extends ConsumerWidget {
                             isBookmarking
                                 ? null
                                 : () async {
-                                  final tweetService = ref.read(
-                                    tweetServiceProvider,
+                                  final zapService = ref.read(
+                                    zapServiceProvider(true),
                                   );
                                   ref
                                       .read(
-                                        bookmarkingProvider(tweet.id).notifier,
+                                        bookmarkingProvider(zap.id).notifier,
                                       )
                                       .state = true;
                                   try {
                                     if (isBookmarked) {
-                                      await tweetService.removeBookmark(
-                                        tweet.id,
+                                      await zapService.removeBookmark(
+                                        zap.id,
                                         currentUser.uid,
                                       );
                                     } else {
-                                      await tweetService.bookmarkTweet(
-                                        tweet.id,
+                                      await zapService.bookmarkZap(
+                                        zap.id,
                                         currentUser.uid,
                                       );
                                     }
                                     ref.invalidate(
                                       isBookmarkedProvider((
-                                        tweetId: tweet.id,
+                                        zapId: zap.id,
                                         userId: currentUser.uid,
                                       )),
                                     );
                                   } finally {
                                     ref
                                         .read(
-                                          bookmarkingProvider(
-                                            tweet.id,
-                                          ).notifier,
+                                          bookmarkingProvider(zap.id).notifier,
                                         )
                                         .state = false;
                                   }
@@ -280,7 +276,7 @@ class ReelVideoWidget extends ConsumerWidget {
                                   ],
                                 ),
                                 Text(
-                                  '@${user?.username} · ${timeago.format(tweet.createdAt)}',
+                                  '@${user?.username} · ${timeago.format(zap.createdAt)}',
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -288,7 +284,7 @@ class ReelVideoWidget extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  tweet.text,
+                                  zap.text,
                                   style: const TextStyle(color: Colors.white),
                                 ),
                               ],
@@ -360,11 +356,11 @@ class ReelVideoWidget extends ConsumerWidget {
 }
 
 class CommentSheet extends ConsumerStatefulWidget {
-  final String tweetId;
+  final String zapId;
   final String currentUserId;
   const CommentSheet({
     super.key,
-    required this.tweetId,
+    required this.zapId,
     required this.currentUserId,
   });
 
@@ -377,7 +373,7 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final tweetService = ref.read(tweetServiceProvider);
+    final zapService = ref.read(zapServiceProvider(true));
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.3,
@@ -402,8 +398,8 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
               ),
               Expanded(
                 child: StreamBuilder<List<CommentModel>>(
-                  stream: tweetService.streamCommentsForPostPaginated(
-                    widget.tweetId,
+                  stream: zapService.streamCommentsForPostPaginated(
+                    widget.zapId,
                     50,
                   ),
                   builder: (context, snapshot) {
@@ -445,12 +441,12 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                       if (text.isEmpty) return;
                       final comment = CommentModel(
                         id: const Uuid().v4(),
-                        postId: widget.tweetId,
+                        postId: widget.zapId,
                         userId: widget.currentUserId,
                         text: text,
                         createdAt: DateTime.now(),
                       );
-                      await tweetService.addComment(comment);
+                      await zapService.addComment(comment);
                       _controller.clear();
                     },
                   ),

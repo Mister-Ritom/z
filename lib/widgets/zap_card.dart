@@ -13,31 +13,31 @@ import 'package:z/utils/constants.dart';
 import 'package:z/widgets/loading_shimmer.dart';
 import 'package:z/widgets/media_carousel.dart';
 import 'package:z/widgets/profile_picture.dart';
-import '../models/tweet_model.dart';
+import '../models/zap_model.dart';
 import '../models/user_model.dart';
-import '../providers/tweet_provider.dart';
+import '../providers/zap_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/helpers.dart';
-import '../info/tweet/tweet_detail_screen.dart';
+import '../info/zap/zap_detail_screen.dart';
 
-final retweetingProvider = StateProvider.family<bool, String>(
-  (ref, tweetId) => false,
+final rezapingProvider = StateProvider.family<bool, String>(
+  (ref, zapId) => false,
 );
 final likingProvider = StateProvider.family<bool, String>(
-  (ref, tweetId) => false,
+  (ref, zapId) => false,
 );
 final bookmarkingProvider = StateProvider.family<bool, String>(
-  (ref, tweetId) => false,
+  (ref, zapId) => false,
 );
 
-class TweetCard extends ConsumerWidget {
-  final TweetModel tweet;
+class ZapCard extends ConsumerWidget {
+  final ZapModel zap;
   final bool showThreadLine;
   final Function()? onTap;
 
-  const TweetCard({
+  const ZapCard({
     super.key,
-    required this.tweet,
+    required this.zap,
     this.showThreadLine = false,
     this.onTap,
   });
@@ -91,7 +91,7 @@ class TweetCard extends ConsumerWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                timeago.format(tweet.createdAt),
+                timeago.format(zap.createdAt),
                 style: Theme.of(
                   context,
                 ).textTheme.labelMedium?.copyWith(color: Colors.blueGrey),
@@ -104,7 +104,7 @@ class TweetCard extends ConsumerWidget {
           ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
         );
       },
-      loading: () => const TweetCardShimmer(),
+      loading: () => const ZapCardShimmer(),
       error: (_, __) => const SizedBox.shrink(),
     );
   }
@@ -117,19 +117,19 @@ class TweetCard extends ConsumerWidget {
       return const Text("Sign in");
     }
 
-    final userAsync = ref.watch(userProfileProvider(tweet.userId));
+    final userAsync = ref.watch(userProfileProvider(zap.userId));
     final originalUserAsync =
-        tweet.originalUserId != null
-            ? ref.watch(userProfileProvider(tweet.originalUserId!))
+        zap.originalUserId != null
+            ? ref.watch(userProfileProvider(zap.originalUserId!))
             : userAsync;
     final isBookmarked = ref.watch(
-      isBookmarkedProvider((tweetId: tweet.id, userId: currentUser.uid)),
+      isBookmarkedProvider((zapId: zap.id, userId: currentUser.uid)),
     );
     final isLikedStream = ref.watch(
-      postLikedStreamProvider((currentUser.uid, tweet.id)),
+      postLikedStreamProvider((currentUser.uid, zap.id)),
     );
 
-    final mediaUrls = tweet.mediaUrls;
+    final mediaUrls = zap.mediaUrls;
 
     return InkWell(
       onTap: onTap,
@@ -165,14 +165,11 @@ class TweetCard extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Text(
-                tweet.text,
+                zap.text,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
-            MediaCarousel(
-              mediaUrls: mediaUrls,
-              isVideo: (s) => s.endsWith(".mp4") || s.endsWith(".mov"),
-            ),
+            MediaCarousel(mediaUrls: mediaUrls),
             const SizedBox(height: 12),
             isLikedStream.when(
               data:
@@ -213,12 +210,12 @@ class TweetCard extends ConsumerWidget {
     bool isBookmarked,
     String currentUserId,
   ) {
-    final isRetweeting = ref.watch(retweetingProvider(tweet.id));
-    final isLiking = ref.watch(likingProvider(tweet.id));
-    final isBookmarking = ref.watch(bookmarkingProvider(tweet.id));
+    final isRezaping = ref.watch(rezapingProvider(zap.id));
+    final isLiking = ref.watch(likingProvider(zap.id));
+    final isBookmarking = ref.watch(bookmarkingProvider(zap.id));
 
     final postAnalytics = ref.read(postAnalyticsProvider);
-    final tweetService = ref.read(tweetServiceProvider);
+    final zapService = ref.read(zapServiceProvider(false));
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -226,12 +223,12 @@ class TweetCard extends ConsumerWidget {
         _buildActionButton(
           context,
           Icons.chat_bubble_outline,
-          tweet.repliesCount,
+          zap.repliesCount,
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => TweetDetailScreen(tweetId: tweet.id),
+                builder: (context) => ZapDetailScreen(zapId: zap.id),
               ),
             );
           },
@@ -240,25 +237,23 @@ class TweetCard extends ConsumerWidget {
           context,
           Icons.repeat,
           null,
-          isLoading: isRetweeting,
+          isLoading: isRezaping,
           onTap:
-              isRetweeting
+              isRezaping
                   ? null
                   : () async {
-                    if (tweet.userId == currentUserId) {
+                    if (zap.userId == currentUserId) {
                       return;
                     }
-                    ref.read(retweetingProvider(tweet.id).notifier).state =
-                        true;
+                    ref.read(rezapingProvider(zap.id).notifier).state = true;
                     try {
                       await postAnalytics.repostPost(
-                        originalPostId: tweet.id,
+                        originalPostId: zap.id,
                         currentUserId: currentUserId,
-                        originalUserId: tweet.userId,
+                        originalUserId: zap.userId,
                       );
                     } finally {
-                      ref.read(retweetingProvider(tweet.id).notifier).state =
-                          false;
+                      ref.read(rezapingProvider(zap.id).notifier).state = false;
                     }
                   },
         ),
@@ -272,15 +267,15 @@ class TweetCard extends ConsumerWidget {
               isLiking
                   ? null
                   : () async {
-                    ref.read(likingProvider(tweet.id).notifier).state = true;
+                    ref.read(likingProvider(zap.id).notifier).state = true;
                     try {
                       await postAnalytics.toggleLike(
                         currentUserId,
-                        tweet.id,
-                        tweet.hashtags,
+                        zap.id,
+                        zap.hashtags,
                       );
                     } finally {
-                      ref.read(likingProvider(tweet.id).notifier).state = false;
+                      ref.read(likingProvider(zap.id).notifier).state = false;
                     }
                   },
         ),
@@ -290,14 +285,13 @@ class TweetCard extends ConsumerWidget {
           null,
           onTap: () async {
             final file =
-                tweet.mediaUrls.isNotEmpty
-                    ? await cachedImageToXFile(tweet.mediaUrls[0])
+                zap.mediaUrls.isNotEmpty
+                    ? await cachedImageToXFile(zap.mediaUrls[0])
                     : null;
 
-            await postAnalytics.share(tweet.id);
+            await postAnalytics.share(zap.id);
 
-            final user =
-                ref.read(userProfileProvider(tweet.userId)).valueOrNull;
+            final user = ref.read(userProfileProvider(zap.userId)).valueOrNull;
             await SharePlus.instance.share(
               ShareParams(
                 title:
@@ -305,7 +299,7 @@ class TweetCard extends ConsumerWidget {
                         ? "Share ${user.displayName}'s post"
                         : "Share Post",
                 text:
-                    "Check out this post: ${AppConstants.appUrl}/tweet/${tweet.id}",
+                    "Check out this post: ${AppConstants.appUrl}/zap/${zap.id}",
                 previewThumbnail: file,
                 excludedCupertinoActivities: [
                   CupertinoActivityType.addToHomeScreen,
@@ -330,28 +324,21 @@ class TweetCard extends ConsumerWidget {
               isBookmarking
                   ? null
                   : () async {
-                    ref.read(bookmarkingProvider(tweet.id).notifier).state =
-                        true;
+                    ref.read(bookmarkingProvider(zap.id).notifier).state = true;
                     try {
                       if (isBookmarked) {
-                        await tweetService.removeBookmark(
-                          tweet.id,
-                          currentUserId,
-                        );
+                        await zapService.removeBookmark(zap.id, currentUserId);
                       } else {
-                        await tweetService.bookmarkTweet(
-                          tweet.id,
-                          currentUserId,
-                        );
+                        await zapService.bookmarkZap(zap.id, currentUserId);
                       }
                       ref.invalidate(
                         isBookmarkedProvider((
-                          tweetId: tweet.id,
+                          zapId: zap.id,
                           userId: currentUserId,
                         )),
                       );
                     } finally {
-                      ref.read(bookmarkingProvider(tweet.id).notifier).state =
+                      ref.read(bookmarkingProvider(zap.id).notifier).state =
                           false;
                     }
                   },

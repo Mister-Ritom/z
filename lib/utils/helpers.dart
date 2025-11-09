@@ -94,7 +94,7 @@ class Helpers {
     required String userId,
     required String fromUserId,
     required NotificationType type,
-    String? tweetId,
+    String? zapId,
   }) async {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
     final notification = NotificationModel(
@@ -102,7 +102,7 @@ class Helpers {
       userId: userId,
       fromUserId: fromUserId,
       type: type,
-      tweetId: tweetId,
+      zapId: zapId,
       createdAt: DateTime.now(),
     );
 
@@ -113,7 +113,10 @@ class Helpers {
   }
 
   static bool isVideoPath(String path) {
-    return path.endsWith(".mp4") || path.endsWith(".mov");
+    final decoded = Uri.decodeFull(path).toLowerCase();
+    final uri = Uri.tryParse(decoded);
+    final filePath = uri?.path ?? decoded;
+    return filePath.endsWith('.mp4') || filePath.endsWith('.mov');
   }
 
   static bool get isGlassSupported =>

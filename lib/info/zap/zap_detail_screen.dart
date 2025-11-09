@@ -2,32 +2,32 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/tweet_provider.dart';
+import '../../providers/zap_provider.dart';
 import '../../providers/profile_provider.dart';
-import '../../widgets/tweet_card.dart';
+import '../../widgets/zap_card.dart';
 import '../../widgets/loading_shimmer.dart';
-import '../../widgets/tweet_composer.dart';
+import '../../widgets/zap_composer.dart';
 
-class TweetDetailScreen extends ConsumerWidget {
-  final String tweetId;
+class ZapDetailScreen extends ConsumerWidget {
+  final String zapId;
 
-  const TweetDetailScreen({super.key, required this.tweetId});
+  const ZapDetailScreen({super.key, required this.zapId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tweetAsync = ref.watch(tweetProvider(tweetId));
-    final repliesAsync = ref.watch(tweetRepliesProvider(tweetId));
+    final zapAsync = ref.watch(zapProvider(zapId));
+    final repliesAsync = ref.watch(zapRepliesProvider(zapId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tweet')),
-      body: tweetAsync.when(
-        data: (tweet) {
-          if (tweet == null) {
-            return const Center(child: Text('Tweet not found'));
+      appBar: AppBar(title: const Text('Zap')),
+      body: zapAsync.when(
+        data: (zap) {
+          if (zap == null) {
+            return const Center(child: Text('Zap not found'));
           }
 
-          // Get user for tweet
-          final userAsync = ref.watch(userProfileProvider(tweet.userId));
+          // Get user for zap
+          final userAsync = ref.watch(userProfileProvider(zap.userId));
 
           return userAsync.when(
             data: (user) {
@@ -39,8 +39,8 @@ class TweetDetailScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Main tweet
-                    TweetCard(tweet: tweet),
+                    // Main zap
+                    ZapCard(zap: zap),
                     const Divider(),
                     // Reply composer button
                     Padding(
@@ -52,7 +52,7 @@ class TweetDetailScreen extends ConsumerWidget {
                             MaterialPageRoute(
                               builder:
                                   (context) =>
-                                      TweetComposer(replyToTweetId: tweet.id),
+                                      ZapComposer(replyToZapId: zap.id),
                             ),
                           );
                         },
@@ -93,23 +93,23 @@ class TweetDetailScreen extends ConsumerWidget {
                                 if (replyUser == null) {
                                   return Text("Something went wrong");
                                 }
-                                return TweetCard(
-                                  tweet: reply,
+                                return ZapCard(
+                                  zap: reply,
                                   showThreadLine: true,
                                   onTap: () {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder:
-                                            (context) => TweetDetailScreen(
-                                              tweetId: reply.id,
+                                            (context) => ZapDetailScreen(
+                                              zapId: reply.id,
                                             ),
                                       ),
                                     );
                                   },
                                 );
                               },
-                              loading: () => const TweetCardShimmer(),
+                              loading: () => const ZapCardShimmer(),
                               error: (_, __) => const SizedBox.shrink(),
                             );
                           },
@@ -121,7 +121,7 @@ class TweetDetailScreen extends ConsumerWidget {
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: 3,
                             itemBuilder:
-                                (context, index) => const TweetCardShimmer(),
+                                (context, index) => const ZapCardShimmer(),
                           ),
                       error: (error, stack) {
                         log("Error: $error");

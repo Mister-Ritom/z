@@ -2,9 +2,9 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/profile_provider.dart';
-import '../../providers/tweet_provider.dart';
+import '../../providers/zap_provider.dart';
 import '../../widgets/user_card.dart';
-import '../../widgets/tweet_card.dart'; // assume you have a TweetCard widget
+import '../../widgets/zap_card.dart'; // assume you have a ZapCard widget
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -26,7 +26,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final searchUsersAsync = ref.watch(searchUsersProvider(_searchQuery));
-    final searchTweetsAsync = ref.watch(searchTweetsProvider(_searchQuery));
+    final searchZapsAsync = ref.watch(searchZapsProvider(_searchQuery));
 
     final isEmptyQuery = _searchQuery.trim().isEmpty;
 
@@ -35,7 +35,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         title: TextField(
           controller: _searchController,
           decoration: const InputDecoration(
-            hintText: 'Search users or tweets',
+            hintText: 'Search users or zaps',
             border: InputBorder.none,
           ),
           onChanged: (value) {
@@ -48,36 +48,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body:
           isEmptyQuery
               ? const Center(
-                child: Text('Search for users, tweets, or hashtags'),
+                child: Text('Search for users, zaps, or hashtags'),
               )
-              : _buildCombinedResults(searchUsersAsync, searchTweetsAsync),
+              : _buildCombinedResults(searchUsersAsync, searchZapsAsync),
     );
   }
 
   Widget _buildCombinedResults(
     AsyncValue<List<dynamic>> usersAsync,
-    AsyncValue<List<dynamic>> tweetsAsync,
+    AsyncValue<List<dynamic>> zapsAsync,
   ) {
     // Combine both async values manually
-    if (usersAsync.isLoading || tweetsAsync.isLoading) {
+    if (usersAsync.isLoading || zapsAsync.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (usersAsync.hasError || tweetsAsync.hasError) {
+    if (usersAsync.hasError || zapsAsync.hasError) {
       log(
         "Search Error",
-        error: usersAsync.error ?? tweetsAsync.error,
-        stackTrace: usersAsync.stackTrace ?? tweetsAsync.stackTrace,
+        error: usersAsync.error ?? zapsAsync.error,
+        stackTrace: usersAsync.stackTrace ?? zapsAsync.stackTrace,
       );
       return Center(
-        child: Text('Error: ${usersAsync.error ?? tweetsAsync.error}'),
+        child: Text('Error: ${usersAsync.error ?? zapsAsync.error}'),
       );
     }
 
     final users = usersAsync.value ?? [];
-    final tweets = tweetsAsync.value ?? [];
+    final zaps = zapsAsync.value ?? [];
 
-    if (users.isEmpty && tweets.isEmpty) {
+    if (users.isEmpty && zaps.isEmpty) {
       return const Center(child: Text('No results found'));
     }
 
@@ -101,16 +101,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const Divider(height: 32),
         ],
-        if (tweets.isNotEmpty) ...[
+        if (zaps.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.all(12),
             child: Text(
-              'Tweets',
+              'Zaps',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ),
-          ...tweets.map((tweet) {
-            return TweetCard(tweet: tweet);
+          ...zaps.map((zap) {
+            return ZapCard(zap: zap);
           }),
         ],
       ],

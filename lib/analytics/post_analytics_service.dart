@@ -12,12 +12,12 @@ class PostAnalyticsService {
       .doc(
         isShortVideo
             ? AppConstants.shortsCollection
-            : AppConstants.tweetsCollection,
+            : AppConstants.zapsCollection,
       )
       .collection(
         isShortVideo
             ? AppConstants.shortsCollection
-            : AppConstants.tweetsCollection,
+            : AppConstants.zapsCollection,
       );
 
   DocumentReference _userInteractionRef(String userId, String id) => firestore
@@ -26,7 +26,7 @@ class PostAnalyticsService {
       .collection(
         isShortVideo
             ? AppConstants.shortsCollection
-            : AppConstants.tweetsCollection,
+            : AppConstants.zapsCollection,
       )
       .doc(id);
 
@@ -130,7 +130,7 @@ class PostAnalyticsService {
     required String originalUserId,
     required String currentUserId,
   }) async {
-    final postsRef = firestore.collection(AppConstants.tweetsCollection);
+    final postsRef = firestore.collection(AppConstants.zapsCollection);
     final originalPostRef = postsRef.doc(originalPostId);
     final analyticsRef = _analytics.doc(originalPostId);
 
@@ -172,7 +172,7 @@ class PostAnalyticsService {
         .collection(
           isShortVideo
               ? AppConstants.shortsCollection
-              : AppConstants.tweetsCollection,
+              : AppConstants.zapsCollection,
         )
         .where('reshared', isEqualTo: true)
         .snapshots()
@@ -202,7 +202,7 @@ class PostAnalyticsService {
         .collection(
           isShortVideo
               ? AppConstants.shortsCollection
-              : AppConstants.tweetsCollection,
+              : AppConstants.zapsCollection,
         )
         .where('liked', isEqualTo: true)
         .snapshots()

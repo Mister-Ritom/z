@@ -2,9 +2,9 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:z/providers/tweet_provider.dart';
+import 'package:z/providers/zap_provider.dart';
 import 'package:z/providers/auth_provider.dart';
-import 'package:z/widgets/tweet_card.dart';
+import 'package:z/widgets/zap_card.dart';
 
 class BookmarksScreen extends ConsumerWidget {
   const BookmarksScreen({super.key});
@@ -16,28 +16,28 @@ class BookmarksScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final bookmarkedTweets = ref.watch(
-      userBookmarkedTweetsProvider(currentUser.id),
+    final bookmarkedZaps = ref.watch(
+      userBookmarkedZapsProvider(currentUser.id),
     );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Bookmarks')),
-      body: bookmarkedTweets.when(
+      body: bookmarkedZaps.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) {
           log("Error", error: e, stackTrace: st);
           return Center(child: Text('Error: $e'));
         },
-        data: (tweets) {
-          if (tweets.isEmpty) {
+        data: (zaps) {
+          if (zaps.isEmpty) {
             return const Center(child: Text('No bookmarks yet'));
           }
           return ListView.separated(
-            itemCount: tweets.length,
+            itemCount: zaps.length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              final tweet = tweets[index];
-              return TweetCard(tweet: tweet);
+              final zap = zaps[index];
+              return ZapCard(zap: zap);
             },
           );
         },

@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
-import 'package:z/providers/tweet_provider.dart';
-import 'package:z/widgets/reel_video_widget.dart';
+import 'package:z/providers/zap_provider.dart';
+import 'package:z/widgets/short_video_widget.dart';
 
-class ReelsScreen extends ConsumerStatefulWidget {
+class ShortsScreen extends ConsumerStatefulWidget {
   final bool isActive; // parent tells if this page is active
-  const ReelsScreen({super.key, required this.isActive});
+  const ShortsScreen({super.key, required this.isActive});
 
   @override
-  ConsumerState<ReelsScreen> createState() => _ReelsScreenState();
+  ConsumerState<ShortsScreen> createState() => _ShortsScreenState();
 }
 
-class _ReelsScreenState extends ConsumerState<ReelsScreen>
+class _ShortsScreenState extends ConsumerState<ShortsScreen>
     with AutomaticKeepAliveClientMixin {
   final PageController _pageController = PageController(viewportFraction: 0.99);
   VideoPlayerController? _currentController;
@@ -34,7 +34,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   }
 
   @override
-  void didUpdateWidget(covariant ReelsScreen oldWidget) {
+  void didUpdateWidget(covariant ShortsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     // Page became inactive → pause
@@ -73,9 +73,9 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
           80,
     );
 
-    final tweets = ref.watch(forYouFeed).reversed.toList();
+    final zaps = ref.watch(forYouFeed).reversed.toList();
 
-    if (tweets.isEmpty) {
+    if (zaps.isEmpty) {
       return Scaffold(
         body: RefreshIndicator(
           onRefresh: _onRefresh,
@@ -84,7 +84,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
             children: const [
               SizedBox(
                 height: 500,
-                child: Center(child: Text('No tweets yet')),
+                child: Center(child: Text('No zaps yet')),
               ),
             ],
           ),
@@ -98,21 +98,21 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
       body: RefreshIndicator(
         onRefresh: _onRefresh,
         child: PageView.builder(
-          key: const PageStorageKey('reelsPageView'),
+          key: const PageStorageKey('shortsPageView'),
 
           scrollDirection: Axis.vertical,
           controller: _pageController,
-          itemCount: tweets.length,
+          itemCount: zaps.length,
           onPageChanged: (index) {
             setState(() {
               _currentIndex = index;
             });
           },
           itemBuilder: (context, index) {
-            final tweet = tweets[index];
-            return ReelVideoWidget(
+            final zap = zaps[index];
+            return ShortVideoWidget(
               screenSize: screenSize,
-              tweet: tweet,
+              zap: zap,
               shouldPlay: widget.isActive && index == _currentIndex,
               onControllerChange:
                   (controller) => setState(() {

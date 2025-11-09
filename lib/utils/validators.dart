@@ -31,12 +31,12 @@ class Validators {
     return null;
   }
 
-  static String? tweet(String? value) {
+  static String? zap(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Tweet cannot be empty';
+      return 'Zap cannot be empty';
     }
     if (value.length > 280) {
-      return 'Tweet cannot exceed 280 characters';
+      return 'Zap cannot exceed 280 characters';
     }
     return null;
   }

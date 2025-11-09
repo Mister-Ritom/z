@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/app_image.dart';
 import 'package:z/widgets/photo_view_screen.dart';
 import 'package:z/widgets/video_player_widget.dart';
 
 class MediaCarousel extends StatefulWidget {
   final List<String> mediaUrls;
-  final bool Function(String s) isVideo;
   final double maxHeight;
 
   const MediaCarousel({
     super.key,
     required this.mediaUrls,
-    required this.isVideo,
     this.maxHeight = 400,
   });
 
@@ -93,7 +92,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
             final itemHeight = (itemWidth / ratio).clamp(100, widget.maxHeight);
 
             final child =
-                widget.isVideo(url)
+                Helpers.isVideoPath(url)
                     ? VideoPlayerWidget(
                       isFile: false,
                       url: url,
@@ -126,7 +125,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                                 (_) => PhotoViewScreen(
                                   images:
                                       widget.mediaUrls
-                                          .where((s) => !widget.isVideo(s))
+                                          .where((s) => !Helpers.isVideoPath(s))
                                           .toList(),
                                   initialIndex: index,
                                 ),

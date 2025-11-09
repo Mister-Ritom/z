@@ -2,7 +2,7 @@ class MessageModel {
   final String id;
   final String conversationId;
   final String senderId;
-  final String receiverId;
+  final List<String> receiverIds;
   final String text;
   final List<String>? mediaUrls;
   final DateTime createdAt;
@@ -13,7 +13,7 @@ class MessageModel {
     required this.id,
     required this.conversationId,
     required this.senderId,
-    required this.receiverId,
+    required this.receiverIds,
     required this.text,
     this.mediaUrls,
     required this.createdAt,
@@ -26,7 +26,7 @@ class MessageModel {
       id: map['id'] ?? '',
       conversationId: map['conversationId'] ?? '',
       senderId: map['senderId'] ?? '',
-      receiverId: map['receiverId'] ?? '',
+      receiverIds: map['receiverIds'] ?? '',
       text: map['text'] ?? '',
       mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
@@ -40,7 +40,7 @@ class MessageModel {
       'id': id,
       'conversationId': conversationId,
       'senderId': senderId,
-      'receiverId': receiverId,
+      'receiverIds': receiverIds,
       'text': text,
       'mediaUrls': mediaUrls,
       'createdAt': createdAt,
@@ -52,8 +52,7 @@ class MessageModel {
 
 class ConversationModel {
   final String id;
-  final String user1Id;
-  final String user2Id;
+  final List<String> recipients;
   final DateTime lastMessageAt;
   final String? lastMessage;
   final String? lastMessageSender;
@@ -61,8 +60,7 @@ class ConversationModel {
 
   ConversationModel({
     required this.id,
-    required this.user1Id,
-    required this.user2Id,
+    required this.recipients,
     required this.lastMessageAt,
     this.lastMessageSender,
     this.lastMessage,
@@ -72,8 +70,7 @@ class ConversationModel {
   factory ConversationModel.fromMap(Map<String, dynamic> map) {
     return ConversationModel(
       id: map['id'] ?? '',
-      user1Id: map['user1Id'] ?? '',
-      user2Id: map['user2Id'] ?? '',
+      recipients: map['recipients'],
       lastMessageAt: map['lastMessageAt']?.toDate() ?? DateTime.now(),
       lastMessage: map['lastMessage'],
       unreadCount: map['unreadCount'] ?? 0,
@@ -84,8 +81,7 @@ class ConversationModel {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'user1Id': user1Id,
-      'user2Id': user2Id,
+      'recipients': recipients,
       'lastMessageAt': lastMessageAt,
       'lastMessage': lastMessage,
       'unreadCount': unreadCount,

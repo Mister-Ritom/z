@@ -101,6 +101,6 @@ class DarkTheme {
   static const Color textSecondary = Color(0xFF8B98A5);
   static const Color borderColor = Color(0xFF2F3336);
   static const Color hoverColor = Color(0xFF16181C);
-  static const Color retweetColor = Color(0xFF00BA7C);
+  static const Color rezapColor = Color(0xFF00BA7C);
   static const Color likeColor = Color(0xFFF91880);
 }

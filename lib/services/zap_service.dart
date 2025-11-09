@@ -1,47 +1,48 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/models/comment_model.dart';
-import '../models/tweet_model.dart';
+import '../models/zap_model.dart';
 import '../models/notification_model.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 
-class TweetService {
+class ZapService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final bool isShort;
 
-  Query _tweetQuery({bool? isReel, bool parentOnly = true}) {
-    Query query = _firestore
-        .collection(AppConstants.tweetsCollection)
-        .where('isDeleted', isEqualTo: false);
+  ZapService({required this.isShort});
 
-    if (isReel != null) query = query.where('isReel', isEqualTo: isReel);
-    if (parentOnly) query = query.where('parentTweetId', isNull: true);
+  CollectionReference get _collection => _firestore.collection(
+    isShort ? AppConstants.shortsCollection : AppConstants.zapsCollection,
+  );
 
+  Query _zapQuery({bool parentOnly = true}) {
+    Query query = _collection.where('isDeleted', isEqualTo: false);
+    if (parentOnly && !isShort) {
+      query = query.where('parentZapId', isNull: true);
+    }
     return query;
   }
 
-  Future<List<TweetModel>> searchTweets(String query, {bool? isReel}) async {
+  Future<List<ZapModel>> searchZaps(String query) async {
     try {
       final lowerQuery = query.toLowerCase();
-      final tweetsRef = _firestore.collection(AppConstants.tweetsCollection);
 
       final hashtagResults =
-          await tweetsRef
+          await _collection
               .where('hashtags', arrayContains: lowerQuery)
               .where('isDeleted', isEqualTo: false)
-              .where('isReel', isEqualTo: isReel ?? false)
               .get();
 
       final mentionResults =
-          await tweetsRef
+          await _collection
               .where('mentions', arrayContains: lowerQuery)
               .where('isDeleted', isEqualTo: false)
-              .where('isReel', isEqualTo: isReel ?? false)
               .get();
 
       final textResults =
-          await tweetsRef
+          await _collection
               .where('isDeleted', isEqualTo: false)
-              .where('isReel', isEqualTo: isReel ?? false)
               .orderBy('text')
               .startAt([lowerQuery])
               .endAt(['$lowerQuery\uf8ff'])
@@ -54,80 +55,75 @@ class TweetService {
       ];
       final uniqueDocs = {for (var doc in allDocs) doc.id: doc}.values.toList();
 
-      final tweets =
+      final zaps =
           uniqueDocs
               .map((doc) {
                 if (doc.exists) {
-                  return TweetModel.fromMap({
-                    'id': doc.id,
-                    ...doc.data() as Map,
-                  });
+                  return ZapModel.fromMap({'id': doc.id, ...doc.data() as Map});
                 }
                 return null;
               })
-              .whereType<TweetModel>()
+              .whereType<ZapModel>()
               .toList();
 
-      tweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return tweets;
-    } catch (e) {
-      throw Exception('Failed to search tweets: $e');
+      zaps.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return zaps;
+    } catch (e, st) {
+      log('Error searching zaps', error: e, stackTrace: st);
+      throw Exception('Failed to search zaps: $e');
     }
   }
 
-  Future<TweetModel> createTweet({
-    required String tweetId,
+  Future<ZapModel> createZap({
+    required String zapId,
     required String userId,
     required String text,
     List<String> mediaUrls = const [],
-    String? parentTweetId,
-    String? quotedTweetId,
-    bool isReel = false,
+    String? parentZapId,
+    String? quotedZapId,
   }) async {
     try {
+      // Shorts cannot have parent or quoted zaps
+      final effectiveParentId = isShort ? null : parentZapId;
+      final effectiveQuotedId = isShort ? null : quotedZapId;
+
       final hashtags = Helpers.extractHashtags(text);
       final mentions = Helpers.extractMentions(text);
 
-      final tweet = TweetModel(
-        id: tweetId,
+      final zap = ZapModel(
+        id: zapId,
         userId: userId,
-        parentTweetId: parentTweetId,
-        quotedTweetId: quotedTweetId,
+        parentZapId: effectiveParentId,
+        quotedZapId: effectiveQuotedId,
         text: text,
         mediaUrls: mediaUrls,
         createdAt: DateTime.now(),
         hashtags: hashtags,
         mentions: mentions,
-        isReel: isReel,
+        isShort: isShort,
       );
 
-      await _firestore
-          .collection(
-            isReel
-                ? AppConstants.shortsCollection
-                : AppConstants.tweetsCollection,
-          )
-          .doc(tweet.id)
-          .set(tweet.toMap());
+      await _collection.doc(zap.id).set(zap.toMap());
 
       await _firestore
           .collection(AppConstants.usersCollection)
           .doc(userId)
-          .update({'tweetsCount': FieldValue.increment(1)});
+          .update({'zapsCount': FieldValue.increment(1)});
 
-      if (parentTweetId != null) {
+      // Replies only apply to normal zaps
+      if (!isShort && effectiveParentId != null) {
         await _firestore
-            .collection(AppConstants.tweetsCollection)
-            .doc(parentTweetId)
+            .collection(AppConstants.zapsCollection)
+            .doc(effectiveParentId)
             .update({'repliesCount': FieldValue.increment(1)});
 
-        final parentTweet = await getTweetById(parentTweetId);
-        if (parentTweet != null && parentTweet.userId != userId) {
+        final parentZap = await getZapById(effectiveParentId);
+        if (parentZap != null && parentZap.userId != userId) {
           await Helpers.createNotification(
-            userId: parentTweet.userId,
+            userId: parentZap.userId,
             fromUserId: userId,
             type: NotificationType.reply,
-            tweetId: tweet.id,
+            zapId: zap.id,
           );
         }
       }
@@ -140,107 +136,106 @@ class TweetService {
             userId: mentionedUser.id,
             fromUserId: userId,
             type: NotificationType.mention,
-            tweetId: tweet.id,
+            zapId: zap.id,
           );
         }
       }
 
-      return tweet;
-    } catch (e) {
-      throw Exception('Failed to create tweet: $e');
+      return zap;
+    } catch (e, st) {
+      log('Error creating zap', error: e, stackTrace: st);
+      throw Exception('Failed to create zap: $e');
     }
   }
 
-  Future<TweetModel?> getTweetById(String tweetId) async {
+  Future<ZapModel?> getZapById(String zapId) async {
     try {
-      final doc =
-          await _firestore
-              .collection(AppConstants.tweetsCollection)
-              .doc(tweetId)
-              .get();
-
+      final doc = await _collection.doc(zapId).get();
       if (!doc.exists || doc.data() == null) return null;
-
-      return TweetModel.fromMap({'id': doc.id, ...doc.data() as Map});
-    } catch (e) {
+      return ZapModel.fromMap({'id': doc.id, ...doc.data() as Map});
+    } catch (e, st) {
+      log('Error fetching zap by ID', error: e, stackTrace: st);
       return null;
     }
   }
 
-  Stream<List<TweetModel>> getForYouFeed({
-    DocumentSnapshot? lastDoc,
-    required bool isReel,
-  }) {
-    Query query = _tweetQuery(
-      isReel: isReel,
-    ).orderBy('createdAt', descending: true).limit(AppConstants.tweetsPerPage);
+  Stream<List<ZapModel>> getForYouFeed({DocumentSnapshot? lastDoc}) {
+    try {
+      Query query = _zapQuery()
+          .orderBy('createdAt', descending: true)
+          .limit(AppConstants.zapsPerPage);
 
-    if (lastDoc != null) query = query.startAfterDocument(lastDoc);
-    return query.snapshots().map(
-      (snapshot) =>
-          snapshot.docs
-              .map((doc) {
-                if (doc.exists && doc.data() != null) {
-                  return TweetModel.fromMap({
-                    'id': doc.id,
-                    ...doc.data() as Map,
-                  }, snapshot: doc);
-                }
-                return null;
-              })
-              .whereType<TweetModel>()
-              .toList(),
-    );
+      if (lastDoc != null) query = query.startAfterDocument(lastDoc);
+
+      return query.snapshots().map(
+        (snapshot) =>
+            snapshot.docs
+                .map((doc) {
+                  if (doc.exists && doc.data() != null) {
+                    return ZapModel.fromMap({
+                      'id': doc.id,
+                      ...doc.data() as Map,
+                    }, snapshot: doc);
+                  }
+                  return null;
+                })
+                .whereType<ZapModel>()
+                .toList(),
+      );
+    } catch (e, st) {
+      log('Error getting for-you feed', error: e, stackTrace: st);
+      rethrow;
+    }
   }
 
-  Stream<List<TweetModel>> getFollowingFeed(String userId, {bool? isReel}) {
+  Stream<List<ZapModel>> getFollowingFeed(String userId) {
     return _firestore
         .collection(AppConstants.followingCollection)
         .doc(userId)
         .collection('users')
         .snapshots()
         .asyncMap((followingSnapshot) async {
-          if (followingSnapshot.docs.isEmpty) return <TweetModel>[];
+          if (followingSnapshot.docs.isEmpty) return <ZapModel>[];
 
           final followingIds =
               followingSnapshot.docs.map((doc) => doc.id).toList();
-          final List<TweetModel> allTweets = [];
+          final List<ZapModel> allZaps = [];
 
           for (int i = 0; i < followingIds.length; i += 10) {
             final batch = followingIds.sublist(
               i,
               i + 10 > followingIds.length ? followingIds.length : i + 10,
             );
-            final tweetsQuery =
-                await _tweetQuery(isReel: isReel)
+            final zapsQuery =
+                await _zapQuery()
                     .where('userId', whereIn: batch)
                     .orderBy('createdAt', descending: true)
-                    .limit(AppConstants.tweetsPerPage)
+                    .limit(AppConstants.zapsPerPage)
                     .get();
 
-            allTweets.addAll(
-              tweetsQuery.docs
+            allZaps.addAll(
+              zapsQuery.docs
                   .map((doc) {
                     if (doc.exists && doc.data() != null) {
-                      return TweetModel.fromMap({
+                      return ZapModel.fromMap({
                         'id': doc.id,
                         ...doc.data() as Map,
                       });
                     }
                     return null;
                   })
-                  .whereType<TweetModel>()
+                  .whereType<ZapModel>()
                   .toList(),
             );
           }
 
-          allTweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return allTweets.take(AppConstants.tweetsPerPage).toList();
+          allZaps.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return allZaps.take(AppConstants.zapsPerPage).toList();
         });
   }
 
-  Stream<List<TweetModel>> getUserTweets(String userId, {bool? isReel}) {
-    return _tweetQuery(isReel: isReel)
+  Stream<List<ZapModel>> getUserZaps(String userId) {
+    return _zapQuery()
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -249,159 +244,132 @@ class TweetService {
               snapshot.docs
                   .map((doc) {
                     if (doc.exists && doc.data() != null) {
-                      return TweetModel.fromMap({
+                      return ZapModel.fromMap({
                         'id': doc.id,
                         ...doc.data() as Map,
                       });
                     }
                     return null;
                   })
-                  .whereType<TweetModel>()
+                  .whereType<ZapModel>()
                   .toList(),
         );
   }
 
-  Stream<List<TweetModel>> getUserReplies(String userId, {bool? isReel}) {
-    return _tweetQuery(isReel: isReel, parentOnly: false)
-        .where('userId', isEqualTo: userId)
+  Stream<List<ZapModel>> getZapReplies(String zapId) {
+    if (isShort) return const Stream.empty();
+    return _zapQuery(parentOnly: false)
+        .where('parentZapId', isEqualTo: zapId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snapshot) =>
               snapshot.docs
-                  .where((doc) => (doc.data() as Map)['parentTweetId'] != null)
                   .map((doc) {
                     if (doc.exists && doc.data() != null) {
-                      return TweetModel.fromMap({
+                      return ZapModel.fromMap({
                         'id': doc.id,
                         ...doc.data() as Map,
                       });
                     }
                     return null;
                   })
-                  .whereType<TweetModel>()
+                  .whereType<ZapModel>()
                   .toList(),
         );
   }
 
-  Stream<List<TweetModel>> getUserLikedTweets(String userId) {
-    return _firestore
-        .collection(AppConstants.tweetsCollection)
+  // --- User Liked, Rezaped, Bookmarked Zaps ---
+  Stream<List<ZapModel>> getUserLikedZaps(String userId) {
+    return _collection
         .where('likedBy', arrayContains: userId)
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snapshot) {
-          final tweets =
+          final zaps =
               snapshot.docs
                   .map((doc) {
                     if (doc.exists) {
-                      return TweetModel.fromMap({
+                      return ZapModel.fromMap({
                         'id': doc.id,
                         ...doc.data() as Map,
                       });
                     }
                     return null;
                   })
-                  .whereType<TweetModel>()
+                  .whereType<ZapModel>()
                   .toList();
-          tweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return tweets;
+          zaps.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return zaps;
         });
   }
 
-  Stream<List<TweetModel>> getUserRetweetedTweets(String userId) {
-    return _firestore
-        .collection(AppConstants.tweetsCollection)
-        .where('retweetedBy', arrayContains: userId)
+  Stream<List<ZapModel>> getUserRezapedZaps(String userId) {
+    return _collection
+        .where('rezapedBy', arrayContains: userId)
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snapshot) {
-          final tweets =
+          final zaps =
               snapshot.docs
                   .map((doc) {
                     if (doc.exists) {
-                      return TweetModel.fromMap({
+                      return ZapModel.fromMap({
                         'id': doc.id,
                         ...doc.data() as Map,
                       });
                     }
                     return null;
                   })
-                  .whereType<TweetModel>()
+                  .whereType<ZapModel>()
                   .toList();
-          tweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return tweets;
+          zaps.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return zaps;
         });
   }
 
-  Stream<List<TweetModel>> getTweetReplies(String tweetId, {bool? isReel}) {
-    return _tweetQuery(isReel: isReel, parentOnly: false)
-        .where('parentTweetId', isEqualTo: tweetId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) {
-                    if (doc.exists && doc.data() != null) {
-                      return TweetModel.fromMap({
-                        'id': doc.id,
-                        ...doc.data() as Map,
-                      });
-                    }
-                    return null;
-                  })
-                  .whereType<TweetModel>()
-                  .toList(),
-        );
-  }
-
-  Stream<List<TweetModel>> getUserBookmarkedTweets(String userId) {
+  Stream<List<ZapModel>> getUserBookmarkedZaps(String userId) {
     return _firestore
         .collection(AppConstants.bookmarksCollection)
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-          if (snapshot.docs.isEmpty) return <TweetModel>[];
+          if (snapshot.docs.isEmpty) return <ZapModel>[];
 
-          final tweetIds =
+          final zapIds =
               snapshot.docs
-                  .map((d) => (d.data() as Map)['tweetId'] as String)
+                  .map((d) => (d.data() as Map)['zapId'] as String)
                   .toList();
 
-          final List<TweetModel> allTweets = [];
-          for (int i = 0; i < tweetIds.length; i += 10) {
-            final batch = tweetIds.sublist(
+          final List<ZapModel> allZaps = [];
+          for (int i = 0; i < zapIds.length; i += 10) {
+            final batch = zapIds.sublist(
               i,
-              i + 10 > tweetIds.length ? tweetIds.length : i + 10,
+              i + 10 > zapIds.length ? zapIds.length : i + 10,
             );
-            final tweetsQuery =
-                await _firestore
-                    .collection(AppConstants.tweetsCollection)
+            final zapsQuery =
+                await _collection
                     .where('isDeleted', isEqualTo: false)
                     .where(FieldPath.documentId, whereIn: batch)
                     .get();
 
-            allTweets.addAll(
-              tweetsQuery.docs
+            allZaps.addAll(
+              zapsQuery.docs
                   .map(
-                    (doc) => TweetModel.fromMap({
-                      'id': doc.id,
-                      ...doc.data() as Map,
-                    }),
+                    (doc) =>
+                        ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
                   )
                   .toList(),
             );
           }
 
-          // Sort by bookmark createdAt order from snapshot
           final createdAtById = {
             for (final d in snapshot.docs)
-              (d.data() as Map)['tweetId'] as String:
+              (d.data() as Map)['zapId'] as String:
                   (d.data() as Map)['createdAt'],
           };
-          allTweets.sort((a, b) {
+          allZaps.sort((a, b) {
             final aTs = createdAtById[a.id];
             final bTs = createdAtById[b.id];
             final aDate = aTs is Timestamp ? aTs.toDate() : DateTime.now();
@@ -409,58 +377,54 @@ class TweetService {
             return bDate.compareTo(aDate);
           });
 
-          return allTweets;
+          return allZaps;
         });
   }
 
-  Future<void> deleteTweet(String tweetId) async {
+  Future<void> deleteZap(String zapId) async {
     try {
-      await _firestore
-          .collection(AppConstants.tweetsCollection)
-          .doc(tweetId)
-          .update({'isDeleted': true});
-    } catch (e) {
-      throw Exception('Failed to delete tweet: $e');
+      await _collection.doc(zapId).update({'isDeleted': true});
+    } catch (e, st) {
+      log('Error deleting zap', error: e, stackTrace: st);
+      throw Exception('Failed to delete zap: $e');
     }
   }
 
-  Future<void> bookmarkTweet(String tweetId, String userId) async {
+  Future<void> bookmarkZap(String zapId, String userId) async {
     try {
       await _firestore
           .collection(AppConstants.bookmarksCollection)
-          .doc('${userId}_$tweetId')
-          .set({
-            'userId': userId,
-            'tweetId': tweetId,
-            'createdAt': DateTime.now(),
-          });
-    } catch (e) {
-      throw Exception('Failed to bookmark tweet: $e');
+          .doc('${userId}_$zapId')
+          .set({'userId': userId, 'zapId': zapId, 'createdAt': DateTime.now()});
+    } catch (e, st) {
+      log('Error bookmarking zap', error: e, stackTrace: st);
+      throw Exception('Failed to bookmark zap: $e');
     }
   }
 
-  Future<void> removeBookmark(String tweetId, String userId) async {
+  Future<void> removeBookmark(String zapId, String userId) async {
     try {
       await _firestore
           .collection(AppConstants.bookmarksCollection)
-          .doc('${userId}_$tweetId')
+          .doc('${userId}_$zapId')
           .delete();
-    } catch (e) {
+    } catch (e, st) {
+      log('Error removing bookmark', error: e, stackTrace: st);
       throw Exception('Failed to remove bookmark: $e');
     }
   }
 
-  Future<bool> isBookmarked(String tweetId, String userId) async {
+  Future<bool> isBookmarked(String zapId, String userId) async {
     try {
       final doc =
           await _firestore
               .collection(AppConstants.bookmarksCollection)
-              .doc('${userId}_$tweetId')
+              .doc('${userId}_$zapId')
               .get();
-
       return doc.exists;
-    } catch (e) {
-      throw Exception('Failed to check bookmark: $e');
+    } catch (e, st) {
+      log('Error checking bookmark', error: e, stackTrace: st);
+      return false;
     }
   }
 
@@ -474,23 +438,27 @@ class TweetService {
               .get();
 
       if (query.docs.isEmpty) return null;
-
       final doc = query.docs.first;
       return {'id': doc.id, ...doc.data()};
-    } catch (e) {
+    } catch (e, st) {
+      log('Error getting user by username', error: e, stackTrace: st);
       return null;
     }
   }
 
-  // Add a comment
+  // --- Comments ---
   Future<void> addComment(CommentModel comment) async {
-    await _firestore
-        .collection('comments')
-        .doc(comment.id)
-        .set(comment.toMap());
+    try {
+      await _firestore
+          .collection('comments')
+          .doc(comment.id)
+          .set(comment.toMap());
+    } catch (e, st) {
+      log('Error adding comment', error: e, stackTrace: st);
+      rethrow;
+    }
   }
 
-  // Paginated stream of comments for a specific post
   Stream<List<CommentModel>> streamCommentsForPostPaginated(
     String postId,
     int limit, {
@@ -502,9 +470,7 @@ class TweetService {
         .orderBy('createdAt', descending: true)
         .limit(limit);
 
-    if (startAfterDoc != null) {
-      query = query.startAfterDocument(startAfterDoc);
-    }
+    if (startAfterDoc != null) query = query.startAfterDocument(startAfterDoc);
 
     return query.snapshots().map(
       (snapshot) =>
@@ -519,7 +485,6 @@ class TweetService {
     );
   }
 
-  // Stream replies to a specific comment
   Stream<List<CommentModel>> streamReplies(String parentCommentId) {
     return _firestore
         .collection('comments')
@@ -534,13 +499,39 @@ class TweetService {
         );
   }
 
-  // Get number of comments for a post
+  Stream<List<ZapModel>> getUserReplies(String userId) {
+    if (isShort) {
+      // Shorts can’t have replies — return empty stream
+      return const Stream.empty();
+    }
+
+    return _zapQuery(parentOnly: false)
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .where((doc) => (doc.data() as Map)['parentZapId'] != null)
+                  .map(
+                    (doc) =>
+                        ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
+                  )
+                  .toList(),
+        );
+  }
+
   Future<int> getCommentsCount(String postId) async {
-    final snapshot =
-        await _firestore
-            .collection('comments')
-            .where('postId', isEqualTo: postId)
-            .get();
-    return snapshot.size;
+    try {
+      final snapshot =
+          await _firestore
+              .collection('comments')
+              .where('postId', isEqualTo: postId)
+              .get();
+      return snapshot.size;
+    } catch (e, st) {
+      log('Error getting comments count', error: e, stackTrace: st);
+      return 0;
+    }
   }
 }

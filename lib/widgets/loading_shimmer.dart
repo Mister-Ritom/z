@@ -30,8 +30,8 @@ class LoadingShimmer extends StatelessWidget {
   }
 }
 
-class TweetCardShimmer extends StatelessWidget {
-  const TweetCardShimmer({super.key});
+class ZapCardShimmer extends StatelessWidget {
+  const ZapCardShimmer({super.key});
 
   @override
   Widget build(BuildContext context) {

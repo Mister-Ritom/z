@@ -59,7 +59,7 @@ class NotificationsScreen extends ConsumerWidget {
                     subtitle: Text(timeago.format(notification.createdAt)),
                     trailing: Icon(_getNotificationIcon(notification.type)),
                     onTap: () {
-                      // Navigate to tweet or profile
+                      // Navigate to zap or profile
                     },
                   );
                 },
@@ -82,11 +82,11 @@ class NotificationsScreen extends ConsumerWidget {
   String _getNotificationText(notificationType, String userName) {
     switch (notificationType.toString().split('.').last) {
       case 'like':
-        return '$userName liked your tweet';
-      case 'retweet':
-        return '$userName retweeted your tweet';
+        return '$userName liked your zap';
+      case 'rezap':
+        return '$userName rezaped your zap';
       case 'reply':
-        return '$userName replied to your tweet';
+        return '$userName replied to your zap';
       case 'follow':
         return '$userName followed you';
       case 'mention':
@@ -100,7 +100,7 @@ class NotificationsScreen extends ConsumerWidget {
     switch (notificationType.toString().split('.').last) {
       case 'like':
         return Icons.favorite;
-      case 'retweet':
+      case 'rezap':
         return Icons.repeat;
       case 'reply':
         return Icons.chat_bubble;

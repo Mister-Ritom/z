@@ -7,35 +7,35 @@ import 'package:image_picker/image_picker.dart';
 import 'package:z/widgets/app_image.dart';
 import 'package:z/widgets/profile_picture.dart';
 import 'package:z/widgets/video_player_widget.dart';
-import '../providers/tweet_provider.dart';
+import '../providers/zap_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/storage_provider.dart';
 import '../utils/constants.dart';
 
-class TweetComposer extends ConsumerStatefulWidget {
-  final String? replyToTweetId;
-  final VoidCallback? onTweetSent;
+class ZapComposer extends ConsumerStatefulWidget {
+  final String? replyToZapId;
+  final VoidCallback? onZapSent;
 
-  const TweetComposer({super.key, this.replyToTweetId, this.onTweetSent});
+  const ZapComposer({super.key, this.replyToZapId, this.onZapSent});
 
   @override
-  ConsumerState<TweetComposer> createState() => _TweetComposerState();
+  ConsumerState<ZapComposer> createState() => _ZapComposerState();
 }
 
-class _TweetComposerState extends ConsumerState<TweetComposer> {
+class _ZapComposerState extends ConsumerState<ZapComposer> {
   final _textController = TextEditingController();
   final selectedMediaProvider = StateProvider<List<XFile>>((ref) => []);
   final remainingCharsProvider = StateProvider(
-    (ref) => AppConstants.maxTweetLength,
+    (ref) => AppConstants.maxZapLength,
   );
-  final isReelProvider = StateProvider((ref) => false);
+  final isShortProvider = StateProvider((ref) => false);
 
   @override
   void initState() {
     super.initState();
     _textController.addListener(() {
       final len = _textController.text.length;
-      final newRemaining = AppConstants.maxTweetLength - len;
+      final newRemaining = AppConstants.maxZapLength - len;
       final remainingChars = ref.watch(remainingCharsProvider);
       if (remainingChars != newRemaining) {
         ref.read(remainingCharsProvider.notifier).state = newRemaining;
@@ -51,9 +51,9 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 
   Future<void> _pickMedia() async {
     final picker = ImagePicker();
-    final isReel = ref.read(isReelProvider);
+    final isShort = ref.read(isShortProvider);
 
-    if (isReel) {
+    if (isShort) {
       final video = await picker.pickVideo(source: ImageSource.gallery);
       if (video == null) return;
       ref.read(selectedMediaProvider.notifier).state = [video];
@@ -63,12 +63,12 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 
       final currentMedia = ref.read(selectedMediaProvider);
       final total = currentMedia.length + media.length;
-      if (total > AppConstants.maxImagesPerTweet) {
+      if (total > AppConstants.maxImagesPerZap) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Maximum ${AppConstants.maxImagesPerTweet} media files allowed',
+                'Maximum ${AppConstants.maxImagesPerZap} media files allowed',
               ),
             ),
           );
@@ -84,24 +84,24 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
   }
 
   Future<void> _addSong() async {
-    // TODO: Implement song picker for reels
+    // TODO: Implement song picker for shorts
   }
 
-  Future<void> _sendTweet(String currentUserId) async {
+  Future<void> _sendZap(String currentUserId) async {
     final text = _textController.text.trim();
     final media = ref.read(selectedMediaProvider);
-    final isReel = ref.read(isReelProvider);
+    final isShort = ref.read(isShortProvider);
 
     if (text.isEmpty && media.isEmpty) {
-      if (isReel && mounted) {
+      if (isShort && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('A reel must have a video')),
+          const SnackBar(content: Text('A short must have a video')),
         );
       }
       return;
     }
 
-    if (text.length > AppConstants.maxTweetLength) {
+    if (text.length > AppConstants.maxZapLength) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Text exceeds character limit')),
@@ -112,47 +112,46 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
 
     final id =
         FirebaseFirestore.instance
-            .collection(AppConstants.tweetsCollection)
+            .collection(AppConstants.zapsCollection)
             .doc()
             .id;
-    final tweetService = ref.read(tweetServiceProvider);
+    final zapService = ref.read(zapServiceProvider(isShort));
     final uploadService = ref.read(uploadNotifierProvider.notifier);
 
     try {
       if (media.isNotEmpty) {
         uploadService.uploadFiles(
           files: media,
-          type: isReel ? UploadType.reels : UploadType.tweet,
+          type: isShort ? UploadType.shorts : UploadType.zap,
           referenceId: id,
           onComplete: (urls) async {
-            await tweetService.createTweet(
-              tweetId: id,
+            await zapService.createZap(
+              zapId: id,
               userId: currentUserId,
               text: text,
               mediaUrls: urls,
-              parentTweetId: widget.replyToTweetId,
-              isReel: isReel,
+              parentZapId: widget.replyToZapId,
             );
           },
         );
-      } else if (isReel && mounted) {
+      } else if (isShort && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('A reel must have a video')),
+          const SnackBar(content: Text('A short must have a video')),
         );
         return;
       } else {
-        await tweetService.createTweet(
-          tweetId: id,
+        await zapService.createZap(
+          zapId: id,
           userId: currentUserId,
           text: text,
-          parentTweetId: widget.replyToTweetId,
+          parentZapId: widget.replyToZapId,
         );
       }
     } catch (e, st) {
-      log('Failed async tweet upload', error: e, stackTrace: st);
+      log('Failed async zap upload', error: e, stackTrace: st);
     }
 
-    widget.onTweetSent?.call();
+    widget.onZapSent?.call();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -160,7 +159,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final remainingChars = ref.watch(remainingCharsProvider);
-    final isReel = ref.watch(isReelProvider);
+    final isShort = ref.watch(isShortProvider);
     final media = ref.watch(selectedMediaProvider);
 
     if (currentUser == null) {
@@ -178,15 +177,15 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: DropdownButton<bool>(
-              value: isReel,
+              value: isShort,
               underline: const SizedBox(),
               items: const [
-                DropdownMenuItem(value: false, child: Text('Tweet')),
-                DropdownMenuItem(value: true, child: Text('Reel')),
+                DropdownMenuItem(value: false, child: Text('Zap')),
+                DropdownMenuItem(value: true, child: Text('Short')),
               ],
               onChanged: (value) {
                 if (value == null) return;
-                ref.read(isReelProvider.notifier).state = value;
+                ref.read(isShortProvider.notifier).state = value;
                 ref.read(selectedMediaProvider.notifier).state = [];
               },
             ),
@@ -194,8 +193,8 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
-              onPressed: () => _sendTweet(currentUser.uid),
-              child: Text(isReel ? 'Reel' : 'Tweet'),
+              onPressed: () => _sendZap(currentUser.uid),
+              child: Text(isShort ? 'Short' : 'Zap'),
             ),
           ),
         ],
@@ -216,7 +215,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
                 Expanded(
                   child: TextField(
                     controller: _textController,
-                    maxLength: AppConstants.maxTweetLength,
+                    maxLength: AppConstants.maxZapLength,
                     maxLines: null,
                     decoration: const InputDecoration(
                       hintText: "What's happening?",
@@ -227,13 +226,13 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
               ],
             ),
             const SizedBox(height: 8),
-            if (isReel && media.isNotEmpty)
+            if (isShort && media.isNotEmpty)
               SizedBox(
                 width: double.infinity,
                 height: 300,
                 child: VideoPlayerWidget(isFile: true, url: media.first.path),
               )
-            else if (!isReel)
+            else if (!isShort)
               _MediaPreview(
                 mediaNotifier: media,
                 onRemoveMedia: (file) {
@@ -252,7 +251,7 @@ class _TweetComposerState extends ConsumerState<TweetComposer> {
                       icon: const Icon(Icons.perm_media_outlined),
                       onPressed: _pickMedia,
                     ),
-                    if (isReel)
+                    if (isShort)
                       IconButton(
                         icon: const Icon(Icons.music_note),
                         onPressed: _addSong,

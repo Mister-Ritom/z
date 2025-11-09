@@ -5,47 +5,42 @@ import '../utils/constants.dart';
 class MessageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Get or create conversation ID
-  String _getConversationId(String user1Id, String user2Id) {
-    final ids = [user1Id, user2Id]..sort();
-    return '${ids[0]}_${ids[1]}';
+  // Get or create conversation ID for multiple recipients
+  String _getConversationId(List<String> recipients) {
+    final sortedIds = [...recipients]..sort();
+    return sortedIds.join('_');
   }
 
   // Send a message
   Future<MessageModel> sendMessage({
     required String senderId,
-    required String receiverId,
+    required List<String> recipients,
     required String text,
     String? referenceId,
     List<String>? mediaUrls,
     String? videoUrl,
   }) async {
     try {
-      final conversationId =
-          referenceId ?? _getConversationId(senderId, receiverId);
+      final conversationId = referenceId ?? _getConversationId(recipients);
 
       final message = MessageModel(
         id: _firestore.collection(AppConstants.messagesCollection).doc().id,
         conversationId: conversationId,
         senderId: senderId,
-        receiverId: receiverId,
+        receiverIds: recipients.where((id) => id != senderId).toList(),
         text: text,
         mediaUrls: mediaUrls,
         createdAt: DateTime.now(),
       );
 
-      // Save message
       await _firestore
           .collection(AppConstants.messagesCollection)
           .doc(message.id)
           .set(message.toMap());
 
-      // Update conversation
-      final userIds = [senderId, receiverId]..sort();
       await _firestore.collection('conversations').doc(conversationId).set({
         'id': conversationId,
-        'user1Id': userIds[0],
-        'user2Id': userIds[1],
+        'recipients': recipients,
         'lastMessage': text,
         'lastMessageAt': DateTime.now(),
         'unreadCount': FieldValue.increment(1),
@@ -62,8 +57,8 @@ class MessageService {
   }
 
   // Get messages for a conversation
-  Stream<List<MessageModel>> getMessages(String user1Id, String user2Id) {
-    final conversationId = _getConversationId(user1Id, user2Id);
+  Stream<List<MessageModel>> getMessages(List<String> recipients) {
+    final conversationId = _getConversationId(recipients);
 
     return _firestore
         .collection(AppConstants.messagesCollection)
@@ -89,42 +84,30 @@ class MessageService {
   Stream<List<ConversationModel>> getConversations(String userId) {
     return _firestore
         .collection('conversations')
-        .where('user1Id', isEqualTo: userId)
+        .where('recipients', arrayContains: userId)
         .snapshots()
-        .asyncMap((snapshot1) async {
-          final list1 =
-              snapshot1.docs.map((doc) {
-                final data = doc.data();
-                return ConversationModel.fromMap({'id': doc.id, ...data});
-              }).toList();
-
-          final snapshot2 =
-              await _firestore
-                  .collection('conversations')
-                  .where('user2Id', isEqualTo: userId)
-                  .get();
-
-          final list2 =
-              snapshot2.docs.map((doc) {
-                final data = doc.data();
-                return ConversationModel.fromMap({'id': doc.id, ...data});
-              }).toList();
-
-          return [...list1, ...list2]
-            ..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
-        });
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map(
+                    (doc) => ConversationModel.fromMap({
+                      'id': doc.id,
+                      ...doc.data(),
+                    }),
+                  )
+                  .toList()
+                ..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt)),
+        );
   }
 
   // Mark messages as read
   Future<void> markMessagesAsRead(
-    String user1Id,
-    String user2Id,
+    List<String> recipients,
     String currentUserId,
   ) async {
     try {
-      final conversationId = _getConversationId(user1Id, user2Id);
+      final conversationId = _getConversationId(recipients);
 
-      // Fetch conversation details first
       final conversationDoc =
           await _firestore
               .collection('conversations')
@@ -136,7 +119,6 @@ class MessageService {
       final conversationData = conversationDoc.data()!;
       final lastMessageSender = conversationData['lastMessageSender'];
 
-      // Only mark as read if the last message was NOT sent by the current user
       if (lastMessageSender != null && lastMessageSender != currentUserId) {
         final batch = _firestore.batch();
 
@@ -144,7 +126,6 @@ class MessageService {
             await _firestore
                 .collection(AppConstants.messagesCollection)
                 .where('conversationId', isEqualTo: conversationId)
-                .where('receiverId', isEqualTo: currentUserId)
                 .where('isRead', isEqualTo: false)
                 .get();
 
@@ -154,14 +135,18 @@ class MessageService {
 
         await batch.commit();
 
-        // Reset unread count and set isRead true
         await _firestore.collection('conversations').doc(conversationId).update(
           {'unreadCount': 0, 'isRead': true},
         );
-        await markMessageNotificationsAsRead(
-          currentUserId: currentUserId,
-          otherUserId: user2Id,
-        );
+
+        for (final recipient in recipients) {
+          if (recipient != currentUserId) {
+            await markMessageNotificationsAsRead(
+              currentUserId: currentUserId,
+              otherUserId: recipient,
+            );
+          }
+        }
       }
     } catch (e) {
       throw Exception('Failed to mark messages as read: $e');

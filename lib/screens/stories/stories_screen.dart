@@ -35,12 +35,12 @@ class StoriesScreen extends ConsumerWidget {
       groupedPublicStoriesProvider(currentUserId),
     );
     final uploads = ref.watch(uploadNotifierProvider);
-    final tweetUploads =
+    final zapUploads =
         uploads.where((task) => task.type == UploadType.document).toList();
     final totalProgress =
-        tweetUploads.isEmpty
+        zapUploads.isEmpty
             ? null
-            : tweetUploads.map((e) => e.progress).reduce((a, b) => a + b) /
+            : zapUploads.map((e) => e.progress).reduce((a, b) => a + b) /
                 uploads.length;
 
     return Scaffold(

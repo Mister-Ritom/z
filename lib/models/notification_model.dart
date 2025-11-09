@@ -3,7 +3,7 @@ class NotificationModel {
   final String userId; // User who receives the notification
   final String fromUserId; // User who triggered the notification
   final NotificationType type;
-  final String? tweetId;
+  final String? zapId;
   final DateTime createdAt;
   final bool isRead;
 
@@ -12,7 +12,7 @@ class NotificationModel {
     required this.userId,
     required this.fromUserId,
     required this.type,
-    this.tweetId,
+    this.zapId,
     required this.createdAt,
     this.isRead = false,
   });
@@ -26,7 +26,7 @@ class NotificationModel {
         (e) => e.toString() == 'NotificationType.${map['type']}',
         orElse: () => NotificationType.like,
       ),
-      tweetId: map['tweetId'],
+      zapId: map['zapId'],
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       isRead: map['isRead'] ?? false,
     );
@@ -38,11 +38,11 @@ class NotificationModel {
       'userId': userId,
       'fromUserId': fromUserId,
       'type': type.toString().split('.').last,
-      'tweetId': tweetId,
+      'zapId': zapId,
       'createdAt': createdAt,
       'isRead': isRead,
     };
   }
 }
 
-enum NotificationType { like, retweet, reply, follow, mention, message }
+enum NotificationType { like, rezap, reply, follow, mention, message }

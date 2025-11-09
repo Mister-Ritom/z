@@ -3,6 +3,7 @@ import 'dart:io' show Platform, File;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:z/providers/storage_provider.dart';
+import 'package:z/utils/helpers.dart';
 import '../utils/constants.dart';
 
 class StorageService {
@@ -16,35 +17,34 @@ class StorageService {
     try {
       String bucket;
       String fileName;
-      String path = "/image";
-      bool isVideo = false;
+      String path;
+      bool isVideo = Helpers.isVideoPath(file.path);
 
       switch (type) {
         case UploadType.pfp:
           bucket = AppConstants.profilePicturesBucket;
           fileName =
-              'profile_${referenceId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+              'profile_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
           break;
         case UploadType.cover:
           bucket = AppConstants.coverPhotosBucket;
           fileName =
-              'cover_${referenceId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+              'cover_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
           break;
-        case UploadType.tweet:
-          bucket = AppConstants.tweetMediaBucket;
+        case UploadType.zap:
+          bucket = AppConstants.zapMediaBucket;
           fileName =
-              'tweet_${referenceId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+              'zap_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
           break;
         case UploadType.story:
           bucket = AppConstants.storyMediaBucket;
           fileName =
-              'story_${referenceId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+              'story_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
           break;
-        case UploadType.reels:
-          bucket = AppConstants.reelsVideoBucket;
+        case UploadType.shorts:
+          bucket = AppConstants.shortsVideoBucket;
           fileName =
-              'reel_${referenceId}_${DateTime.now().millisecondsSinceEpoch}.mp4';
-          isVideo = true;
+              'short_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
           break;
         default:
           bucket = "";
@@ -52,8 +52,15 @@ class StorageService {
           break;
       }
 
+      if (isVideo) {
+        path = "/video";
+        fileName = "$fileName.mp4";
+      } else {
+        path = "/image";
+        fileName = "$fileName.jpg";
+      }
+
       final ref = _storage.ref().child('$bucket$path/$fileName');
-      if (isVideo) path = "/video";
       if (isVideo && (Platform.isAndroid || Platform.isIOS)) {
         final info = await VideoCompress.compressVideo(
           file.path,

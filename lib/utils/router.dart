@@ -10,7 +10,7 @@ import '../screens/search/search_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/messages/messages_screen.dart';
 import '../screens/profile/profile_screen.dart';
-import '../info/tweet/tweet_detail_screen.dart';
+import '../info/zap/zap_detail_screen.dart';
 import '../info/bookmarks/bookmarks_screen.dart';
 import '../info/settings/settings_screen.dart';
 import '../info/feedback/feedback_screen.dart';
@@ -71,10 +71,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: '/tweet/:tweetId',
+        path: '/zap/:zapId',
         builder: (context, state) {
-          final tweetId = state.pathParameters['tweetId'] ?? '';
-          return TweetDetailScreen(tweetId: tweetId);
+          final zapId = state.pathParameters['zapId'] ?? '';
+          return ZapDetailScreen(zapId: zapId);
         },
       ),
       GoRoute(

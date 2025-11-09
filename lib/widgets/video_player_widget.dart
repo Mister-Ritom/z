@@ -14,10 +14,10 @@ class VideoPlayerWidget extends StatefulWidget {
   final void Function(double aspectRatio)? onAspectRatioCalculated;
   final void Function(VideoPlayerController controller)? onControllerChange;
 
-  /// For Reels-style autoplay control
+  /// For Shorts-style autoplay control
   final bool? isPlaying;
 
-  /// Disable fullscreen double-tap for Reels
+  /// Disable fullscreen double-tap for Shorts
   final bool disableFullscreen;
   final bool thumbnailOnly;
 

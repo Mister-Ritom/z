@@ -103,6 +103,6 @@ class LightTheme {
   static const Color textSecondary = Color(0xFF536471);
   static const Color borderColor = Color(0xFFEFF3F4);
   static const Color hoverColor = Color(0xFFF7F9F9);
-  static const Color retweetColor = Color(0xFF00BA7C);
+  static const Color rezapColor = Color(0xFF00BA7C);
   static const Color likeColor = Color(0xFFF91880);
 }

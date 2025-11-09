@@ -7,9 +7,9 @@ import 'package:z/models/user_model.dart';
 import 'package:z/screens/messages/chat_screen.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/tweet_provider.dart';
-import '../../models/tweet_model.dart';
-import '../../widgets/tweet_card.dart';
+import '../../providers/zap_provider.dart';
+import '../../models/zap_model.dart';
+import '../../widgets/zap_card.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../utils/helpers.dart';
 import 'edit_profile_screen.dart';
@@ -46,7 +46,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
     final isOwnProfile = currentUser?.id == widget.userId;
     final userAsync = ref.watch(userProfileProvider(widget.userId));
-    final userTweetsAsync = ref.watch(userTweetsProvider(widget.userId));
+    final userZapsAsync = ref.watch(userZapsProvider(widget.userId));
 
     return Scaffold(
       body: userAsync.when(
@@ -337,7 +337,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               },
                             ),
                             const SizedBox(width: 24),
-                            _buildStat(context, 'Tweets', user.tweetsCount),
+                            _buildStat(context, 'Zaps', user.zapsCount),
                           ],
                         ),
                       ],
@@ -351,7 +351,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     child: TabBar(
                       controller: _tabController,
                       tabs: const [
-                        Tab(text: 'Tweets'),
+                        Tab(text: 'Zaps'),
                         Tab(text: 'Replies'),
                         Tab(text: 'Media'),
                         Tab(text: 'Likes'),
@@ -364,52 +364,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             body: TabBarView(
               controller: _tabController,
               children: [
-                // Tweets tab (includes original tweets and retweets)
+                // Zaps tab (includes original zaps and rezaps)
                 Consumer(
                   builder: (context, ref, child) {
-                    final tweetsAsync = ref.watch(
-                      userTweetsProvider(widget.userId),
+                    final zapsAsync = ref.watch(
+                      userZapsProvider(widget.userId),
                     );
-                    final retweetsAsync = ref.watch(
-                      userRetweetedTweetsProvider(widget.userId),
+                    final rezapsAsync = ref.watch(
+                      userRezapedZapsProvider(widget.userId),
                     );
 
-                    return tweetsAsync.when(
-                      data: (originalTweets) {
-                        return retweetsAsync.when(
-                          data: (retweetedTweets) {
-                            // Combine original tweets and retweets
-                            final allTweets = <TweetModel>[
-                              ...originalTweets,
-                              ...retweetedTweets,
+                    return zapsAsync.when(
+                      data: (originalZaps) {
+                        return rezapsAsync.when(
+                          data: (rezapedZaps) {
+                            // Combine original zaps and rezaps
+                            final allZaps = <ZapModel>[
+                              ...originalZaps,
+                              ...rezapedZaps,
                             ];
                             // Sort by createdAt descending
-                            allTweets.sort(
+                            allZaps.sort(
                               (a, b) => b.createdAt.compareTo(a.createdAt),
                             );
 
-                            if (allTweets.isEmpty) {
-                              return const Center(child: Text('No tweets yet'));
+                            if (allZaps.isEmpty) {
+                              return const Center(child: Text('No zaps yet'));
                             }
 
                             return ListView.builder(
-                              itemCount: allTweets.length,
+                              itemCount: allZaps.length,
                               itemBuilder: (context, index) {
-                                final tweet = allTweets[index];
-                                final isRetweet = retweetedTweets.any(
-                                  (t) => t.id == tweet.id,
+                                final zap = allZaps[index];
+                                final isRezap = rezapedZaps.any(
+                                  (t) => t.id == zap.id,
                                 );
-                                // Get the original author for retweeted tweets
-                                final tweetUserAsync =
-                                    isRetweet
+                                // Get the original author for rezaped zaps
+                                final zapUserAsync =
+                                    isRezap
                                         ? ref.watch(
-                                          userProfileProvider(tweet.userId),
+                                          userProfileProvider(zap.userId),
                                         )
                                         : AsyncValue.data(user);
 
-                                return tweetUserAsync.when(
-                                  data: (tweetUser) => TweetCard(tweet: tweet),
-                                  loading: () => const TweetCardShimmer(),
+                                return zapUserAsync.when(
+                                  data: (zapUser) => ZapCard(zap: zap),
+                                  loading: () => const ZapCardShimmer(),
                                   error: (_, __) => const SizedBox.shrink(),
                                 );
                               },
@@ -420,7 +420,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 itemCount: 5,
                                 itemBuilder:
                                     (context, index) =>
-                                        const TweetCardShimmer(),
+                                        const ZapCardShimmer(),
                               ),
                           error: (error, stack) {
                             log("Error: $error", stackTrace: stack);
@@ -432,7 +432,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           () => ListView.builder(
                             itemCount: 5,
                             itemBuilder:
-                                (context, index) => const TweetCardShimmer(),
+                                (context, index) => const ZapCardShimmer(),
                           ),
                       error: (error, stack) {
                         log("Error: $error");
@@ -453,8 +453,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         return ListView.builder(
                           itemCount: replies.length,
                           itemBuilder: (context, index) {
-                            final tweet = replies[index];
-                            return TweetCard(tweet: tweet);
+                            final zap = replies[index];
+                            return ZapCard(zap: zap);
                           },
                         );
                       },
@@ -462,30 +462,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           () => ListView.builder(
                             itemCount: 5,
                             itemBuilder:
-                                (context, index) => const TweetCardShimmer(),
+                                (context, index) => const ZapCardShimmer(),
                           ),
                       error: (error, stack) {
                         log("Error: $error");
                         return Center(child: Text('Error: $error'));
                       },
                     ),
-                // Media tab (showing tweets with media)
-                userTweetsAsync.when(
-                  data: (tweets) {
-                    // Filter tweets with media
-                    final mediaTweets =
-                        tweets
-                            .where((tweet) => tweet.mediaUrls.isNotEmpty)
+                // Media tab (showing zaps with media)
+                userZapsAsync.when(
+                  data: (zaps) {
+                    // Filter zaps with media
+                    final mediaZaps =
+                        zaps
+                            .where((zap) => zap.mediaUrls.isNotEmpty)
                             .toList();
-                    if (mediaTweets.isEmpty) {
+                    if (mediaZaps.isEmpty) {
                       return const Center(child: Text('No media yet'));
                     }
 
                     return ListView.builder(
-                      itemCount: mediaTweets.length,
+                      itemCount: mediaZaps.length,
                       itemBuilder: (context, index) {
-                        final tweet = mediaTweets[index];
-                        return TweetCard(tweet: tweet);
+                        final zap = mediaZaps[index];
+                        return ZapCard(zap: zap);
                       },
                     );
                   },
@@ -493,7 +493,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       () => ListView.builder(
                         itemCount: 5,
                         itemBuilder:
-                            (context, index) => const TweetCardShimmer(),
+                            (context, index) => const ZapCardShimmer(),
                       ),
                   error: (error, stack) {
                     log("Error: $error");
@@ -502,20 +502,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
                 // Likes tab
                 ref
-                    .watch(userLikedTweetsProvider(widget.userId))
+                    .watch(userLikedZapsProvider(widget.userId))
                     .when(
-                      data: (likedTweets) {
-                        if (likedTweets.isEmpty) {
+                      data: (likedZaps) {
+                        if (likedZaps.isEmpty) {
                           return const Center(
-                            child: Text('No liked tweets yet'),
+                            child: Text('No liked zaps yet'),
                           );
                         }
 
                         return ListView.builder(
-                          itemCount: likedTweets.length,
+                          itemCount: likedZaps.length,
                           itemBuilder: (context, index) {
-                            final tweet = likedTweets[index];
-                            return TweetCard(tweet: tweet);
+                            final zap = likedZaps[index];
+                            return ZapCard(zap: zap);
                           },
                         );
                       },
@@ -523,7 +523,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           () => ListView.builder(
                             itemCount: 5,
                             itemBuilder:
-                                (context, index) => const TweetCardShimmer(),
+                                (context, index) => const ZapCardShimmer(),
                           ),
                       error: (error, stack) {
                         log("Error: $error");

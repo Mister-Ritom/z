@@ -44,10 +44,11 @@ class MessagesScreen extends ConsumerWidget {
             itemCount: conversations.length,
             itemBuilder: (context, index) {
               final conversation = conversations[index];
-              final otherUserId =
-                  conversation.user1Id == currentUser.uid
-                      ? conversation.user2Id
-                      : conversation.user1Id;
+
+              // Determine the "other user" by excluding the current user from recipients
+              final otherUserId = conversation.recipients.firstWhere(
+                (id) => id != currentUser.uid,
+              );
 
               final userAsync = ref.watch(userProfileProvider(otherUserId));
 
@@ -80,7 +81,7 @@ class MessagesScreen extends ConsumerWidget {
                                     conversation.lastMessageSender !=
                                         currentUser.uid
                                 ? Theme.of(context).colorScheme.inverseSurface
-                                : Colors.grey, // gray if seen
+                                : Colors.grey,
                         fontWeight:
                             conversation.unreadCount > 0 &&
                                     conversation.lastMessageSender !=
@@ -133,7 +134,9 @@ class MessagesScreen extends ConsumerWidget {
                   );
                 },
                 loading:
-                    () => const ListTile(leading: CircularProgressIndicator()),
+                    () => const ListTile(
+                      leading: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                 error: (_, __) => const SizedBox.shrink(),
               );
             },

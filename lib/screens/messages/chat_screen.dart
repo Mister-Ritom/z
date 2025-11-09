@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:z/models/notification_model.dart';
 import 'package:z/providers/storage_provider.dart';
+import 'package:z/screens/main_navigation.dart';
 import 'package:z/utils/helpers.dart';
 import '../../models/user_model.dart';
 import '../../providers/message_provider.dart';
@@ -54,7 +55,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   String _getConversationId() {
     final ids = [widget.currentUserId, widget.otherUserId]..sort();
-    return '${ids[0]}_${ids[1]}';
+    return ids.join('_');
   }
 
   Future<void> _sendMessage() async {
@@ -81,19 +82,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     List<String>? mediaUrls,
   }) async {
     final text = _messageController.text.trim();
-    if (text.isEmpty && _selectedFiles.isEmpty) return;
+    if (text.isEmpty &&
+        (_selectedFiles.isEmpty && (mediaUrls == null || mediaUrls.isEmpty))) {
+      return;
+    }
 
     try {
       final messageService = ref.read(messageServiceProvider);
+      final recipients = [widget.currentUserId, widget.otherUserId];
 
-      if (text.isNotEmpty) {
-        await messageService.sendMessage(
-          referenceId: referenceId,
-          senderId: widget.currentUserId,
-          receiverId: widget.otherUserId,
-          text: text,
-          mediaUrls: mediaUrls,
-        );
+      await messageService.sendMessage(
+        referenceId: referenceId ?? _getConversationId(),
+        senderId: widget.currentUserId,
+        recipients: recipients,
+        text: text,
+        mediaUrls: mediaUrls,
+      );
+
+      if (text.isNotEmpty || (mediaUrls != null && mediaUrls.isNotEmpty)) {
         Helpers.createNotification(
           userId: widget.otherUserId,
           fromUserId: widget.currentUserId,
@@ -117,27 +123,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final maxScroll = _scrollController.position.maxScrollExtent;
     final screenHeight = MediaQuery.of(context).size.height;
-
-    // Calculate dynamic extra offset — only if content is taller than screen
     final extraOffset = maxScroll > screenHeight ? screenHeight * 0.2 : 0.0;
-
-    // Prevent overscrolling beyond available content
     final target = (maxScroll + extraOffset).clamp(
       0.0,
       _scrollController.position.maxScrollExtent,
     );
-
     _scrollController.jumpTo(target);
   }
 
   void _markReadMessages() {
     final messageService = ref.read(messageServiceProvider);
     unawaited(
-      messageService.markMessagesAsRead(
+      messageService.markMessagesAsRead([
         widget.currentUserId,
         widget.otherUserId,
-        widget.currentUserId,
-      ),
+      ], widget.currentUserId),
     );
   }
 
@@ -168,7 +168,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         width: 80,
         height: 80,
         decoration: BoxDecoration(
-          color: Colors.blue.withValues(alpha: 0.1),
+          color: Colors.blue.withOpacityAlpha(0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: const Icon(Icons.insert_drive_file, size: 40),
@@ -179,7 +179,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(
-      messagesProvider((widget.currentUserId, widget.otherUserId)),
+      messagesProvider([widget.currentUserId, widget.otherUserId]),
     );
 
     return Scaffold(
@@ -225,7 +225,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   if (_scrollController.hasClients &&
                       _scrollController.offset <
                           _scrollController.position.maxScrollExtent - 100) {
-                    // Only scroll automatically if not already near the bottom
                     _scrollToBottom();
                   }
                 });
@@ -295,7 +294,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               color: Theme.of(context).scaffoldBackgroundColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: Colors.black.withOpacityAlpha(0.1),
                   blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),

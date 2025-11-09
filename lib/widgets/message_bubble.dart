@@ -60,10 +60,7 @@ class MessageBubble extends StatelessWidget {
               ),
 
             // Image Grid
-            MediaCarousel(
-              mediaUrls: message.mediaUrls ?? [],
-              isVideo: (s) => s.endsWith(".mp4") || s.endsWith(".mov"),
-            ),
+            MediaCarousel(mediaUrls: message.mediaUrls ?? []),
 
             const SizedBox(height: 4),
 

@@ -8,7 +8,7 @@ import 'package:z/providers/settings_provider.dart';
 
 import 'package:z/screens/home/home_screen.dart';
 import 'package:z/screens/search/search_screen.dart';
-import 'package:z/screens/reels/reels_screen.dart';
+import 'package:z/screens/shorts/shorts_screen.dart';
 import 'package:z/screens/stories/stories_screen.dart';
 import 'package:z/screens/notifications/notifications_screen.dart';
 import 'package:z/providers/notification_provider.dart';
@@ -16,7 +16,7 @@ import 'package:z/providers/auth_provider.dart';
 import 'package:z/screens/stories/story_creation_screen.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/glass_widget.dart';
-import 'package:z/widgets/tweet_composer.dart';
+import 'package:z/widgets/zap_composer.dart';
 
 extension ColorX on Color {
   Color withOpacityAlpha(double opacity) {
@@ -37,7 +37,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   List<Widget> get _pages => [
     const HomeScreen(),
     const SearchScreen(),
-    ReelsScreen(isActive: _currentIndex == 2),
+    ShortsScreen(isActive: _currentIndex == 2),
     const StoriesScreen(),
     const NotificationsScreen(),
   ];
@@ -70,7 +70,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
             (context) =>
                 _currentIndex == 3
                     ? const StoryCreationScreen()
-                    : const TweetComposer(),
+                    : const ZapComposer(),
       ),
     );
   }
@@ -354,7 +354,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
       case 1:
         return 'Search';
       case 2:
-        return 'Reels';
+        return 'Shorts';
       case 3:
         return 'Stories';
       case 4:

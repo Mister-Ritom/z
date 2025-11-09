@@ -15,19 +15,18 @@ final conversationsProvider =
     });
 
 final messagesProvider =
-    StreamProvider.family<List<MessageModel>, (String user1Id, String user2Id)>(
-      (ref, params) {
-        final messageService = ref.watch(messageServiceProvider);
-        return messageService.getMessages(params.$1, params.$2);
-      },
-    );
+    StreamProvider.family<List<MessageModel>, List<String>>((ref, recipients) {
+      final messageService = ref.watch(messageServiceProvider);
+      return messageService.getMessages(recipients);
+    });
+
 final unreadMessageCountProvider = StreamProvider.family<int, String>((
   ref,
   userId,
 ) {
   return FirebaseFirestore.instance
       .collection(AppConstants.messagesCollection)
-      .where('receiverId', isEqualTo: userId)
+      .where('receiverIds', arrayContains: userId)
       .where('isRead', isEqualTo: false)
       .snapshots()
       .map((snapshot) => snapshot.docs.length);

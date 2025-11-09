@@ -9,7 +9,7 @@ class UserModel {
   final DateTime createdAt;
   final int followersCount;
   final int followingCount;
-  final int tweetsCount;
+  final int zapsCount;
   final bool isVerified;
   final bool isPrivate;
 
@@ -24,7 +24,7 @@ class UserModel {
     required this.createdAt,
     this.followersCount = 0,
     this.followingCount = 0,
-    this.tweetsCount = 0,
+    this.zapsCount = 0,
     this.isVerified = false,
     this.isPrivate = false,
   });
@@ -41,7 +41,7 @@ class UserModel {
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       followersCount: map['followersCount'] ?? 0,
       followingCount: map['followingCount'] ?? 0,
-      tweetsCount: map['tweetsCount'] ?? 0,
+      zapsCount: map['zapsCount'] ?? 0,
       isVerified: map['isVerified'] ?? false,
       isPrivate: map['isPrivate'] ?? false,
     );
@@ -59,7 +59,7 @@ class UserModel {
       'createdAt': createdAt,
       'followersCount': followersCount,
       'followingCount': followingCount,
-      'tweetsCount': tweetsCount,
+      'zapsCount': zapsCount,
       'isVerified': isVerified,
       'isPrivate': isPrivate,
     };
@@ -76,7 +76,7 @@ class UserModel {
     DateTime? createdAt,
     int? followersCount,
     int? followingCount,
-    int? tweetsCount,
+    int? zapsCount,
     bool? isVerified,
     bool? isPrivate,
   }) {
@@ -91,7 +91,7 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
-      tweetsCount: tweetsCount ?? this.tweetsCount,
+      zapsCount: zapsCount ?? this.zapsCount,
       isVerified: isVerified ?? this.isVerified,
       isPrivate: isPrivate ?? this.isPrivate,
     );
