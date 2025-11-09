@@ -4,7 +4,8 @@ import '../models/story_model.dart';
 
 class StoryService {
   final _firestore = FirebaseFirestore.instance;
-  CollectionReference get _stories => _firestore.collection('stories');
+  CollectionReference get _stories =>
+      _firestore.collection(AppConstants.storiesCollection);
 
   Stream<List<StoryModel>> getStoriesVisibleTo(String currentUserId) {
     final cutoff = DateTime.now().subtract(

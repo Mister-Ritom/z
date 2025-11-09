@@ -7,6 +7,7 @@ import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/providers/stories_provider.dart';
+import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/app_image.dart';
 import 'package:z/widgets/profile_picture.dart';
@@ -46,7 +47,7 @@ class StoriesScreen extends ConsumerWidget {
         bottom:
             (totalProgress != null)
                 ? PreferredSize(
-                  preferredSize: Size.fromHeight(10),
+                  preferredSize: const Size.fromHeight(10),
                   child: LinearProgressIndicator(
                     value: totalProgress,
                     backgroundColor: Colors.grey.shade800,
@@ -190,21 +191,31 @@ class StoriesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                ProfilePicture(
-                  name: user.displayName,
-                  pfp: user.profilePictureUrl,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  user.displayName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfileScreen(userId: user.id),
                   ),
-                ),
-              ],
+                );
+              },
+              child: Row(
+                children: [
+                  ProfilePicture(
+                    name: user.displayName,
+                    pfp: user.profilePictureUrl,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    user.displayName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
             SizedBox(
@@ -222,66 +233,14 @@ class StoriesScreen extends ConsumerWidget {
                       try {
                         Navigator.push(
                           context,
-                          PageRouteBuilder(
-                            pageBuilder:
-                                (_, __, ___) => StoryItemScreen(
-                                  userStories: stories,
-                                  userId: user.id,
-                                  onNextUser: () {
-                                    if (userIndex < allUserIds.length - 1) {
-                                      final nextUserId =
-                                          allUserIds[userIndex + 1];
-                                      final nextUserStories =
-                                          groupedStories[nextUserId]
-                                              as List<StoryModel>;
-                                      Navigator.pushReplacement(
-                                        context,
-                                        PageRouteBuilder(
-                                          pageBuilder:
-                                              (_, __, ___) => StoryItemScreen(
-                                                userStories: nextUserStories,
-                                                userId: nextUserId,
-                                                onNextUser: () {},
-                                                onPreviousUser: () {},
-                                              ),
-                                          transitionDuration: Duration.zero,
-                                          reverseTransitionDuration:
-                                              Duration.zero,
-                                        ),
-                                      );
-                                    } else {
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                  onPreviousUser: () {
-                                    if (userIndex > 0) {
-                                      final prevUserId =
-                                          allUserIds[userIndex - 1];
-                                      final prevUserStories =
-                                          groupedStories[prevUserId]
-                                              as List<StoryModel>;
-                                      Navigator.pushReplacement(
-                                        context,
-                                        PageRouteBuilder(
-                                          pageBuilder:
-                                              (_, __, ___) => StoryItemScreen(
-                                                userStories: prevUserStories,
-                                                userId: prevUserId,
-                                                onNextUser: () {},
-                                                onPreviousUser: () {},
-                                              ),
-                                          transitionDuration: Duration.zero,
-                                          reverseTransitionDuration:
-                                              Duration.zero,
-                                        ),
-                                      );
-                                    } else {
-                                      Navigator.pop(context);
-                                    }
-                                  },
+                          MaterialPageRoute(
+                            builder:
+                                (_) => StoryItemScreen(
+                                  groupedStories: groupedStories,
+                                  allUserIds: allUserIds,
+                                  initialUserIndex: userIndex,
+                                  initialStoryIndex: i,
                                 ),
-                            transitionDuration: Duration.zero,
-                            reverseTransitionDuration: Duration.zero,
                           ),
                         );
                       } catch (e, st) {

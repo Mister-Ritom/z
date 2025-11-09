@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:z/utils/constants.dart';
 
 class StoryAnalyticsService {
   final firestore = FirebaseFirestore.instance;
 
-  CollectionReference get _analytics =>
-      firestore.collection('analytics').doc('stories').collection('stories');
+  CollectionReference get _analytics => firestore
+      .collection('analytics')
+      .doc('stories')
+      .collection(AppConstants.storiesCollection);
 
   DocumentReference _userRef(String userId, String storyId) => firestore
       .collection('user_interactions')

@@ -14,17 +14,17 @@ import 'package:z/widgets/profile_picture.dart';
 import 'package:z/widgets/video_player_widget.dart';
 
 class StoryItemScreen extends ConsumerStatefulWidget {
-  final List<StoryModel> userStories;
-  final String userId;
-  final VoidCallback onNextUser;
-  final VoidCallback onPreviousUser;
+  final Map<String, List<dynamic>> groupedStories;
+  final List<String> allUserIds;
+  final int initialUserIndex;
+  final int initialStoryIndex;
 
   const StoryItemScreen({
     super.key,
-    required this.userStories,
-    required this.userId,
-    required this.onNextUser,
-    required this.onPreviousUser,
+    required this.groupedStories,
+    required this.allUserIds,
+    required this.initialUserIndex,
+    required this.initialStoryIndex,
   });
 
   @override
@@ -32,15 +32,21 @@ class StoryItemScreen extends ConsumerStatefulWidget {
 }
 
 class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
-  int currentIndex = 0;
+  int currentUserIndex = 0;
+  int currentStoryIndex = 0;
   Timer? _timer;
   double progress = 0.0;
 
-  StoryModel get currentStory => widget.userStories[currentIndex];
+  String get currentUserId => widget.allUserIds[currentUserIndex];
+  List<StoryModel> get currentUserStories =>
+      widget.groupedStories[currentUserId]!.cast<StoryModel>();
+  StoryModel get currentStory => currentUserStories[currentStoryIndex];
 
   @override
   void initState() {
     super.initState();
+    currentUserIndex = widget.initialUserIndex;
+    currentStoryIndex = widget.initialStoryIndex;
     _startStoryTimer();
   }
 
@@ -51,29 +57,51 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
 
     _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       setState(() => progress += 50 / duration.inMilliseconds);
-      if (progress >= 1.0) {
-        _nextStory();
-      }
+      if (progress >= 1.0) _nextStory();
     });
   }
 
   void _nextStory() {
     _timer?.cancel();
-    if (currentIndex < widget.userStories.length - 1) {
-      setState(() => currentIndex++);
+    if (currentStoryIndex < currentUserStories.length - 1) {
+      setState(() => currentStoryIndex++);
       _startStoryTimer();
     } else {
-      widget.onNextUser();
+      _nextUser();
     }
   }
 
   void _previousStory() {
     _timer?.cancel();
-    if (currentIndex > 0) {
-      setState(() => currentIndex--);
+    if (currentStoryIndex > 0) {
+      setState(() => currentStoryIndex--);
       _startStoryTimer();
     } else {
-      widget.onPreviousUser();
+      _previousUser();
+    }
+  }
+
+  void _nextUser() {
+    if (currentUserIndex < widget.allUserIds.length - 1) {
+      setState(() {
+        currentUserIndex++;
+        currentStoryIndex = 0;
+      });
+      _startStoryTimer();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
+  void _previousUser() {
+    if (currentUserIndex > 0) {
+      setState(() {
+        currentUserIndex--;
+        currentStoryIndex = 0;
+      });
+      _startStoryTimer();
+    } else {
+      Navigator.pop(context);
     }
   }
 
@@ -86,15 +114,14 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
   Widget _buildProgressBars() {
     return Row(
       children:
-          widget.userStories.map((story) {
-            final storyIndex = widget.userStories.indexOf(story);
+          currentUserStories.map((story) {
+            final storyIndex = currentUserStories.indexOf(story);
             final value =
-                storyIndex < currentIndex
+                storyIndex < currentStoryIndex
                     ? 1.0
-                    : storyIndex == currentIndex
+                    : storyIndex == currentStoryIndex
                     ? progress
                     : 0.0;
-
             return Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2.5),
@@ -112,7 +139,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userAsync = ref.watch(userProfileProvider(widget.userId));
+    final userAsync = ref.watch(userProfileProvider(currentUserId));
 
     return GestureDetector(
       onTapDown: (details) {
@@ -149,14 +176,17 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
           if (currentStory.caption.isNotEmpty)
             Positioned(
               bottom: 80,
-              left: 8,
-              right: 8,
-              child: _buildBackgroundBlur(
-                Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: Text(
-                    currentStory.caption,
-                    style: Theme.of(context).textTheme.bodyMedium,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: _buildBackgroundBlur(
+                  Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Text(
+                      currentStory.caption,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                   ),
                 ),
               ),
@@ -176,11 +206,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
           isPlaying: true,
         );
       } else {
-        return AppImage.network(
-          story.mediaUrl,
-          fit: BoxFit.cover,
-          onDoubleTap: () {},
-        );
+        return AppImage.network(story.mediaUrl, fit: BoxFit.cover);
       }
     } catch (e, st) {
       log('Error loading story media: $e\n$st');
@@ -194,7 +220,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          color: Colors.black.withOpacityAlpha(0.2),
+          color: Colors.black.withOpacityAlpha(0.3),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: child,
         ),
@@ -204,20 +230,16 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
 
   Widget _buildUserInfo(UserModel? user) {
     if (user == null) return const SizedBox.shrink();
-
     return _buildBackgroundBlur(
       Row(
         children: [
           IconButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            icon: Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
           ),
           ProfilePicture(pfp: user.profilePictureUrl, name: user.displayName),
           const SizedBox(width: 10),
           Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
