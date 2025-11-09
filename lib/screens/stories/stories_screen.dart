@@ -1,12 +1,15 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:z/analytics/story_analytics_service.dart';
 import 'package:z/models/story_model.dart';
 import 'package:z/models/user_model.dart';
+import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/providers/stories_provider.dart';
+import 'package:z/screens/main_navigation.dart';
 import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/app_image.dart';
@@ -182,6 +185,8 @@ class StoriesScreen extends ConsumerWidget {
     int userIndex,
     Map<String, List<dynamic>> groupedStories,
   ) {
+    final analyticsService = ref.read(storyAnalyticsProvider);
+
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -220,49 +225,85 @@ class StoriesScreen extends ConsumerWidget {
             const SizedBox(height: 10),
             SizedBox(
               height: 100,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: stories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, i) {
-                  final story = stories[i];
-                  final isVideo = Helpers.isVideoPath(story.mediaUrl);
+              child: FutureBuilder<List<StoryModel>>(
+                future: _sortStoriesByViewed(
+                  stories,
+                  analyticsService,
+                  ref,
+                  user.id,
+                ),
+                builder: (context, snapshot) {
+                  final sortedStories = snapshot.data ?? stories;
 
-                  return GestureDetector(
-                    onTap: () {
-                      try {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => StoryItemScreen(
-                                  groupedStories: groupedStories,
-                                  allUserIds: allUserIds,
-                                  initialUserIndex: userIndex,
-                                  initialStoryIndex: i,
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: sortedStories.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      final story = sortedStories[i];
+                      final isVideo = Helpers.isVideoPath(story.mediaUrl);
+
+                      return FutureBuilder<bool>(
+                        future: analyticsService.isStoryViewed(
+                          user.id,
+                          story.id,
+                        ),
+                        builder: (context, viewedSnapshot) {
+                          final isViewed = viewedSnapshot.data ?? false;
+
+                          return GestureDetector(
+                            onTap: () {
+                              try {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => StoryItemScreen(
+                                          groupedStories: groupedStories,
+                                          allUserIds: allUserIds,
+                                          initialUserIndex: userIndex,
+                                          initialStoryIndex: i,
+                                        ),
+                                  ),
+                                );
+                              } catch (e, st) {
+                                log('Error opening story viewer: $e\n$st');
+                              }
+                            },
+                            child: Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SizedBox(
+                                    width: 100,
+                                    child:
+                                        isVideo
+                                            ? VideoPlayerWidget(
+                                              url: story.mediaUrl,
+                                              isFile: false,
+                                            )
+                                            : AppImage.network(
+                                              story.mediaUrl,
+                                              fit: BoxFit.cover,
+                                            ),
+                                  ),
                                 ),
-                          ),
-                        );
-                      } catch (e, st) {
-                        log('Error opening story viewer: $e\n$st');
-                      }
+                                if (isViewed)
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      width: 100,
+                                      color: Colors.black45.withOpacityAlpha(
+                                        0.5,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
                     },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: 100,
-                        child:
-                            isVideo
-                                ? VideoPlayerWidget(
-                                  url: story.mediaUrl,
-                                  isFile: false,
-                                )
-                                : AppImage.network(
-                                  story.mediaUrl,
-                                  fit: BoxFit.cover,
-                                ),
-                      ),
-                    ),
                   );
                 },
               ),
@@ -271,5 +312,30 @@ class StoriesScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  // Helper to move viewed stories to the end
+  Future<List<StoryModel>> _sortStoriesByViewed(
+    List<StoryModel> stories,
+    StoryAnalyticsService analyticsService,
+    WidgetRef ref,
+    String userId,
+  ) async {
+    final futures =
+        stories
+            .map(
+              (s) async => (
+                story: s,
+                viewed: await analyticsService.isStoryViewed(userId, s.id),
+              ),
+            )
+            .toList();
+    final results = await Future.wait(futures);
+    results.sort((a, b) {
+      if (a.viewed && !b.viewed) return 1;
+      if (!a.viewed && b.viewed) return -1;
+      return 0;
+    });
+    return results.map((e) => e.story).toList();
   }
 }

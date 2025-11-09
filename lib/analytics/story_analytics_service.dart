@@ -51,15 +51,29 @@ class StoryAnalyticsService {
     return doc.exists && (doc.data() as Map<String, dynamic>)['viewed'] == true;
   }
 
-  Future<void> likeStory(String userId, String storyId) async {
-    if (await isStoryLiked(userId, storyId)) return;
-    await _analytics.doc(storyId).set({
-      'likes': FieldValue.increment(1),
-    }, SetOptions(merge: true));
-    await _userRef(userId, storyId).set({
-      'liked': true,
-      'likedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+  Future<void> toggleLikeStory(String userId, String storyId) async {
+    final userDoc = await _userRef(userId, storyId).get();
+    final isLiked =
+        userDoc.exists &&
+        (userDoc.data() as Map<String, dynamic>)['liked'] == true;
+
+    if (isLiked) {
+      await _analytics.doc(storyId).set({
+        'likes': FieldValue.increment(-1),
+      }, SetOptions(merge: true));
+      await _userRef(userId, storyId).set({
+        'liked': false,
+        'likedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else {
+      await _analytics.doc(storyId).set({
+        'likes': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+      await _userRef(userId, storyId).set({
+        'liked': true,
+        'likedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
   }
 
   Future<void> replyStory(String storyId) async {

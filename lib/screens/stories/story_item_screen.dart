@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:z/models/story_model.dart';
 import 'package:z/models/user_model.dart';
+import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/screens/main_navigation.dart';
 import 'package:z/utils/helpers.dart';
@@ -47,7 +48,15 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
     super.initState();
     currentUserIndex = widget.initialUserIndex;
     currentStoryIndex = widget.initialStoryIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _markStoryViewed());
     _startStoryTimer();
+  }
+
+  void _markStoryViewed() {
+    final analyticsService = ref.read(storyAnalyticsProvider);
+    analyticsService.viewStory(currentUserId, currentStory.id).catchError((e) {
+      log('Error marking story viewed: $e');
+    });
   }
 
   void _startStoryTimer() {
@@ -65,6 +74,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
     _timer?.cancel();
     if (currentStoryIndex < currentUserStories.length - 1) {
       setState(() => currentStoryIndex++);
+      _markStoryViewed();
       _startStoryTimer();
     } else {
       _nextUser();
@@ -87,6 +97,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
         currentUserIndex++;
         currentStoryIndex = 0;
       });
+      _markStoryViewed();
       _startStoryTimer();
     } else {
       Navigator.pop(context);
@@ -99,6 +110,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
         currentUserIndex--;
         currentStoryIndex = 0;
       });
+      _markStoryViewed();
       _startStoryTimer();
     } else {
       Navigator.pop(context);
@@ -140,6 +152,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userProfileProvider(currentUserId));
+    final analyticsService = ref.watch(storyAnalyticsProvider);
 
     return GestureDetector(
       onTapDown: (details) {
@@ -176,19 +189,46 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
           if (currentStory.caption.isNotEmpty)
             Positioned(
               bottom: 80,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: _buildBackgroundBlur(
-                  Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Text(
-                      currentStory.caption,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
+              left: 10,
+              right: 10,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _buildBackgroundBlur(
+                      Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: Text(
+                          currentStory.caption,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  StreamBuilder<bool>(
+                    stream: analyticsService.isStoryLikedStream(
+                      currentUserId,
+                      currentStory.id,
+                    ),
+                    initialData: false,
+                    builder: (context, snapshot) {
+                      final isLiked = snapshot.data ?? false;
+                      return IconButton(
+                        onPressed: () {
+                          analyticsService.toggleLikeStory(
+                            currentUserId,
+                            currentStory.id,
+                          );
+                        },
+                        icon: Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          color: isLiked ? Colors.red : Colors.white,
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
         ],

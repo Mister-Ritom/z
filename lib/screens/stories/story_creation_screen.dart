@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -59,8 +57,6 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
   Future<List<String>> _getVisibleTo(String userId) async {
     final followers = await ref.read(userFollowersProvider(userId).future);
     final following = await ref.read(userFollowingProvider(userId).future);
-    log("user following $following");
-    log("user followers $followers");
     switch (_visibility) {
       case StoryVisibility.public:
         return [];
