@@ -26,7 +26,7 @@ class MessageModel {
       id: map['id'] ?? '',
       conversationId: map['conversationId'] ?? '',
       senderId: map['senderId'] ?? '',
-      receiverIds: map['receiverIds'] ?? '',
+      receiverIds: List<String>.from(map['receiverIds'] ?? []),
       text: map['text'] ?? '',
       mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
@@ -70,7 +70,7 @@ class ConversationModel {
   factory ConversationModel.fromMap(Map<String, dynamic> map) {
     return ConversationModel(
       id: map['id'] ?? '',
-      recipients: map['recipients'],
+      recipients: List<String>.from(map['recipients'] ?? []),
       lastMessageAt: map['lastMessageAt']?.toDate() ?? DateTime.now(),
       lastMessage: map['lastMessage'],
       unreadCount: map['unreadCount'] ?? 0,

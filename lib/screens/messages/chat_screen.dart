@@ -178,9 +178,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messagesAsync = ref.watch(
-      messagesProvider([widget.currentUserId, widget.otherUserId]),
-    );
+    final key = [widget.currentUserId, widget.otherUserId]..sort();
+    final messagesAsync = ref.watch(messagesProvider(key.join('_')));
 
     return Scaffold(
       appBar: AppBar(

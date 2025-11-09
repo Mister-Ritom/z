@@ -14,11 +14,14 @@ final conversationsProvider =
       return messageService.getConversations(userId);
     });
 
-final messagesProvider =
-    StreamProvider.family<List<MessageModel>, List<String>>((ref, recipients) {
-      final messageService = ref.watch(messageServiceProvider);
-      return messageService.getMessages(recipients);
-    });
+final messagesProvider = StreamProvider.family<List<MessageModel>, String>((
+  ref,
+  key,
+) {
+  final recipients = key.split('_');
+  final messageService = ref.watch(messageServiceProvider);
+  return messageService.getMessages(recipients);
+});
 
 final unreadMessageCountProvider = StreamProvider.family<int, String>((
   ref,
