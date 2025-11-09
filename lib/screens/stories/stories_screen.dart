@@ -5,10 +5,13 @@ import 'package:z/models/story_model.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
+import 'package:z/providers/storage_provider.dart';
 import 'package:z/providers/stories_provider.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/app_image.dart';
+import 'package:z/widgets/profile_picture.dart';
 import 'package:z/widgets/video_player_widget.dart';
+import 'story_item_screen.dart';
 
 class StoriesScreen extends ConsumerWidget {
   const StoriesScreen({super.key});
@@ -27,9 +30,32 @@ class StoriesScreen extends ConsumerWidget {
     final groupedPublicStoriesAsync = ref.watch(
       groupedPublicStoriesProvider(currentUserId),
     );
+    final uploads = ref.watch(uploadNotifierProvider);
+    final tweetUploads =
+        uploads.where((task) => task.type == UploadType.document).toList();
+    final totalProgress =
+        tweetUploads.isEmpty
+            ? null
+            : tweetUploads.map((e) => e.progress).reduce((a, b) => a + b) /
+                uploads.length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Stories"), centerTitle: true),
+      appBar: AppBar(
+        title: const Text("Stories"),
+        centerTitle: true,
+        bottom:
+            (totalProgress != null)
+                ? PreferredSize(
+                  preferredSize: Size.fromHeight(10),
+                  child: LinearProgressIndicator(
+                    value: totalProgress,
+                    backgroundColor: Colors.grey.shade800,
+                    color: Theme.of(context).colorScheme.primary,
+                    minHeight: 4,
+                  ),
+                )
+                : null,
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(groupedStoriesProvider(currentUserId));
@@ -40,9 +66,7 @@ class StoriesScreen extends ConsumerWidget {
           children: [
             groupedStoriesAsync.when(
               data: (groupedStories) {
-                if (groupedStories.isEmpty) {
-                  return const SizedBox();
-                }
+                if (groupedStories.isEmpty) return const SizedBox();
                 return _buildSection(
                   context,
                   ref,
@@ -62,9 +86,7 @@ class StoriesScreen extends ConsumerWidget {
             ),
             groupedPublicStoriesAsync.when(
               data: (groupedStories) {
-                if (groupedStories.isEmpty) {
-                  return const SizedBox();
-                }
+                if (groupedStories.isEmpty) return const SizedBox();
                 return _buildSection(
                   context,
                   ref,
@@ -94,6 +116,8 @@ class StoriesScreen extends ConsumerWidget {
     required String title,
     required Map<String, List<dynamic>> groupedStories,
   }) {
+    final userIds = groupedStories.keys.toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -108,15 +132,22 @@ class StoriesScreen extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemBuilder: (context, index) {
-            final userId = groupedStories.keys.elementAt(index);
+            final userId = userIds[index];
             final stories = groupedStories[userId] as List<StoryModel>;
             final userAsync = ref.watch(userProfileProvider(userId));
 
             return userAsync.when(
               data: (user) {
                 if (user == null) return const SizedBox();
-
-                return _buildStoryItem(user, stories);
+                return _buildStoryItem(
+                  context,
+                  ref,
+                  user,
+                  stories,
+                  userIds,
+                  index,
+                  groupedStories,
+                );
               },
               loading:
                   () => const Padding(
@@ -141,7 +172,15 @@ class StoriesScreen extends ConsumerWidget {
     );
   }
 
-  Card _buildStoryItem(UserModel user, List<StoryModel> stories) {
+  Card _buildStoryItem(
+    BuildContext context,
+    WidgetRef ref,
+    UserModel user,
+    List<StoryModel> stories,
+    List<String> allUserIds,
+    int userIndex,
+    Map<String, List<dynamic>> groupedStories,
+  ) {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -153,9 +192,9 @@ class StoriesScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(user.profilePictureUrl ?? ''),
+                ProfilePicture(
+                  name: user.displayName,
+                  pfp: user.profilePictureUrl,
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -180,7 +219,74 @@ class StoriesScreen extends ConsumerWidget {
 
                   return GestureDetector(
                     onTap: () {
-                      // TODO: Navigate to story viewer
+                      try {
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (_, __, ___) => StoryItemScreen(
+                                  userStories: stories,
+                                  userId: user.id,
+                                  onNextUser: () {
+                                    if (userIndex < allUserIds.length - 1) {
+                                      final nextUserId =
+                                          allUserIds[userIndex + 1];
+                                      final nextUserStories =
+                                          groupedStories[nextUserId]
+                                              as List<StoryModel>;
+                                      Navigator.pushReplacement(
+                                        context,
+                                        PageRouteBuilder(
+                                          pageBuilder:
+                                              (_, __, ___) => StoryItemScreen(
+                                                userStories: nextUserStories,
+                                                userId: nextUserId,
+                                                onNextUser: () {},
+                                                onPreviousUser: () {},
+                                              ),
+                                          transitionDuration: Duration.zero,
+                                          reverseTransitionDuration:
+                                              Duration.zero,
+                                        ),
+                                      );
+                                    } else {
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                  onPreviousUser: () {
+                                    if (userIndex > 0) {
+                                      final prevUserId =
+                                          allUserIds[userIndex - 1];
+                                      final prevUserStories =
+                                          groupedStories[prevUserId]
+                                              as List<StoryModel>;
+                                      Navigator.pushReplacement(
+                                        context,
+                                        PageRouteBuilder(
+                                          pageBuilder:
+                                              (_, __, ___) => StoryItemScreen(
+                                                userStories: prevUserStories,
+                                                userId: prevUserId,
+                                                onNextUser: () {},
+                                                onPreviousUser: () {},
+                                              ),
+                                          transitionDuration: Duration.zero,
+                                          reverseTransitionDuration:
+                                              Duration.zero,
+                                        ),
+                                      );
+                                    } else {
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                ),
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
+                          ),
+                        );
+                      } catch (e, st) {
+                        log('Error opening story viewer: $e\n$st');
+                      }
                     },
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),

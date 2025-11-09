@@ -145,7 +145,7 @@ class _CameraViewState extends State<CameraView>
     } else {
       final file = await _picker.pickMedia();
       if (file != null) {
-        final files = [file!];
+        final files = [file];
         log("picked ${files.length} files");
         if (mounted) {
           Navigator.pop(context, files);

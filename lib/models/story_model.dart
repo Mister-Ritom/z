@@ -34,6 +34,7 @@ class StoryModel {
   final String userId;
   final String caption;
   final String mediaUrl;
+  final Duration duration = Duration(seconds: 15);
   final StoryVisibility visibility;
   final DateTime createdAt;
   final List<String> visibleTo;
