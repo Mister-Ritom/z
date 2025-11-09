@@ -1,8 +1,11 @@
 import 'dart:developer';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:z/info/privacy/privacy_screen.dart';
+import 'package:z/info/terms/terms_screen.dart';
 import 'package:z/utils/helpers.dart';
 import '../providers/auth_provider.dart';
 
@@ -227,6 +230,54 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             )
                             : const Text('Sign Up'),
                   ),
+                  SizedBox(height: 12),
+                  RichText(
+                    text: TextSpan(
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+                      children: [
+                        const TextSpan(text: 'By signing in, you accept the '),
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer:
+                              TapGestureRecognizer()
+                                ..onTap = () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PrivacyScreen(),
+                                    ),
+                                  );
+                                },
+                        ),
+                        const TextSpan(text: ' and '),
+                        TextSpan(
+                          text: 'Terms & Conditions',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer:
+                              TapGestureRecognizer()
+                                ..onTap = () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => TermsScreen(),
+                                    ),
+                                  );
+                                },
+                        ),
+                        const TextSpan(text: '.'),
+                      ],
+                    ),
+                  ),
+
                   const SizedBox(height: 16),
                   // Divider
                   const Row(

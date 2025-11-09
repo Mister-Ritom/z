@@ -256,14 +256,37 @@ class StoriesScreen extends ConsumerWidget {
                               try {
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (_) => StoryItemScreen(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (_, __, ___) => StoryItemScreen(
                                           groupedStories: groupedStories,
                                           allUserIds: allUserIds,
                                           initialUserIndex: userIndex,
                                           initialStoryIndex: i,
                                         ),
+                                    transitionDuration: Duration(
+                                      milliseconds: 400,
+                                    ),
+                                    reverseTransitionDuration: Duration.zero,
+                                    transitionsBuilder: (
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                      child,
+                                    ) {
+                                      return ScaleTransition(
+                                        scale: Tween<double>(
+                                          begin: 0.0,
+                                          end: 1.0,
+                                        ).animate(
+                                          CurvedAnimation(
+                                            parent: animation,
+                                            curve: Curves.easeOutCubic,
+                                          ),
+                                        ),
+                                        child: child,
+                                      );
+                                    },
                                   ),
                                 );
                               } catch (e, st) {
@@ -272,29 +295,36 @@ class StoriesScreen extends ConsumerWidget {
                             },
                             child: Stack(
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(
-                                    width: 100,
-                                    child:
-                                        isVideo
-                                            ? VideoPlayerWidget(
-                                              url: story.mediaUrl,
-                                              isFile: false,
-                                            )
-                                            : AppImage.network(
-                                              story.mediaUrl,
-                                              fit: BoxFit.cover,
-                                            ),
+                                Center(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SizedBox(
+                                      width: 100,
+                                      child:
+                                          isVideo
+                                              ? VideoPlayerWidget(
+                                                url: story.mediaUrl,
+                                                isFile: false,
+                                                disableFullscreen: true,
+                                                isPlaying: false,
+                                                thumbnailOnly: true,
+                                              )
+                                              : AppImage.network(
+                                                story.mediaUrl,
+                                                fit: BoxFit.cover,
+                                              ),
+                                    ),
                                   ),
                                 ),
                                 if (isViewed)
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Container(
-                                      width: 100,
-                                      color: Colors.black45.withOpacityAlpha(
-                                        0.5,
+                                  Center(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        width: 100,
+                                        color: Colors.black45.withOpacityAlpha(
+                                          0.5,
+                                        ),
                                       ),
                                     ),
                                   ),

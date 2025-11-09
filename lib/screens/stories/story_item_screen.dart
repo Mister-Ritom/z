@@ -37,6 +37,10 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
   int currentStoryIndex = 0;
   Timer? _timer;
   double progress = 0.0;
+  bool _pause = false;
+  Duration longPressThreshold = const Duration(milliseconds: 300);
+  Timer? _pressTimer;
+  bool _isLongPressing = false;
 
   String get currentUserId => widget.allUserIds[currentUserIndex];
   List<StoryModel> get currentUserStories =>
@@ -65,8 +69,10 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
     final duration = currentStory.duration;
 
     _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      setState(() => progress += 50 / duration.inMilliseconds);
-      if (progress >= 1.0) _nextStory();
+      if (!_pause) {
+        setState(() => progress += 50 / duration.inMilliseconds);
+        if (progress >= 1.0) _nextStory();
+      }
     });
   }
 
@@ -154,84 +160,115 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
     final userAsync = ref.watch(userProfileProvider(currentUserId));
     final analyticsService = ref.watch(storyAnalyticsProvider);
 
-    return GestureDetector(
-      onTapDown: (details) {
-        final width = MediaQuery.of(context).size.width;
-        if (details.globalPosition.dx < width / 2) {
-          _previousStory();
-        } else {
-          _nextStory();
-        }
-      },
-      child: Stack(
-        children: [
-          Center(child: _buildStoryMedia(currentStory)),
-          Positioned(
-            top: 40,
-            left: 10,
-            right: 10,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildProgressBars(),
-                const SizedBox(height: 10),
-                userAsync.when(
-                  data: (user) => _buildUserInfo(user),
-                  loading: () => const CircularProgressIndicator(),
-                  error: (e, st) {
-                    log('Error loading user data: $e');
-                    return const SizedBox();
-                  },
-                ),
-              ],
-            ),
-          ),
-          if (currentStory.caption.isNotEmpty)
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (details) {
+          setState(() {
+            _isLongPressing = false;
+          });
+          _pressTimer?.cancel();
+          _pressTimer = Timer(longPressThreshold, () {
+            setState(() {
+              _pause = true;
+              _isLongPressing = true;
+            });
+          });
+        },
+        onTapUp: (details) {
+          _pressTimer?.cancel();
+          if (_isLongPressing) {
+            // Finger was held long enough, just unpause
+            setState(() {
+              _pause = false;
+            });
+          } else {
+            // Finger was quickly tapped, go next/previous
+            final width = MediaQuery.of(context).size.width;
+            if (details.globalPosition.dx < width / 2) {
+              _previousStory();
+            } else {
+              _nextStory();
+            }
+          }
+        },
+        onTapCancel: () {
+          _pressTimer?.cancel();
+          if (_isLongPressing) {
+            setState(() => _pause = false);
+          }
+        },
+        child: Stack(
+          children: [
+            Center(child: _buildStoryMedia(currentStory)),
             Positioned(
-              bottom: 80,
+              top: 40,
               left: 10,
               right: 10,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _buildBackgroundBlur(
-                      Padding(
-                        padding: const EdgeInsets.all(4.0),
-                        child: Text(
-                          currentStory.caption,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    ),
-                  ),
-                  StreamBuilder<bool>(
-                    stream: analyticsService.isStoryLikedStream(
-                      currentUserId,
-                      currentStory.id,
-                    ),
-                    initialData: false,
-                    builder: (context, snapshot) {
-                      final isLiked = snapshot.data ?? false;
-                      return IconButton(
-                        onPressed: () {
-                          analyticsService.toggleLikeStory(
-                            currentUserId,
-                            currentStory.id,
-                          );
-                        },
-                        icon: Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: isLiked ? Colors.red : Colors.white,
-                        ),
-                      );
+                  _buildProgressBars(),
+                  const SizedBox(height: 10),
+                  userAsync.when(
+                    data: (user) => _buildUserInfo(user),
+                    loading: () => const CircularProgressIndicator(),
+                    error: (e, st) {
+                      log('Error loading user data: $e');
+                      return const SizedBox();
                     },
                   ),
                 ],
               ),
             ),
-        ],
+            if (currentStory.caption.isNotEmpty)
+              Positioned(
+                bottom: 80,
+                left: 10,
+                right: 10,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: _buildBackgroundBlur(
+                        Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Text(
+                            currentStory.caption,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                    ),
+                    StreamBuilder<bool>(
+                      stream: analyticsService.isStoryLikedStream(
+                        currentUserId,
+                        currentStory.id,
+                      ),
+                      initialData: false,
+                      builder: (context, snapshot) {
+                        final isLiked = snapshot.data ?? false;
+                        return IconButton(
+                          onPressed: () {
+                            analyticsService.toggleLikeStory(
+                              currentUserId,
+                              currentStory.id,
+                            );
+                          },
+                          icon: Icon(
+                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            color: isLiked ? Colors.red : Colors.white,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -243,7 +280,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
           url: story.mediaUrl,
           isFile: false,
           disableFullscreen: true,
-          isPlaying: true,
+          isPlaying: !_pause,
         );
       } else {
         return AppImage.network(story.mediaUrl, fit: BoxFit.cover);

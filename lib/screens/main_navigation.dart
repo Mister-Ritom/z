@@ -116,7 +116,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     return Container(
       color: theme.scaffoldBackgroundColor, // ensures color extends to bottom
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: SizedBox(

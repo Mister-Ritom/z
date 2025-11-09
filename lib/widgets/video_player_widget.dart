@@ -19,6 +19,7 @@ class VideoPlayerWidget extends StatefulWidget {
 
   /// Disable fullscreen double-tap for Reels
   final bool disableFullscreen;
+  final bool thumbnailOnly;
 
   const VideoPlayerWidget({
     super.key,
@@ -29,6 +30,7 @@ class VideoPlayerWidget extends StatefulWidget {
     this.height,
     this.onAspectRatioCalculated,
     this.isPlaying,
+    this.thumbnailOnly = false,
     this.disableFullscreen = false,
   });
 
@@ -70,7 +72,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _controller = VideoPlayerController.file(cachedFile.file);
     } else {
       _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
-      unawaited(cacheManager.downloadFile(widget.url));
+      if (!widget.thumbnailOnly) {
+        unawaited(cacheManager.downloadFile(widget.url));
+      }
     }
   }
 

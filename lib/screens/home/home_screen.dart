@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -133,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             )).valueOrNull?.coverPhotoUrl !=
                             null
                         ? DecorationImage(
-                          image: NetworkImage(
+                          image: CachedNetworkImageProvider(
                             (ref.watch(
                               currentUserModelProvider,
                             )).valueOrNull!.coverPhotoUrl!,
@@ -228,41 +229,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
               onTap: () {
-                Navigator.pop(context);
-                _logout(ref);
+                Navigator.pop(context); // closes the drawer
+                showDialog(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('Confirm Logout'),
+                        content: const Text('Are you sure you want to logout?'),
+                        actions: [
+                          TextButton(
+                            onPressed:
+                                () => Navigator.pop(context), // dismiss dialog
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context); // dismiss dialog
+                              _logout(ref); // perform logout
+                            },
+                            child: const Text('Logout'),
+                          ),
+                        ],
+                      ),
+                );
               },
             ),
             Divider(),
             SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                IconButton(
-                  tooltip: 'Change theme',
-                  icon: Icon(switch (ref.watch(settingsProvider).theme) {
-                    AppTheme.light => Icons.light_mode_outlined,
-                    AppTheme.dark => Icons.dark_mode_outlined,
-                    AppTheme.system => Icons.brightness_auto_outlined,
-                  }),
-                  onPressed: () {
-                    final settings = ref.read(settingsProvider);
-                    final notifier = ref.read(settingsProvider.notifier);
+            ListTile(
+              leading: Icon(switch (ref.watch(settingsProvider).theme) {
+                AppTheme.light => Icons.light_mode_outlined,
+                AppTheme.dark => Icons.dark_mode_outlined,
+                AppTheme.system => Icons.brightness_auto_outlined,
+              }),
+              title: Text(switch (ref.watch(settingsProvider).theme) {
+                AppTheme.light => "Light",
+                AppTheme.dark => "Dark",
+                AppTheme.system => "System",
+              }),
+              onTap: () {
+                final settings = ref.read(settingsProvider);
+                final notifier = ref.read(settingsProvider.notifier);
 
-                    final nextTheme = switch (settings.theme) {
-                      AppTheme.light => AppTheme.dark,
-                      AppTheme.dark => AppTheme.system,
-                      AppTheme.system => AppTheme.light,
-                    };
+                final nextTheme = switch (settings.theme) {
+                  AppTheme.light => AppTheme.dark,
+                  AppTheme.dark => AppTheme.system,
+                  AppTheme.system => AppTheme.light,
+                };
 
-                    notifier.setTheme(nextTheme);
-                  },
-                ),
-                Text(switch (ref.watch(settingsProvider).theme) {
-                  AppTheme.light => "Light",
-                  AppTheme.dark => "Dark",
-                  AppTheme.system => "System",
-                }),
-              ],
+                notifier.setTheme(nextTheme);
+              },
             ),
           ],
         ),
