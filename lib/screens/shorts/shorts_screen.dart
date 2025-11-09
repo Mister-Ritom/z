@@ -65,13 +65,6 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final screenSize = Size(
-      MediaQuery.of(context).size.width,
-      (MediaQuery.of(context).size.height +
-              MediaQuery.of(context).padding.top +
-              MediaQuery.of(context).padding.bottom) -
-          80,
-    );
 
     final zaps = ref.watch(forYouFeed).reversed.toList();
 
@@ -82,10 +75,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             children: const [
-              SizedBox(
-                height: 500,
-                child: Center(child: Text('No zaps yet')),
-              ),
+              SizedBox(height: 500, child: Center(child: Text('No zaps yet'))),
             ],
           ),
         ),
@@ -111,7 +101,6 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
           itemBuilder: (context, index) {
             final zap = zaps[index];
             return ShortVideoWidget(
-              screenSize: screenSize,
               zap: zap,
               shouldPlay: widget.isActive && index == _currentIndex,
               onControllerChange:

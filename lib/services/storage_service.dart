@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:typed_data';
 import 'dart:io' show Platform, File;
 import 'package:firebase_storage/firebase_storage.dart';
@@ -68,8 +69,8 @@ class StorageService {
           deleteOrigin: false,
         );
         if (info?.file == null) throw Exception("Video compression failed");
-        await ref.putFile(
-          info!.file!,
+        await ref.putData(
+          info!.file!.readAsBytesSync(),
           SettableMetadata(contentType: 'video/mp4'),
         );
         await VideoCompress.deleteAllCache();
@@ -83,7 +84,13 @@ class StorageService {
       }
 
       return await ref.getDownloadURL();
-    } catch (e) {
+    } catch (e, st) {
+      log(
+        "Something went wrong trying",
+        error: e,
+        stackTrace: st,
+        name: "Storage service",
+      );
       throw Exception('Failed to upload file: $e');
     }
   }

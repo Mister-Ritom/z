@@ -91,6 +91,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         widget.onControllerChange!(_controller!);
       }
       await _controller!.initialize();
+      _controller!.addListener(() {
+        if (!mounted) return;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      });
+
       _controller!.setLooping(true);
       _duration = _controller!.value.duration;
       _aspectRatio = _controller!.value.aspectRatio;

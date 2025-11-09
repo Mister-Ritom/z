@@ -113,10 +113,19 @@ class Helpers {
   }
 
   static bool isVideoPath(String path) {
-    final decoded = Uri.decodeFull(path).toLowerCase();
-    final uri = Uri.tryParse(decoded);
-    final filePath = uri?.path ?? decoded;
-    return filePath.endsWith('.mp4') || filePath.endsWith('.mov');
+    try {
+      final lower = path.toLowerCase();
+      if (lower.startsWith('http')) {
+        final uri = Uri.tryParse(path);
+        final cleanPath = uri?.pathSegments.last ?? path;
+        return cleanPath.endsWith('.mp4') || cleanPath.endsWith('.mov');
+      } else {
+        return lower.endsWith('.mp4') || lower.endsWith('.mov');
+      }
+    } catch (_) {
+      return path.toLowerCase().endsWith('.mp4') ||
+          path.toLowerCase().endsWith('.mov');
+    }
   }
 
   static bool get isGlassSupported =>

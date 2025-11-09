@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:z/models/comment_model.dart';
 import 'package:z/models/zap_model.dart';
@@ -13,6 +12,7 @@ import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/utils/constants.dart';
+import 'package:z/widgets/profile_picture.dart';
 import 'package:z/widgets/zap_card.dart';
 import 'package:z/widgets/video_player_widget.dart';
 
@@ -48,15 +48,12 @@ final videoSharesStreamProvider = StreamProvider.family<int, String>((
 });
 
 class ShortVideoWidget extends ConsumerWidget {
-  final Size screenSize;
   final ZapModel zap;
   final bool shouldPlay;
   final void Function(VideoPlayerController controller) onControllerChange;
   final void Function()? onUserTap;
 
   const ShortVideoWidget({
-    super.key,
-    required this.screenSize,
     required this.zap,
     required this.shouldPlay,
     required this.onControllerChange,
@@ -97,8 +94,6 @@ class ShortVideoWidget extends ConsumerWidget {
         final isBookmarked = isBookmarkedAsync.valueOrNull ?? false;
 
         return Container(
-          width: screenSize.width,
-          height: screenSize.height,
           margin: const EdgeInsets.only(bottom: 80),
           child: AspectRatio(
             aspectRatio: 9 / 16,
@@ -229,23 +224,9 @@ class ShortVideoWidget extends ConsumerWidget {
                         children: [
                           GestureDetector(
                             onTap: onUserTap,
-                            child: CircleAvatar(
-                              radius: 20,
-                              backgroundImage:
-                                  user?.profilePictureUrl != null
-                                      ? CachedNetworkImageProvider(
-                                        user!.profilePictureUrl!,
-                                      )
-                                      : null,
-                              child:
-                                  user?.profilePictureUrl == null
-                                      ? Text(
-                                        user!.displayName[0].toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                      : null,
+                            child: ProfilePicture(
+                              pfp: user?.profilePictureUrl,
+                              name: user?.displayName,
                             ),
                           ),
                           const SizedBox(width: 8),
