@@ -54,6 +54,7 @@ class ShortVideoWidget extends ConsumerWidget {
   final void Function()? onUserTap;
 
   const ShortVideoWidget({
+    super.key,
     required this.zap,
     required this.shouldPlay,
     required this.onControllerChange,

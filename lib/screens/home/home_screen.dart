@@ -3,6 +3,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:z/info/zap/zap_detail_screen.dart';
+import 'package:z/models/zap_model.dart';
 import 'package:z/providers/message_provider.dart';
 import 'package:z/providers/settings_provider.dart';
 import 'package:z/providers/storage_provider.dart';
@@ -410,8 +412,18 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: zaps.length,
         itemBuilder: (context, index) {
-          final zap = zaps[index];
-          return ZapCard(zap: zap);
+          final zap = zaps[index] as ZapModel;
+          return ZapCard(
+            zap: zap,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ZapDetailScreen(zapId: zap.id),
+                ),
+              );
+            },
+          );
         },
       ),
     );

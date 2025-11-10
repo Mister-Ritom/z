@@ -44,4 +44,8 @@ class AppConstants {
 
   //stories
   static const int storyExpiryHours = 24;
+
+  //Ads
+  static String postAdUnitIos = "ca-app-pub-2032620092700178/6520501886";
+  static String postAdUnitAndroid = "ca-app-pub-2032620092700178/5833557432";
 }

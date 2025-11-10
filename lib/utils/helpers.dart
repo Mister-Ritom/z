@@ -130,4 +130,9 @@ class Helpers {
 
   static bool get isGlassSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  static String get postAdUnit =>
+      Platform.isAndroid
+          ? AppConstants.postAdUnitAndroid
+          : AppConstants.postAdUnitIos;
 }
