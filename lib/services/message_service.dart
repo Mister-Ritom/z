@@ -5,13 +5,63 @@ import '../utils/constants.dart';
 class MessageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Get or create conversation ID for multiple recipients
   String _getConversationId(List<String> recipients) {
     final sortedIds = [...recipients]..sort();
     return sortedIds.join('_');
   }
 
-  // Send a message
+  // ✅ NEW: Add a pending message immediately to Firestore
+  Future<MessageModel> addPendingMessage({
+    required String senderId,
+    required List<String> recipients,
+    required String text,
+    required String conversationId,
+    List<String>? localPaths,
+  }) async {
+    try {
+      final message = MessageModel(
+        id: _firestore.collection(AppConstants.messagesCollection).doc().id,
+        conversationId: conversationId,
+        senderId: senderId,
+        receiverIds: recipients.where((id) => id != senderId).toList(),
+        text: text,
+        mediaUrls: localPaths,
+        isPending: true,
+        isDeleted: false,
+        createdAt: DateTime.now(),
+      );
+
+      await _firestore
+          .collection(AppConstants.messagesCollection)
+          .doc(message.id)
+          .set(message.toMap());
+
+      return message;
+    } catch (e) {
+      throw Exception('Failed to add pending message: $e');
+    }
+  }
+
+  // ✅ NEW: Finalize a pending message after upload finishes
+  Future<void> finalizePendingMessage({
+    required String messageId,
+    required List<String> uploadedUrls,
+  }) async {
+    try {
+      await _firestore
+          .collection(AppConstants.messagesCollection)
+          .doc(messageId)
+          .update({
+            'isPending': false,
+            'mediaUrls': uploadedUrls,
+            'updatedAt': DateTime.now(),
+          });
+    } catch (e) {
+      throw Exception('Failed to finalize pending message: $e');
+    }
+  }
+
+  // ✅ Existing sendMessage (unchanged)
   Future<MessageModel> sendMessage({
     required String senderId,
     required List<String> recipients,
@@ -30,6 +80,8 @@ class MessageService {
         receiverIds: recipients.where((id) => id != senderId).toList(),
         text: text,
         mediaUrls: mediaUrls,
+        isPending: false,
+        isDeleted: false,
         createdAt: DateTime.now(),
       );
 
@@ -41,7 +93,12 @@ class MessageService {
       await _firestore.collection('conversations').doc(conversationId).set({
         'id': conversationId,
         'recipients': recipients,
-        'lastMessage': text,
+        'lastMessage':
+            text.isNotEmpty
+                ? text
+                : (mediaUrls?.isNotEmpty ?? false)
+                ? '📎 Media'
+                : '',
         'lastMessageAt': DateTime.now(),
         'unreadCount': FieldValue.increment(1),
         'isDeleted': false,
@@ -56,10 +113,9 @@ class MessageService {
     }
   }
 
-  // Get messages for a conversation
+  // ✅ Everything else remains unchanged below...
   Stream<List<MessageModel>> getMessages(List<String> recipients) {
     final conversationId = _getConversationId(recipients);
-
     return _firestore
         .collection(AppConstants.messagesCollection)
         .where('conversationId', isEqualTo: conversationId)
@@ -80,7 +136,6 @@ class MessageService {
         );
   }
 
-  // Get conversations for a user
   Stream<List<ConversationModel>> getConversations(String userId) {
     return _firestore
         .collection('conversations')
@@ -100,7 +155,6 @@ class MessageService {
         );
   }
 
-  // Mark messages as read
   Future<void> markMessagesAsRead(
     List<String> recipients,
     String currentUserId,
@@ -179,7 +233,6 @@ class MessageService {
     }
   }
 
-  // Delete message
   Future<void> deleteMessage(String messageId) async {
     try {
       await _firestore

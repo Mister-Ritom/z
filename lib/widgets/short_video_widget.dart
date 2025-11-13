@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/zap_provider.dart';
+import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/constants.dart';
 import 'package:z/widgets/profile_picture.dart';
 import 'package:z/widgets/zap_card.dart';
@@ -23,51 +25,56 @@ final videoLikedStreamProvider =
       return service.isLikedStream(userId, videoId);
     });
 
-final videoViewsStreamProvider = StreamProvider.family<int, String>((
-  ref,
-  videoId,
-) {
+final videoViewsStreamProvider = StreamProvider.family<int, String>((ref, id) {
   final service = ref.watch(shortVideoAnalyticsProvider);
-  return service.viewsStream(videoId);
+  return service.viewsStream(id);
 });
 
 final videoCommentsCountStreamProvider = StreamProvider.family<int, String>((
   ref,
-  videoId,
+  id,
 ) {
   final service = ref.watch(shortVideoAnalyticsProvider);
-  return service.commentsCountStream(videoId);
+  return service.commentsCountStream(id);
 });
 
-final videoSharesStreamProvider = StreamProvider.family<int, String>((
-  ref,
-  videoId,
-) {
+final videoSharesStreamProvider = StreamProvider.family<int, String>((ref, id) {
   final service = ref.watch(shortVideoAnalyticsProvider);
-  return service.sharesStream(videoId);
+  return service.sharesStream(id);
 });
+
+// manual play state per zap id
+final manualShouldPlayProvider = StateProvider.family<bool, String>(
+  (ref, zapId) => true,
+);
 
 class ShortVideoWidget extends ConsumerWidget {
   final ZapModel zap;
   final bool shouldPlay;
-  final void Function(VideoPlayerController controller) onControllerChange;
-  final void Function()? onUserTap;
+  final void Function(VideoPlayerController controller)? onControllerChange;
 
   const ShortVideoWidget({
     super.key,
     required this.zap,
     required this.shouldPlay,
-    required this.onControllerChange,
-    this.onUserTap,
+    this.onControllerChange,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (zap.mediaUrls.isEmpty) {
+      log("No media found, skipping zap ${zap.id}");
+      return const SizedBox.shrink();
+    }
+
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     if (currentUser == null) {
       context.go("login");
       return const Text("Sign in");
     }
+
+    final manualShouldPlay = ref.watch(manualShouldPlayProvider(zap.id));
+    final effectiveShouldPlay = shouldPlay && manualShouldPlay;
 
     final userAsync = ref.watch(userProfileProvider(zap.userId));
     final isLikedStream = ref.watch(
@@ -75,8 +82,8 @@ class ShortVideoWidget extends ConsumerWidget {
     );
     final commentsStream = ref.watch(videoCommentsCountStreamProvider(zap.id));
     final sharesStream = ref.watch(videoSharesStreamProvider(zap.id));
-
     final analytics = ref.read(shortVideoAnalyticsProvider);
+
     final isBookmarkedAsync = ref.watch(
       isBookmarkedProvider((zapId: zap.id, userId: currentUser.uid)),
     );
@@ -95,212 +102,235 @@ class ShortVideoWidget extends ConsumerWidget {
         final isBookmarked = isBookmarkedAsync.valueOrNull ?? false;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 80),
-          child: AspectRatio(
-            aspectRatio: 9 / 16,
-            child: Stack(
-              children: [
-                Center(
-                  child: VideoPlayerWidget(
-                    isFile: false,
-                    url: zap.mediaUrls[0],
-                    isPlaying: shouldPlay,
-                    onControllerChange: onControllerChange,
-                    disableFullscreen: true,
-                  ),
+          margin: const EdgeInsets.only(bottom: 72),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                top: -72,
+                child: VideoPlayerWidget(
+                  isFile: false,
+                  url: zap.mediaUrls.first,
+                  isPlaying: effectiveShouldPlay,
+                  onControllerChange: onControllerChange,
+                  disableFullscreen: true,
                 ),
-                Positioned(
-                  right: 12,
-                  bottom: 80,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      _actionButton(
-                        isLikedStream.valueOrNull == true
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        null,
-                        color:
-                            isLikedStream.valueOrNull == true
-                                ? Colors.pink
-                                : Colors.white,
-                        onTap: () async {
-                          await analytics.toggleLike(
-                            currentUser.uid,
-                            zap.id,
-                            zap.hashtags,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _actionButton(
-                        Icons.comment_outlined,
-                        commentsStream.valueOrNull,
-                        onTap: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder:
-                                (_) => CommentSheet(
-                                  zapId: zap.id,
-                                  currentUserId: currentUser.uid,
-                                ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _actionButton(
-                        Icons.share_outlined,
-                        sharesStream.valueOrNull,
-                        onTap: () async {
-                          await analytics.share(zap.id);
-                          await SharePlus.instance.share(
-                            ShareParams(
-                              text:
-                                  "Check out ${user?.displayName}'s short: ${AppConstants.appUrl}/short/${zap.id}",
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _actionButton(
-                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                        null,
-                        color:
-                            isBookmarked
-                                ? Theme.of(context).colorScheme.inverseSurface
-                                : Colors.grey,
-                        isLoading: isBookmarking,
-                        onTap:
-                            isBookmarking
-                                ? null
-                                : () async {
-                                  final zapService = ref.read(
-                                    zapServiceProvider(true),
+              ),
+              Positioned(
+                right: 12,
+                bottom: 80,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    _actionButton(
+                      isLikedStream.valueOrNull == true
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      null,
+                      color:
+                          isLikedStream.valueOrNull == true
+                              ? Colors.pink
+                              : Colors.white,
+                      onTap: () async {
+                        await analytics.toggleLike(
+                          currentUser.uid,
+                          zap.id,
+                          zap.hashtags,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _actionButton(
+                      Icons.comment_outlined,
+                      commentsStream.valueOrNull,
+                      onTap: () async {
+                        ref
+                            .read(manualShouldPlayProvider(zap.id).notifier)
+                            .state = false;
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder:
+                              (_) => CommentSheet(
+                                zapId: zap.id,
+                                currentUserId: currentUser.uid,
+                              ),
+                        );
+                        ref
+                            .read(manualShouldPlayProvider(zap.id).notifier)
+                            .state = true;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _actionButton(
+                      Icons.share_outlined,
+                      sharesStream.valueOrNull,
+                      onTap: () async {
+                        ref
+                            .read(manualShouldPlayProvider(zap.id).notifier)
+                            .state = false;
+                        await analytics.share(zap.id);
+                        await SharePlus.instance.share(
+                          ShareParams(
+                            text:
+                                "Check out ${user?.displayName}'s short: ${AppConstants.appUrl}/short/${zap.id}",
+                          ),
+                        );
+                        ref
+                            .read(manualShouldPlayProvider(zap.id).notifier)
+                            .state = true;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _actionButton(
+                      isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      null,
+                      color:
+                          isBookmarked
+                              ? Theme.of(context).colorScheme.inverseSurface
+                              : Colors.grey,
+                      isLoading: isBookmarking,
+                      onTap:
+                          isBookmarking
+                              ? null
+                              : () async {
+                                final zapService = ref.read(
+                                  zapServiceProvider(true),
+                                );
+                                ref
+                                    .read(bookmarkingProvider(zap.id).notifier)
+                                    .state = true;
+                                try {
+                                  if (isBookmarked) {
+                                    await zapService.removeBookmark(
+                                      zap.id,
+                                      currentUser.uid,
+                                    );
+                                  } else {
+                                    await zapService.bookmarkZap(
+                                      zap.id,
+                                      currentUser.uid,
+                                    );
+                                  }
+                                  ref.invalidate(
+                                    isBookmarkedProvider((
+                                      zapId: zap.id,
+                                      userId: currentUser.uid,
+                                    )),
                                   );
+                                } finally {
                                   ref
                                       .read(
                                         bookmarkingProvider(zap.id).notifier,
                                       )
-                                      .state = true;
-                                  try {
-                                    if (isBookmarked) {
-                                      await zapService.removeBookmark(
-                                        zap.id,
-                                        currentUser.uid,
-                                      );
-                                    } else {
-                                      await zapService.bookmarkZap(
-                                        zap.id,
-                                        currentUser.uid,
-                                      );
-                                    }
-                                    ref.invalidate(
-                                      isBookmarkedProvider((
-                                        zapId: zap.id,
-                                        userId: currentUser.uid,
-                                      )),
-                                    );
-                                  } finally {
-                                    ref
-                                        .read(
-                                          bookmarkingProvider(zap.id).notifier,
-                                        )
-                                        .state = false;
-                                  }
-                                },
-                      ),
-                    ],
-                  ),
-                ),
-                Positioned(
-                  left: 16,
-                  bottom: 16,
-                  right: 72,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: onUserTap,
-                            child: ProfilePicture(
-                              pfp: user?.profilePictureUrl,
-                              name: user?.displayName,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      user?.displayName ?? 'User',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    if (user?.isVerified ?? false) ...[
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.verified,
-                                        size: 18,
-                                        color:
-                                            Theme.of(
-                                              context,
-                                            ).colorScheme.secondary,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                Text(
-                                  '@${user?.username} · ${timeago.format(zap.createdAt)}',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  zap.text,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (!isFollowing && currentUser.uid != user?.id)
-                            ElevatedButton(
-                              onPressed: () async {
-                                final profileService = ref.read(
-                                  profileServiceProvider,
-                                );
-                                await profileService.followUser(
-                                  currentUser.uid,
-                                  user!.id,
-                                );
+                                      .state = false;
+                                }
                               },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.secondary,
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 16,
+                bottom: 16,
+                right: 72,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            ref
+                                .read(manualShouldPlayProvider(zap.id).notifier)
+                                .state = false;
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => ProfileScreen(userId: zap.userId),
                               ),
-                              child: const Text('Follow'),
+                            );
+                            ref
+                                .read(manualShouldPlayProvider(zap.id).notifier)
+                                .state = true;
+                          },
+                          child: ProfilePicture(
+                            pfp: user?.profilePictureUrl,
+                            name: user?.displayName,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    user?.displayName ?? 'User',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  if (user?.isVerified ?? false) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.verified,
+                                      size: 18,
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.secondary,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              Text(
+                                '@${user?.username} · ${timeago.format(zap.createdAt)}',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                zap.text,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!isFollowing && currentUser.uid != user?.id)
+                          ElevatedButton(
+                            onPressed: () async {
+                              final profileService = ref.read(
+                                profileServiceProvider,
+                              );
+                              await profileService.followUser(
+                                currentUser.uid,
+                                user!.id,
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.secondary,
                             ),
-                        ],
-                      ),
-                    ],
-                  ),
+                            child: const Text('Follow'),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
-                const Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: Icon(Icons.music_note, color: Colors.white, size: 30),
-                ),
-              ],
-            ),
+              ),
+              const Positioned(
+                right: 16,
+                bottom: 16,
+                child: Icon(Icons.music_note, color: Colors.white, size: 30),
+              ),
+            ],
           ),
         );
       },

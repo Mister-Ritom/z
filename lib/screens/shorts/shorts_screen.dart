@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:z/models/zap_model.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/widgets/short_video_widget.dart';
 
@@ -70,13 +72,21 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
 
     if (zaps.isEmpty) {
       return Scaffold(
-        body: RefreshIndicator(
-          onRefresh: _onRefresh,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: const [
-              SizedBox(height: 500, child: Center(child: Text('No zaps yet'))),
-            ],
+        extendBodyBehindAppBar: true,
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(
+                  height: 500,
+                  child: Center(child: Text('No zaps yet')),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -85,30 +95,39 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: PageView.builder(
-          key: const PageStorageKey('shortsPageView'),
-
-          scrollDirection: Axis.vertical,
-          controller: _pageController,
-          itemCount: zaps.length,
-          onPageChanged: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          itemBuilder: (context, index) {
-            final zap = zaps[index];
-            return ShortVideoWidget(
-              zap: zap,
-              shouldPlay: widget.isActive && index == _currentIndex,
-              onControllerChange:
-                  (controller) => setState(() {
-                    _currentController = controller;
-                  }),
-            );
-          },
+      backgroundColor: Colors.black,
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light, // ensures white icons on top
+        child: MediaQuery.removePadding(
+          context: context,
+          removeTop: true,
+          removeBottom: true,
+          child: RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: PageView.builder(
+              key: const PageStorageKey('shortsPageView'),
+              scrollDirection: Axis.vertical,
+              controller: _pageController,
+              itemCount: zaps.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                final zap = zaps[index] as ZapModel;
+                return ShortVideoWidget(
+                  zap: zap,
+                  shouldPlay: widget.isActive && index == _currentIndex,
+                  onControllerChange: (controller) {
+                    setState(() {
+                      _currentController = controller;
+                    });
+                  },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );

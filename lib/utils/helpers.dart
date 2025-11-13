@@ -128,6 +128,12 @@ class Helpers {
     }
   }
 
+  static bool isLocalMedia(String path) {
+    return path.startsWith('/') ||
+        path.startsWith('file://') ||
+        !(path.startsWith('http://') || path.startsWith('https://'));
+  }
+
   static bool get isGlassSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 

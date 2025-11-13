@@ -13,11 +13,7 @@ class VideoPlayerWidget extends StatefulWidget {
   final double? height;
   final void Function(double aspectRatio)? onAspectRatioCalculated;
   final void Function(VideoPlayerController controller)? onControllerChange;
-
-  /// For Shorts-style autoplay control
   final bool? isPlaying;
-
-  /// Disable fullscreen double-tap for Shorts
   final bool disableFullscreen;
   final bool thumbnailOnly;
 
@@ -43,6 +39,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   bool _isInitialized = false;
   Duration _duration = Duration.zero;
   double _aspectRatio = 16 / 9;
+  bool _manualOverride = false;
 
   double get aspectRatio => _aspectRatio;
 
@@ -55,7 +52,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   void didUpdateWidget(covariant VideoPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_isInitialized && widget.isPlaying != null) {
+    if (_isInitialized && widget.isPlaying != oldWidget.isPlaying) {
+      _manualOverride = false;
+    }
+    if (_isInitialized && widget.isPlaying != null && !_manualOverride) {
       if (widget.isPlaying! && !_controller!.value.isPlaying) {
         _controller!.play();
       } else if (!widget.isPlaying! && _controller!.value.isPlaying) {
@@ -67,7 +67,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Future<void> _setupCacheController() async {
     final cacheManager = VideoCacheManager.instance;
     final cachedFile = await cacheManager.getFileFromCache(widget.url);
-
     if (cachedFile != null && await cachedFile.file.exists()) {
       _controller = VideoPlayerController.file(cachedFile.file);
     } else {
@@ -85,25 +84,23 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       await _setupCacheController();
     }
     if (_controller == null) throw Exception("Controller not initialized");
-
     try {
-      if (widget.onControllerChange != null) {
-        widget.onControllerChange!(_controller!);
-      }
+      widget.onControllerChange?.call(_controller!);
       await _controller!.initialize();
       _controller!.addListener(() {
         if (!mounted) return;
-
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() {});
         });
       });
-
       _controller!.setLooping(true);
       _duration = _controller!.value.duration;
       _aspectRatio = _controller!.value.aspectRatio;
       widget.onAspectRatioCalculated?.call(_aspectRatio);
       await _controller!.pause();
+      if (widget.isPlaying == true) {
+        await _controller!.play();
+      }
       if (mounted) setState(() => _isInitialized = true);
     } catch (e) {
       log("Video init error: $e");
@@ -112,11 +109,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   Future<void> _togglePlayPause() async {
     if (!_isInitialized) return;
+    _manualOverride = true;
     if (_controller!.value.isPlaying) {
       await _controller!.pause();
     } else {
       await _controller!.play();
     }
+    setState(() {});
   }
 
   Future<void> _openFullScreen() async {
@@ -157,7 +156,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         ),
       );
     }
-
     final videoWidget =
         widget.width != null && widget.height != null
             ? SizedBox(
@@ -169,10 +167,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
               aspectRatio: _aspectRatio,
               child: Center(child: VideoPlayer(_controller!)),
             );
-    if (widget.disableFullscreen) return videoWidget;
     return GestureDetector(
       onTap: _togglePlayPause,
-      onDoubleTap: _openFullScreen,
+      onDoubleTap: widget.disableFullscreen ? null : _openFullScreen,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -209,9 +206,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
 class FullScreenVideoPlayer extends StatefulWidget {
   final VideoPlayerController controller;
-
   const FullScreenVideoPlayer({super.key, required this.controller});
-
   @override
   State<FullScreenVideoPlayer> createState() => _FullScreenVideoPlayerState();
 }
@@ -227,15 +222,11 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
     super.initState();
     _controller = widget.controller;
     _controller.play();
-
     _controller.addListener(() {
-      if (mounted) {
-        setState(() => _position = _controller.value.position);
-      }
+      if (mounted) setState(() => _position = _controller.value.position);
     });
-
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _startHideTimer(); // auto-hide after a few seconds
+    _startHideTimer();
   }
 
   void _startHideTimer() {
@@ -253,7 +244,6 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
   Future<void> _closeFullScreen() async {
     await _controller.pause();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
     if (mounted) {
       Navigator.of(context).pop();
       await Future.delayed(const Duration(milliseconds: 100));
@@ -277,7 +267,6 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
   @override
   Widget build(BuildContext context) {
     final duration = _controller.value.duration;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -322,7 +311,7 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
                         max: duration.inSeconds.toDouble(),
                         onChanged: (value) {
                           _controller.seekTo(Duration(seconds: value.toInt()));
-                          _startHideTimer(); // reset hide timer on interaction
+                          _startHideTimer();
                         },
                         activeColor: Colors.white,
                         inactiveColor: Colors.white24,

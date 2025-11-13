@@ -192,6 +192,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
                 final color =
                     isSelected
                         ? theme.colorScheme.secondary
+                        : _currentIndex == 2
+                        ? Colors.grey
                         : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
                 final icon = _getIcon(index);
 

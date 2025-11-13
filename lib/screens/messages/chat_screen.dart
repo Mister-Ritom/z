@@ -59,22 +59,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_selectedFiles.isNotEmpty) {
-      final files = [..._selectedFiles];
+    final text = _messageController.text.trim();
+    final hasFiles = _selectedFiles.isNotEmpty;
+    if (text.isEmpty && !hasFiles) return;
+
+    final referenceId = _getConversationId();
+
+    if (hasFiles) {
+      final messageService = ref.read(messageServiceProvider);
+      final recipients = [widget.currentUserId, widget.otherUserId];
+
+      final localFiles = [..._selectedFiles];
       setState(() => _selectedFiles = []);
+      _messageController.clear();
+      _scrollToBottom();
+      // only create a pending message when files are being uploaded
+      final pendingMessage = await messageService.addPendingMessage(
+        senderId: widget.currentUserId,
+        recipients: recipients,
+        text: text,
+        conversationId: referenceId,
+        localPaths: localFiles.map((e) => e.path).toList(),
+      );
+
       final uploadNotifier = ref.read(uploadNotifierProvider.notifier);
-      final referenceId = _getConversationId();
       uploadNotifier.uploadFiles(
-        files: files,
+        files: localFiles,
         type: UploadType.document,
         referenceId: referenceId,
-        onComplete: (urls) {
-          _sendMessageText(referenceId: referenceId, mediaUrls: urls);
+        onComplete: (urls) async {
+          try {
+            await messageService.finalizePendingMessage(
+              messageId: pendingMessage.id,
+              uploadedUrls: urls,
+            );
+          } catch (e, st) {
+            log('Error finalizing pending message: $e', stackTrace: st);
+          }
         },
       );
     } else {
-      await _sendMessageText();
+      await _sendMessageText(referenceId: referenceId);
     }
+
+    Helpers.createNotification(
+      userId: widget.otherUserId,
+      fromUserId: widget.currentUserId,
+      type: NotificationType.message,
+    );
   }
 
   Future<void> _sendMessageText({
@@ -220,10 +252,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 if (messages.isEmpty) {
                   return const Center(child: Text('No messages yet'));
                 }
+
+                // ALWAYS scroll to bottom after build so new/pending messages are visible
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (_scrollController.hasClients &&
-                      _scrollController.offset <
-                          _scrollController.position.maxScrollExtent - 100) {
+                  if (_scrollController.hasClients) {
                     _scrollToBottom();
                   }
                 });

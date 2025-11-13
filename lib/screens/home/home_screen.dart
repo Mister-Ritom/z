@@ -405,13 +405,20 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
       return const Center(child: Text('No zaps yet'));
     }
 
+    // Inside _ForYouTabState build:
     return RefreshIndicator(
       onRefresh: _onRefresh,
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: zaps.length,
+        itemCount: zaps.length + 1,
         itemBuilder: (context, index) {
+          if (index == zaps.length) {
+            return const SizedBox(
+              height: 160,
+              child: Center(child: Text("You reached the end")),
+            ); // space for bottom nav
+          }
           final zap = zaps[index] as ZapModel;
           return ZapCard(
             zap: zap,
@@ -445,8 +452,14 @@ class _FollowingTab extends ConsumerWidget {
           );
         }
         return ListView.builder(
-          itemCount: zaps.length,
+          itemCount: zaps.length + 1,
           itemBuilder: (context, index) {
+            if (index == zaps.length) {
+              return const SizedBox(
+                height: 160,
+                child: Center(child: Text("You reached the end")),
+              ); // space for bottom nav
+            }
             final zap = zaps[index];
             return ZapCard(zap: zap);
           },

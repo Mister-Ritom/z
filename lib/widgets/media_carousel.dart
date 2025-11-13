@@ -1,3 +1,5 @@
+import 'dart:developer';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/widgets/app_image.dart';
@@ -11,7 +13,7 @@ class MediaCarousel extends StatefulWidget {
   const MediaCarousel({
     super.key,
     required this.mediaUrls,
-    this.maxHeight = 400,
+    this.maxHeight = 700,
   });
 
   @override
@@ -70,6 +72,18 @@ class _MediaCarouselState extends State<MediaCarousel> {
     );
   }
 
+  Widget _errorPlaceholder() {
+    return Container(
+      color: Colors.grey.shade900,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.broken_image_rounded,
+        size: 48,
+        color: Colors.white54,
+      ),
+    );
+  }
+
   Widget _buildPageview(double screenWidth, double itemWidth) {
     final showMultiple = screenWidth > 700;
     final visiblePages = showMultiple ? (screenWidth ~/ 300).clamp(1, 4) : 1;
@@ -88,51 +102,89 @@ class _MediaCarouselState extends State<MediaCarousel> {
               (index) => setState(() => _currentPage = index.toDouble()),
           itemBuilder: (context, index) {
             final url = widget.mediaUrls[index];
+            final isLocal = Helpers.isLocalMedia(url);
             final ratio = _aspectRatios[index] ?? 16 / 9;
             final itemHeight = (itemWidth / ratio).clamp(100, widget.maxHeight);
 
-            final child =
-                Helpers.isVideoPath(url)
-                    ? VideoPlayerWidget(
-                      isFile: false,
-                      url: url,
-                      width: itemWidth,
-                      height: itemHeight.toDouble(),
-                      onAspectRatioCalculated: (ratio) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            setState(() => _aspectRatios[index] = ratio);
-                          }
-                        });
-                      },
-                    )
-                    : AppImage.network(
-                      url,
-                      width: itemWidth,
-                      height: itemHeight.toDouble(),
-                      onAspectRatioCalculated: (ratio) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            setState(() => _aspectRatios[index] = ratio);
-                          }
-                        });
-                      },
-                      onDoubleTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => PhotoViewScreen(
-                                  images:
-                                      widget.mediaUrls
-                                          .where((s) => !Helpers.isVideoPath(s))
-                                          .toList(),
-                                  initialIndex: index,
-                                ),
-                          ),
-                        );
-                      },
+            Widget child;
+            try {
+              if (Helpers.isVideoPath(url)) {
+                child = VideoPlayerWidget(
+                  isFile: isLocal,
+                  url: url,
+                  width: itemWidth,
+                  height: itemHeight.toDouble(),
+                  onAspectRatioCalculated: (ratio) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _aspectRatios[index] = ratio);
+                      }
+                    });
+                  },
+                );
+              } else if (isLocal) {
+                final file = File(url);
+                if (!file.existsSync()) throw Exception('Local file missing');
+                child = AppImage.file(
+                  file,
+                  width: itemWidth,
+                  height: itemHeight.toDouble(),
+                  onAspectRatioCalculated: (ratio) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _aspectRatios[index] = ratio);
+                      }
+                    });
+                  },
+                  onDoubleTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => PhotoViewScreen(
+                              images:
+                                  widget.mediaUrls
+                                      .where((s) => !Helpers.isVideoPath(s))
+                                      .toList(),
+                              initialIndex: index,
+                            ),
+                      ),
                     );
+                  },
+                );
+              } else {
+                child = AppImage.network(
+                  url,
+                  width: itemWidth,
+                  height: itemHeight.toDouble(),
+                  onAspectRatioCalculated: (ratio) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _aspectRatios[index] = ratio);
+                      }
+                    });
+                  },
+                  onDoubleTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => PhotoViewScreen(
+                              images:
+                                  widget.mediaUrls
+                                      .where((s) => !Helpers.isVideoPath(s))
+                                      .toList(),
+                              initialIndex: index,
+                            ),
+                      ),
+                    );
+                  },
+                );
+              }
+            } catch (e, st) {
+              log('Media load error at index $index: $e', stackTrace: st);
+              child = _errorPlaceholder();
+            }
 
             return AnimatedScale(
               scale: index == _currentPage.round() ? 1.0 : 0.95,

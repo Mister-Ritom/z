@@ -8,6 +8,7 @@ class MessageModel {
   final DateTime createdAt;
   final bool isRead;
   final bool isDeleted;
+  final bool isPending;
 
   MessageModel({
     required this.id,
@@ -15,6 +16,7 @@ class MessageModel {
     required this.senderId,
     required this.receiverIds,
     required this.text,
+    this.isPending = false,
     this.mediaUrls,
     required this.createdAt,
     this.isRead = false,
@@ -32,6 +34,7 @@ class MessageModel {
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       isRead: map['isRead'] ?? false,
       isDeleted: map['isDeleted'] ?? false,
+      isPending: map['isPending'] ?? false,
     );
   }
 
@@ -46,6 +49,7 @@ class MessageModel {
       'createdAt': createdAt,
       'isRead': isRead,
       'isDeleted': isDeleted,
+      'isPending': isPending,
     };
   }
 }

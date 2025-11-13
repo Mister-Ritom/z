@@ -147,7 +147,7 @@ class ZapCard extends ConsumerWidget {
                   ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                   children: [
                     TextSpan(
-                      text: userAsync.valueOrNull!.username,
+                      text: userAsync.valueOrNull?.username,
                       style: const TextStyle(
                         color: Colors.blueGrey,
                         fontWeight: FontWeight.bold,
