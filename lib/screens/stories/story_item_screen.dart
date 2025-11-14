@@ -32,7 +32,8 @@ class StoryItemScreen extends ConsumerStatefulWidget {
   ConsumerState<StoryItemScreen> createState() => _StoryItemScreenState();
 }
 
-class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
+class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
+    with SingleTickerProviderStateMixin {
   int currentUserIndex = 0;
   int currentStoryIndex = 0;
   Timer? _timer;
@@ -41,6 +42,13 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
   Duration longPressThreshold = const Duration(milliseconds: 300);
   Timer? _pressTimer;
   bool _isLongPressing = false;
+
+  double _dragOffsetY = 0.0;
+  bool _isDragging = false;
+  late final AnimationController _animController;
+  late Animation<double> _anim;
+  static const double _dismissThreshold = 120.0;
+  static const double _velocityThreshold = 700.0;
 
   String get currentUserId => widget.allUserIds[currentUserIndex];
   List<StoryModel> get currentUserStories =>
@@ -52,6 +60,13 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
     super.initState();
     currentUserIndex = widget.initialUserIndex;
     currentStoryIndex = widget.initialStoryIndex;
+    _animController = AnimationController(vsync: this);
+    _anim = Tween<double>(begin: 0, end: 0).animate(_animController)
+      ..addListener(() {
+        setState(() {
+          _dragOffsetY = _anim.value;
+        });
+      });
     WidgetsBinding.instance.addPostFrameCallback((_) => _markStoryViewed());
     _startStoryTimer();
   }
@@ -69,7 +84,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
     final duration = currentStory.duration;
 
     _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!_pause) {
+      if (!_pause && !_isDragging) {
         setState(() => progress += 50 / duration.inMilliseconds);
         if (progress >= 1.0) _nextStory();
       }
@@ -126,6 +141,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _animController.dispose();
     super.dispose();
   }
 
@@ -155,16 +171,76 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
     );
   }
 
+  void _animateBackTo(double target, {int ms = 200}) {
+    try {
+      _animController.stop();
+      _animController.duration = Duration(milliseconds: ms);
+      _anim = Tween<double>(begin: _dragOffsetY, end: target).animate(
+        CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+      );
+      _animController.reset();
+      _animController.forward();
+    } catch (e, st) {
+      log('Error animating drag: $e\n$st');
+    }
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    try {
+      _isDragging = false;
+      final velocity = details.primaryVelocity ?? 0.0;
+      if (_dragOffsetY > _dismissThreshold || velocity > _velocityThreshold) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        _animateBackTo(screenHeight, ms: 250);
+        _animController.addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            try {
+              Navigator.pop(context);
+            } catch (e, st) {
+              log('Error popping after dismiss: $e\n$st');
+            }
+          }
+        });
+      } else if (_dragOffsetY < -_dismissThreshold ||
+          velocity < -_velocityThreshold) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        _animateBackTo(-screenHeight, ms: 250);
+        _animController.addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            try {
+              Navigator.pop(context);
+            } catch (e, st) {
+              log('Error popping after dismiss: $e\n$st');
+            }
+          }
+        });
+      } else {
+        _animateBackTo(0.0, ms: 200);
+        setState(() => _pause = false);
+      }
+    } catch (e, st) {
+      log('Error during drag end: $e\n$st');
+      _animateBackTo(0.0, ms: 200);
+      setState(() => _pause = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userProfileProvider(currentUserId));
     final analyticsService = ref.watch(storyAnalyticsProvider);
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final dragAbs = _dragOffsetY.abs();
+    final opacity = (1.0 - (dragAbs / (screenHeight * 0.7))).clamp(0.0, 1.0);
+    final scale = (1.0 - (dragAbs / (screenHeight * 6))).clamp(0.85, 1.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (details) {
+          if (_isDragging) return;
           setState(() {
             _isLongPressing = false;
           });
@@ -177,14 +253,13 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
           });
         },
         onTapUp: (details) {
+          if (_isDragging) return;
           _pressTimer?.cancel();
           if (_isLongPressing) {
-            // Finger was held long enough, just unpause
             setState(() {
               _pause = false;
             });
           } else {
-            // Finger was quickly tapped, go next/previous
             final width = MediaQuery.of(context).size.width;
             if (details.globalPosition.dx < width / 2) {
               _previousStory();
@@ -194,80 +269,106 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
           }
         },
         onTapCancel: () {
+          if (_isDragging) return;
           _pressTimer?.cancel();
           if (_isLongPressing) {
             setState(() => _pause = false);
           }
         },
-        child: Stack(
-          children: [
-            Center(child: _buildStoryMedia(currentStory)),
-            Positioned(
-              top: 40,
-              left: 10,
-              right: 10,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProgressBars(),
-                  const SizedBox(height: 10),
-                  userAsync.when(
-                    data: (user) => _buildUserInfo(user),
-                    loading: () => const CircularProgressIndicator(),
-                    error: (e, st) {
-                      log('Error loading user data: $e');
-                      return const SizedBox();
-                    },
-                  ),
-                ],
+        onVerticalDragStart: (details) {
+          _isDragging = true;
+          _pressTimer?.cancel();
+          setState(() => _pause = true);
+        },
+        onVerticalDragUpdate: (details) {
+          try {
+            _dragOffsetY += details.delta.dy;
+            setState(() {});
+          } catch (e, st) {
+            log('Error during drag update: $e\n$st');
+          }
+        },
+        onVerticalDragEnd: _handleDragEnd,
+        child: AnimatedBuilder(
+          animation: _animController,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _dragOffsetY),
+              child: Transform.scale(
+                scale: scale,
+                child: Opacity(opacity: opacity, child: child),
               ),
-            ),
-            if (currentStory.caption.isNotEmpty)
+            );
+          },
+          child: Stack(
+            children: [
+              Center(child: _buildStoryMedia(currentStory)),
               Positioned(
-                bottom: 80,
+                top: 40,
                 left: 10,
                 right: 10,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _buildBackgroundBlur(
-                        Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: Text(
-                            currentStory.caption,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                      ),
-                    ),
-                    StreamBuilder<bool>(
-                      stream: analyticsService.isStoryLikedStream(
-                        currentUserId,
-                        currentStory.id,
-                      ),
-                      initialData: false,
-                      builder: (context, snapshot) {
-                        final isLiked = snapshot.data ?? false;
-                        return IconButton(
-                          onPressed: () {
-                            analyticsService.toggleLikeStory(
-                              currentUserId,
-                              currentStory.id,
-                            );
-                          },
-                          icon: Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked ? Colors.red : Colors.white,
-                          ),
-                        );
+                    _buildProgressBars(),
+                    const SizedBox(height: 10),
+                    userAsync.when(
+                      data: (user) => _buildUserInfo(user),
+                      loading: () => const CircularProgressIndicator(),
+                      error: (e, st) {
+                        log('Error loading user data: $e');
+                        return const SizedBox();
                       },
                     ),
                   ],
                 ),
               ),
-          ],
+              if (currentStory.caption.isNotEmpty)
+                Positioned(
+                  bottom: 80,
+                  left: 10,
+                  right: 10,
+                  child: _buildBackgroundBlur(
+                    Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Text(
+                        currentStory.caption,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                bottom: 80,
+                right: 10,
+                child: StreamBuilder<bool>(
+                  stream: analyticsService.isStoryLikedStream(
+                    currentUserId,
+                    currentStory.id,
+                  ),
+                  initialData: false,
+                  builder: (context, snapshot) {
+                    final isLiked = snapshot.data ?? false;
+                    return IconButton(
+                      onPressed: () {
+                        analyticsService.toggleLikeStory(
+                          currentUserId,
+                          currentStory.id,
+                        );
+                      },
+                      icon: Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        color: isLiked ? Colors.red : Colors.white,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -280,7 +381,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen> {
           url: story.mediaUrl,
           isFile: false,
           disableFullscreen: true,
-          isPlaying: !_pause,
+          isPlaying: !_pause && !_isDragging,
         );
       } else {
         return AppImage.network(story.mediaUrl, fit: BoxFit.cover);

@@ -47,9 +47,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body:
           isEmptyQuery
-              ? const Center(
-                child: Text('Search for users, zaps, or hashtags'),
-              )
+              ? const Center(child: Text('Search for users, zaps, or hashtags'))
               : _buildCombinedResults(searchUsersAsync, searchZapsAsync),
     );
   }
@@ -91,14 +89,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ),
-          ...users.map(
-            (user) => UserCard(
-              user: user,
-              onTap: () {
-                // navigate to profile
-              },
-            ),
-          ),
+          ...users.map((user) => UserCard(user: user)),
           const Divider(height: 32),
         ],
         if (zaps.isNotEmpty) ...[

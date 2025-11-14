@@ -242,6 +242,7 @@ class StoriesScreen extends ConsumerWidget {
                     itemBuilder: (context, i) {
                       final story = sortedStories[i];
                       final isVideo = Helpers.isVideoPath(story.mediaUrl);
+                      final key = GlobalKey();
 
                       return FutureBuilder<bool>(
                         future: analyticsService.isStoryViewed(
@@ -252,8 +253,29 @@ class StoriesScreen extends ConsumerWidget {
                           final isViewed = viewedSnapshot.data ?? false;
 
                           return GestureDetector(
+                            key: key,
                             onTap: () {
                               try {
+                                final renderBox =
+                                    key.currentContext!.findRenderObject()
+                                        as RenderBox;
+                                final offset = renderBox.localToGlobal(
+                                  Offset.zero,
+                                );
+                                final size = renderBox.size;
+                                final screen = MediaQuery.of(context).size;
+
+                                final ax =
+                                    ((offset.dx + size.width / 2) /
+                                            screen.width) *
+                                        2 -
+                                    1;
+                                final ay =
+                                    ((offset.dy + size.height / 2) /
+                                            screen.height) *
+                                        2 -
+                                    1;
+
                                 Navigator.push(
                                   context,
                                   PageRouteBuilder(
@@ -264,26 +286,28 @@ class StoriesScreen extends ConsumerWidget {
                                           initialUserIndex: userIndex,
                                           initialStoryIndex: i,
                                         ),
-                                    transitionDuration: Duration(
+                                    transitionDuration: const Duration(
                                       milliseconds: 400,
                                     ),
                                     reverseTransitionDuration: Duration.zero,
                                     transitionsBuilder: (
                                       context,
                                       animation,
-                                      secondaryAnimation,
+                                      secondary,
                                       child,
                                     ) {
-                                      return ScaleTransition(
-                                        scale: Tween<double>(
-                                          begin: 0.0,
-                                          end: 1.0,
-                                        ).animate(
-                                          CurvedAnimation(
-                                            parent: animation,
-                                            curve: Curves.easeOutCubic,
-                                          ),
+                                      final scale = Tween<double>(
+                                        begin: 0.0,
+                                        end: 1.0,
+                                      ).animate(
+                                        CurvedAnimation(
+                                          parent: animation,
+                                          curve: Curves.easeOutCubic,
                                         ),
+                                      );
+                                      return Transform.scale(
+                                        scale: scale.value,
+                                        alignment: Alignment(ax, ay),
                                         child: child,
                                       );
                                     },
@@ -344,7 +368,6 @@ class StoriesScreen extends ConsumerWidget {
     );
   }
 
-  // Helper to move viewed stories to the end
   Future<List<StoryModel>> _sortStoriesByViewed(
     List<StoryModel> stories,
     StoryAnalyticsService analyticsService,

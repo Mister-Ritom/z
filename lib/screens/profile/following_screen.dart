@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/user_card.dart';
 import '../../widgets/loading_shimmer.dart';
-import '../profile/profile_screen.dart';
 
 class FollowingScreen extends ConsumerWidget {
   final String userId;
@@ -35,17 +34,7 @@ class FollowingScreen extends ConsumerWidget {
                   if (user == null) {
                     return const SizedBox.shrink();
                   }
-                  return UserCard(
-                    user: user,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProfileScreen(userId: user.id),
-                        ),
-                      );
-                    },
-                  );
+                  return UserCard(user: user);
                 },
                 loading:
                     () => const Padding(

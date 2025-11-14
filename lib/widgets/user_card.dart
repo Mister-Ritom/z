@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:z/screens/profile/profile_screen.dart';
+import 'package:z/widgets/profile_picture.dart';
 import '../models/user_model.dart';
 import '../providers/profile_provider.dart';
 import '../providers/auth_provider.dart';
 
 class UserCard extends ConsumerWidget {
   final UserModel user;
-  final VoidCallback? onTap;
   final bool showFollowButton;
 
-  const UserCard({
-    super.key,
-    required this.user,
-    this.onTap,
-    this.showFollowButton = true,
-  });
+  const UserCard({super.key, required this.user, this.showFollowButton = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,14 +20,12 @@ class UserCard extends ConsumerWidget {
     }
     final isOwnProfile = currentUser.uid == user.id;
 
-    final isFollowingAsync = ref.watch(
-      isFollowingProvider({
-        'currentUserId': currentUser.uid,
-        'targetUserId': user.id,
-      }),
-    );
-
-    final isFollowing = isFollowingAsync.valueOrNull ?? false;
+    void onTap() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ProfileScreen(userId: user.id)),
+      );
+    }
 
     return InkWell(
       onTap: onTap,
@@ -40,21 +33,7 @@ class UserCard extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Avatar
-            CircleAvatar(
-              radius: 24,
-              backgroundImage:
-                  user.profilePictureUrl != null
-                      ? CachedNetworkImageProvider(user.profilePictureUrl!)
-                      : null,
-              child:
-                  user.profilePictureUrl == null
-                      ? Text(
-                        user.displayName[0].toUpperCase(),
-                        style: const TextStyle(color: Colors.white),
-                      )
-                      : null,
-            ),
+            ProfilePicture(pfp: user.profilePictureUrl, name: user.displayName),
             const SizedBox(width: 12),
             // User info
             Expanded(
@@ -96,37 +75,56 @@ class UserCard extends ConsumerWidget {
               ),
             ),
             // Follow button
-            if (showFollowButton && !isOwnProfile)
-              ElevatedButton(
-                onPressed: () async {
-                  final profileService = ref.read(profileServiceProvider);
-                  if (isFollowing) {
-                    await profileService.unfollowUser(currentUser.uid, user.id);
-                  } else {
-                    await profileService.followUser(currentUser.uid, user.id);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isFollowing
-                          ? Colors.transparent
-                          : Theme.of(context).colorScheme.secondary,
-                  foregroundColor:
-                      isFollowing
-                          ? Theme.of(context).colorScheme.secondary
-                          : Theme.of(context).colorScheme.inverseSurface,
-                  side:
-                      isFollowing
-                          ? BorderSide(
-                            color: Theme.of(context).colorScheme.primary,
-                          )
-                          : null,
-                ),
-                child: Text(isFollowing ? 'Following' : 'Follow'),
+            if (!isOwnProfile && showFollowButton)
+              SizedBox(
+                width: 96,
+                child: _followButton(currentUser.uid, user.id, ref),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _followButton(String currentUserId, String userId, WidgetRef ref) {
+    final profileService = ref.read(profileServiceProvider);
+
+    return FutureBuilder<bool>(
+      future: profileService.isFollowing(currentUserId, userId),
+      builder: (context, snapshot) {
+        final isFollowing = snapshot.data ?? false;
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed:
+                isLoading
+                    ? null
+                    : () async {
+                      if (isFollowing) {
+                        await profileService.unfollowUser(
+                          currentUserId,
+                          userId,
+                        );
+                      } else {
+                        await profileService.followUser(currentUserId, userId);
+                      }
+
+                      // Trigger rebuild after following/unfollowing
+                      (context as Element).markNeedsBuild();
+                    },
+            child:
+                isLoading
+                    ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : Text(isFollowing ? 'Following' : 'Follow'),
+          ),
+        );
+      },
     );
   }
 }

@@ -15,17 +15,6 @@ final userProfileProvider = StreamProvider.family<UserModel?, String>((
   return authService.getUserByIdStream(userId);
 });
 
-final isFollowingProvider = FutureProvider.family<bool, Map<String, String>>((
-  ref,
-  params,
-) async {
-  final profileService = ref.watch(profileServiceProvider);
-  return await profileService.isFollowing(
-    params['currentUserId']!,
-    params['targetUserId']!,
-  );
-});
-
 final userFollowersProvider = StreamProvider.family<List<String>, String>((
   ref,
   userId,
