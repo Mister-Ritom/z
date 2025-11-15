@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
-import 'package:timeago/timeago.dart' as timeAgo;
+import 'package:timeago/timeago.dart' as timeago;
 import 'package:video_player/video_player.dart';
 import 'package:z/models/comment_model.dart';
 import 'package:z/models/zap_model.dart';
@@ -379,7 +379,7 @@ class _ExpandableZapTextState extends State<ExpandableZapText> {
 
   @override
   Widget build(BuildContext context) {
-    final timeAgoText = timeAgo.format(widget.createdAt);
+    final timeAgoText = timeago.format(widget.createdAt);
 
     return GestureDetector(
       onTap: () => setState(() => expanded = !expanded),

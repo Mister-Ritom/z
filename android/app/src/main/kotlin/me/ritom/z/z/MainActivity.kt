@@ -9,9 +9,10 @@ class MainActivity: FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         GoogleMobileAdsPlugin.registerNativeAdFactory(
             flutterEngine,
-            "multiFactory",
-            MultiNativeAdFactory(context)
+            "multiNativeAd",
+            MultiNativeAdFactory(this)
         )
+
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {

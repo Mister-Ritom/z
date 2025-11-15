@@ -99,6 +99,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final pfpChanged = newPfp != widget.user.profilePictureUrl;
       final coverChanged = newCover != widget.user.coverPhotoUrl;
 
+      await currentUser.updateProfile(
+        displayName: nameChanged ? displayName : null,
+        photoURL: pfpChanged ? newPfp : null,
+      );
+      await currentUser.reload();
+
       // Update profile
       await profileService.updateProfile(
         userId: widget.user.id,
@@ -107,12 +113,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         profilePictureUrl: pfpChanged ? newPfp : null,
         coverPhotoUrl: coverChanged ? newCover : null,
       );
-
-      await currentUser.updateProfile(
-        displayName: nameChanged ? displayName : null,
-        photoURL: pfpChanged ? newPfp : null,
-      );
-      await currentUser.reload();
 
       if (mounted) {
         Navigator.pop(context);

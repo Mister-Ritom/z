@@ -8,27 +8,28 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import com.google.android.gms.ads.nativead.MediaView
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdView
-import io.flutter.plugins.googlemobileads.FlutterNativeAdFactory
+import com.google.android.gms.ads.nativead.MediaView
+import io.flutter.plugins.googlemobileads.GoogleMobileAdsPlugin
 
-class MultiNativeAdFactory(private val context: Context) : FlutterNativeAdFactory {
 
+
+class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin.NativeAdFactory {
     override fun createNativeAd(nativeAd: NativeAd, customOptions: MutableMap<String, Any>?): NativeAdView {
         val adType = customOptions?.get("adType") as? String ?: "small"
         val adLayout = customOptions?.get("adLayout") as? String ?: "horizontal"
 
         val bgColor = (customOptions?.get("bgColor") as? String)?.let { Color.parseColor("#${it.removePrefix("#")}") } ?: Color.parseColor("#F0F0F0")
         val textColor = (customOptions?.get("textColor") as? String)?.let { Color.parseColor("#${it.removePrefix("#")}") } ?: Color.BLACK
-        val cornerRadius = ((customOptions?.get("cornerRadius") as? Double)?.toFloat()) ?: 12f
+        val cornerRadiusPara = ((customOptions?.get("cornerRadius") as? Double)?.toFloat()) ?: 12f
         val padding = 24
 
         val adView = NativeAdView(context)
 
         val background = GradientDrawable().apply {
             setColor(bgColor)
-            cornerRadius = this@MultiNativeAdFactory.context.resources.displayMetrics.density * cornerRadius
+            cornerRadius = this@MultiNativeAdFactory.context.resources.displayMetrics.density * cornerRadiusPara
             setStroke(1, Color.parseColor("#80CCCCCC"))
         }
         adView.background = background
