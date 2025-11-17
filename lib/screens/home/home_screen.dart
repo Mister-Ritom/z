@@ -378,8 +378,7 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
   void initState() {
     super.initState();
     WidgetsFlutterBinding.ensureInitialized().addPostFrameCallback((_) async {
-      final status =
-          await AppTrackingTransparency.requestTrackingAuthorization();
+      await AppTrackingTransparency.requestTrackingAuthorization();
     });
     Future.microtask(() {
       ref.read(forYouFeed.notifier).loadInitial();
