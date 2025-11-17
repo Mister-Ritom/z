@@ -4,12 +4,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:z/models/ad_model.dart';
 import 'package:z/models/story_model.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/screens/main_navigation.dart';
+import 'package:z/services/ad_manager.dart';
 import 'package:z/utils/helpers.dart';
+import 'package:z/widgets/ad_widgets.dart';
 import 'package:z/widgets/app_image.dart';
 import 'package:z/widgets/profile_picture.dart';
 import 'package:z/widgets/video_player_widget.dart';
@@ -42,6 +45,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
   Duration longPressThreshold = const Duration(milliseconds: 300);
   Timer? _pressTimer;
   bool _isLongPressing = false;
+  final AdManager _adManager = AdManager();
 
   double _dragOffsetY = 0.0;
   bool _isDragging = false;
@@ -93,6 +97,20 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
 
   void _nextStory() {
     _timer?.cancel();
+    
+    // Check if we should show an ad
+    if (_adManager.shouldShowStoryAd()) {
+      _showStoryAd(() {
+        // Continue to next story after ad
+        _continueToNextStory();
+      });
+      return;
+    }
+    
+    _continueToNextStory();
+  }
+
+  void _continueToNextStory() {
     if (currentStoryIndex < currentUserStories.length - 1) {
       setState(() => currentStoryIndex++);
       _markStoryViewed();
@@ -104,11 +122,89 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
 
   void _previousStory() {
     _timer?.cancel();
+    
+    // Check if we should show an ad
+    if (_adManager.shouldShowStoryAd()) {
+      _showStoryAd(() {
+        // Continue to previous story after ad
+        _continueToPreviousStory();
+      });
+      return;
+    }
+    
+    _continueToPreviousStory();
+  }
+
+  void _continueToPreviousStory() {
     if (currentStoryIndex > 0) {
       setState(() => currentStoryIndex--);
       _startStoryTimer();
     } else {
       _previousUser();
+    }
+  }
+
+  void _showStoryAd(VoidCallback onDismissed) {
+    final adType = _adManager.getRandomAdType();
+    
+    if (adType == AdType.interstitial || adType == AdType.video) {
+      // Show full-screen ad
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.zero,
+          child: adType == AdType.video
+              ? VideoAdWidget(
+                  showSkipButton: true,
+                  skipDelay: const Duration(seconds: 5),
+                  onAdDismissed: () {
+                    Navigator.pop(context);
+                    onDismissed();
+                  },
+                )
+              : InterstitialAdWidget(
+                  onAdDismissed: () {
+                    Navigator.pop(context);
+                    onDismissed();
+                  },
+                ),
+        ),
+      );
+    } else {
+      // Show native ad overlay
+      showModalBottomSheet(
+        context: context,
+        isDismissible: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: NativeAdWidget(
+                  showSkipButton: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ).then((_) => onDismissed());
     }
   }
 

@@ -33,7 +33,12 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
             setStroke(1, Color.parseColor("#80CCCCCC"))
         }
         adView.background = background
-        adView.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        // CRITICAL: Use MATCH_PARENT for both dimensions to respect Flutter's exact constraints
+        // Flutter will provide the exact size via PlatformView, so we must fill it exactly
+        adView.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 
+            ViewGroup.LayoutParams.MATCH_PARENT // Match Flutter's exact height
+        )
         adView.setPadding(padding, padding, padding, padding)
 
         val headlineView = TextView(context).apply {
@@ -71,21 +76,43 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
 
         val iconView = ImageView(context).apply {
             val size = if (adType == "small") 80 else 110
-            layoutParams = LinearLayout.LayoutParams(size, size)
+            // Fixed size for icon - prevents layout issues
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                weight = 0f // Don't expand
+            }
             scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true // Maintain aspect ratio
             nativeAd.icon?.let { setImageDrawable(it.drawable) }
         }
 
+        // MediaView with proper sizing based on adType
+        // CRITICAL: Must fit within Flutter's 300px height constraint
+        // Small ad: ~120px media, Large ad: ~160px media
         val mediaView = MediaView(context).apply {
+            val mediaHeight = if (adType == "small") {
+                // Small ad: 300px total - padding(48) - icon/text(132) = ~120px for media
+                120
+            } else {
+                // Large ad: 300px total - padding(48) - icon/text(92) = ~160px for media
+                160
+            }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                if (adType == "small") 250 else 400
-            )
+                mediaHeight
+            ).apply {
+                weight = 0f // Don't expand
+            }
+            scaleType = ImageView.ScaleType.CENTER_CROP
         }
 
+        // FIXED: Correct orientation handling
         val mainLayout = LinearLayout(context).apply {
-            orientation = if (adLayout == "vertical") LinearLayout.VERTICAL else LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            orientation = LinearLayout.VERTICAL // Always vertical for proper stacking
+            // CRITICAL: MATCH_PARENT to fill Flutter's exact constraints
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 
+                ViewGroup.LayoutParams.MATCH_PARENT // Fill Flutter's exact height
+            )
             setPadding(0, 0, 0, 0)
         }
 
@@ -142,13 +169,20 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
             mainLayout.addView(bottomRow)
         }
 
-        adView.addView(mainLayout)
+        // CRITICAL: Add mainLayout with MATCH_PARENT to fill adView exactly
+        adView.addView(mainLayout, ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT // Fill adView exactly
+        ))
 
+        // Assign views for tracking - MUST be done before setNativeAd
         adView.headlineView = headlineView
         adView.bodyView = bodyView
         adView.callToActionView = ctaButton
         adView.iconView = iconView
         adView.mediaView = mediaView
+        
+        // CRITICAL: Set native ad AFTER all views are assigned
         adView.setNativeAd(nativeAd)
 
         return adView

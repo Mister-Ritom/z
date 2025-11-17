@@ -47,7 +47,7 @@ class ProfileService {
               .doc(currentUserId)
               .collection('users')
               .doc(targetUserId),
-          {'createdAt': DateTime.now()},
+          {'createdAt': FieldValue.serverTimestamp()},
         );
 
         // Add to target user's followers
@@ -57,7 +57,7 @@ class ProfileService {
               .doc(targetUserId)
               .collection('users')
               .doc(currentUserId),
-          {'createdAt': DateTime.now()},
+          {'createdAt': FieldValue.serverTimestamp()},
         );
 
         // Update follower counts

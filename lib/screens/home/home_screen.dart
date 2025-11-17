@@ -1,14 +1,16 @@
 import 'dart:developer';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:z/info/zap/zap_detail_screen.dart';
-import 'package:z/models/zap_model.dart';
 import 'package:z/providers/message_provider.dart';
 import 'package:z/providers/settings_provider.dart';
 import 'package:z/providers/storage_provider.dart';
+import 'package:z/services/ad_manager.dart';
 import 'package:z/utils/helpers.dart';
+import 'package:z/widgets/feed_with_ads.dart';
 import 'package:z/widgets/profile_picture.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/zap_provider.dart';
@@ -369,11 +371,16 @@ class _ForYouTab extends ConsumerStatefulWidget {
 
 class _ForYouTabState extends ConsumerState<_ForYouTab> {
   final ScrollController _scrollController = ScrollController();
+  final AdManager _adManager = AdManager();
   get forYouFeed => forYouFeedProvider(false);
 
   @override
   void initState() {
     super.initState();
+    WidgetsFlutterBinding.ensureInitialized().addPostFrameCallback((_) async {
+      final status =
+          await AppTrackingTransparency.requestTrackingAuthorization();
+    });
     Future.microtask(() {
       ref.read(forYouFeed.notifier).loadInitial();
     });
@@ -405,30 +412,44 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
       return const Center(child: Text('No zaps yet'));
     }
 
-    // Inside _ForYouTabState build:
+    // Inject ads into zap feed
+    final feedItems = _adManager.injectAdsIntoZapBatch(zaps);
+    final items = createFeedItems(feedItems);
+
     return RefreshIndicator(
       onRefresh: _onRefresh,
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: zaps.length + 1,
+        itemCount: items.length + 1,
         itemBuilder: (context, index) {
-          if (index == zaps.length) {
+          if (index == items.length) {
             return const SizedBox(
               height: 160,
               child: Center(child: Text("You reached the end")),
             ); // space for bottom nav
           }
-          final zap = zaps[index] as ZapModel;
-          return ZapCard(
-            zap: zap,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ZapDetailScreen(zapId: zap.id),
-                ),
-              );
+          // CRITICAL: Add unique key to prevent widget rebuild issues during scroll
+          final item = items[index];
+          final key =
+              item is ZapFeedItem
+                  ? ValueKey('zap_${item.zap.id}')
+                  : item is AdFeedItem
+                  ? ValueKey('ad_${item.placement.index}')
+                  : ValueKey('item_$index');
+
+          return FeedItemWidget(
+            key: key,
+            item: item,
+            onZapTap: () {
+              if (item is ZapFeedItem) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ZapDetailScreen(zapId: item.zap.id),
+                  ),
+                );
+              }
             },
           );
         },

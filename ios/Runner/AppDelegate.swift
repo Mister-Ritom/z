@@ -13,13 +13,21 @@ import google_mobile_ads
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
 
-GeneratedPluginRegistrant.register(with: self)
+        GeneratedPluginRegistrant.register(with: self)
+        
+        // Register native ad factory
         FLTGoogleMobileAdsPlugin.registerNativeAdFactory(
-      self,
-      factoryId: "multiFactory",
-    nativeAdFactory: MultiNativeAdFactory()
-    )
-
+            self,
+            factoryId: "multiNativeAd",
+            nativeAdFactory: MultiNativeAdFactory()
+        )
+        
+        // Register video ad factory
+        FLTGoogleMobileAdsPlugin.registerNativeAdFactory(
+            self,
+            factoryId: "videoAd",
+            nativeAdFactory: VideoAdFactory()
+        )
 
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }

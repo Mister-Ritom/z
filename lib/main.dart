@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:z/firebase_options.dart';
 import 'package:z/providers/settings_provider.dart';
+import 'package:z/services/ad_manager.dart';
 import 'utils/router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize ad manager
+  await AdManager().initialize();
 
   runApp(const ProviderScope(child: MyApp()));
 }

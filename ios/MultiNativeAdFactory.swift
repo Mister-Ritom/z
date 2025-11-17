@@ -32,22 +32,29 @@ class MultiNativeAdFactory: NSObject, FLTNativeAdFactory {
         // Add a subtle border for decoration
         adView.layer.borderWidth = 1.0
         adView.layer.borderColor = UIColor.lightGray.withAlphaComponent(0.5).cgColor
+        
+        // CRITICAL: Don't set content hugging - we want to fill Flutter's exact size
+        // Flutter provides exact dimensions via PlatformView, so we must match them exactly
 
         // --- 3. Component Views ---
 
         // Headline
         let headlineView = UILabel()
+        headlineView.translatesAutoresizingMaskIntoConstraints = false
         headlineView.text = nativeAd.headline
         headlineView.font = UIFont.boldSystemFont(ofSize: adType == "small" ? 15 : 19)
         headlineView.textColor = textColor
         headlineView.numberOfLines = 2
+        headlineView.setContentHuggingPriority(.defaultHigh, for: .vertical)
 
         // Body
         let bodyView = UILabel()
+        bodyView.translatesAutoresizingMaskIntoConstraints = false
         bodyView.text = nativeAd.body
         bodyView.font = UIFont.systemFont(ofSize: adType == "small" ? 12 : 15)
         bodyView.textColor = textColor.withAlphaComponent(0.8)
         bodyView.numberOfLines = 3
+        bodyView.setContentHuggingPriority(.defaultHigh, for: .vertical)
 
         // CTA Button
         let ctaButton = UIButton(type: .system)
@@ -73,18 +80,32 @@ class MultiNativeAdFactory: NSObject, FLTNativeAdFactory {
         // Icon View
         let iconSize: CGFloat = adType == "small" ? 40 : 56
         let iconView = UIImageView()
+        iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.contentMode = .scaleAspectFit
         iconView.widthAnchor.constraint(equalToConstant: iconSize).isActive = true
         iconView.heightAnchor.constraint(equalToConstant: iconSize).isActive = true
+        // Prevent icon from expanding
+        iconView.setContentHuggingPriority(.required, for: .horizontal)
+        iconView.setContentHuggingPriority(.required, for: .vertical)
         if let icon = nativeAd.icon?.image {
             iconView.image = icon
         }
 
-        // Media View
-        let mediaHeight: CGFloat = adType == "small" ? 120 : 180
+        // Media View - Fixed height based on adType to fit within Flutter's 300px constraint
+        // CRITICAL: Must fit within Flutter's exact 300px height
         let mediaView = MediaView()
+        mediaView.translatesAutoresizingMaskIntoConstraints = false
         mediaView.mediaContent = nativeAd.mediaContent
+        
+        // Calculate media height to fit within 300px total height
+        // Small ad: 300px - padding(24) - icon/text(156) = ~120px for media
+        // Large ad: 300px - padding(24) - icon/text(116) = ~160px for media
+        let mediaHeight: CGFloat = adType == "small" ? 120 : 160
         mediaView.heightAnchor.constraint(equalToConstant: mediaHeight).isActive = true
+        
+        // Ensure media view fills width
+        mediaView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        mediaView.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         // --- 4. Layout Stacks (Conditional) ---
 
@@ -135,12 +156,13 @@ class MultiNativeAdFactory: NSObject, FLTNativeAdFactory {
 
         mainStack.alignment = .fill
         mainStack.translatesAutoresizingMaskIntoConstraints = false
+        // CRITICAL: Don't set content hugging - we want to fill Flutter's exact size
 
         // --- 5. Final Assembly and Constraints ---
 
         adView.addSubview(mainStack)
         
-        // Pin mainStack to the adView with padding
+        // CRITICAL: Pin mainStack to fill adView exactly (Flutter provides exact size)
         NSLayoutConstraint.activate([
             mainStack.topAnchor.constraint(equalTo: adView.topAnchor, constant: padding),
             mainStack.leadingAnchor.constraint(equalTo: adView.leadingAnchor, constant: padding),
@@ -175,5 +197,14 @@ extension UIColor {
             blue: CGFloat(rgb & 0xFF)/255,
             alpha: 1
         )
+    }
+}
+
+// MARK: - NSLayoutConstraint Extension
+
+extension NSLayoutConstraint {
+    func withPriority(_ priority: UILayoutPriority) -> NSLayoutConstraint {
+        self.priority = priority
+        return self
     }
 }

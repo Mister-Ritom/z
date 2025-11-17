@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/zap_provider.dart';
+import 'package:z/services/ad_manager.dart';
+import 'package:z/widgets/ad_widgets.dart';
 import 'package:z/widgets/short_video_widget.dart';
 
 class ShortsScreen extends ConsumerStatefulWidget {
@@ -18,6 +20,8 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
     with AutomaticKeepAliveClientMixin {
   final PageController _pageController = PageController(viewportFraction: 0.99);
   VideoPlayerController? _currentController;
+  final AdManager _adManager = AdManager();
+  bool _showingAd = false;
 
   int _currentIndex = 0;
   get forYouFeed => forYouFeedProvider(true);
@@ -62,6 +66,35 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
 
   Future<void> _onRefresh() async {
     await ref.read(forYouFeed.notifier).loadInitial();
+  }
+
+  void _showShortsAd() {
+    if (!mounted || _showingAd) return;
+    
+    setState(() {
+      _showingAd = true;
+    });
+    
+    // Show ad as overlay
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: VideoAdWidget(
+          showSkipButton: true,
+          skipDelay: const Duration(seconds: 5),
+          onAdDismissed: () {
+            Navigator.of(context).pop();
+            setState(() {
+              _showingAd = false;
+            });
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -112,13 +145,42 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
               onPageChanged: (index) {
                 setState(() {
                   _currentIndex = index;
+                  _showingAd = false;
                 });
+                
+                // Check if we should show an ad after this video
+                if (_adManager.shouldShowShortsAd() && 
+                    index > 0 && 
+                    index < zaps.length - 1 &&
+                    !_showingAd) {
+                  // Show ad on next swipe
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    if (mounted && _currentIndex == index) {
+                      _showShortsAd();
+                    }
+                  });
+                }
               },
               itemBuilder: (context, index) {
+                // Check if this position should show an ad
+                if (_showingAd && index == _currentIndex) {
+                  return VideoAdWidget(
+                    showSkipButton: true,
+                    skipDelay: const Duration(seconds: 5),
+                    onAdDismissed: () {
+                      setState(() {
+                        _showingAd = false;
+                      });
+                    },
+                  );
+                }
+                
                 final zap = zaps[index] as ZapModel;
                 return ShortVideoWidget(
                   zap: zap,
-                  shouldPlay: widget.isActive && index == _currentIndex,
+                  shouldPlay: widget.isActive && 
+                             index == _currentIndex && 
+                             !_showingAd,
                   onControllerChange: (controller) {
                     setState(() {
                       _currentController = controller;

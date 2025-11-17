@@ -54,7 +54,12 @@ class ZapModel {
       parentZapId: map['parentZapId'],
       quotedZapId: map['quotedZapId'],
       text: map['text'] ?? '',
-      mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
+      mediaUrls: List<String>.from(
+        (map['mediaUrls'] != null && (map['mediaUrls'] as List).isNotEmpty)
+            ? map['mediaUrls']
+            : (map['mediaUrl'] != null ? [map['mediaUrl']] : []),
+      ),
+
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
       likesCount: map['likesCount'] ?? 0,
       rezapsCount: map['rezapsCount'] ?? 0,

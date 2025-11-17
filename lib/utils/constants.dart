@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   // Firebase Collections
   static const String usersCollection = 'users';
@@ -48,4 +50,43 @@ class AppConstants {
   //Ads
   static String postAdUnitIos = "ca-app-pub-2032620092700178/6520501886";
   static String postAdUnitAndroid = "ca-app-pub-2032620092700178/5833557432";
+
+  static String interAdUnitIos = "ca-app-pub-2032620092700178/9196450896";
+  static String interAdUnitAndroid = "ca-app-pub-2032620092700178/7722876685";
+
+  // Ad Frequency Constants - Balanced & User-Friendly
+  static const int minContentGap =
+      3; // Show ads only after enough content spacing
+  static const int zapAdMin = 6; // Minimum zaps before showing an ad
+  static const int zapAdMax = 12; // Maximum zaps before forcing an ad
+
+  static const double storyAdChance = 0.15; // 15% chance per story
+  static const double shortsAdChance = 0.12; // 12% chance per short
+  static const double zapPageAdChance = 0.10; // 10% chance per zap page
+
+  // Only sometimes show interstitials
+  static const double interstitialAdChance = 0.07; // 7% chance
+
+  // Use test IDs in debug, real post/inter IDs in release
+  static String nativeAdUnitIdIos =
+      kReleaseMode ? postAdUnitIos : "ca-app-pub-3940256099942544/3986624511";
+
+  static String nativeAdUnitIdAndroid =
+      kReleaseMode
+          ? postAdUnitAndroid
+          : "ca-app-pub-3940256099942544/2247696110";
+
+  static String interstitialAdUnitIdIos =
+      kReleaseMode ? interAdUnitIos : "ca-app-pub-3940256099942544/4411468910";
+
+  static String interstitialAdUnitIdAndroid =
+      kReleaseMode
+          ? interAdUnitAndroid
+          : "ca-app-pub-3940256099942544/1033173712";
+
+  // Ad Preloading
+  static const int maxPreloadedAds = 5; // Maximum number of preloaded ads
+  static const Duration adPreloadTimeout = Duration(
+    seconds: 10,
+  ); // Timeout for ad loading
 }
