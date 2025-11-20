@@ -1,3 +1,5 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
 import 'package:oc_liquid_glass/oc_liquid_glass.dart';
 import 'package:z/utils/helpers.dart';
@@ -153,32 +155,46 @@ class GlassFAB extends StatelessWidget {
         ),
       );
     }
-
-    // oc_liquid_glass version for native
-    return GestureDetector(
-      onTap: onPressed,
-      child: OCLiquidGlassGroup(
-        settings: OCLiquidGlassSettings(
-          refractStrength: refractStrength,
-          blurRadiusPx: blurRadius,
-          specStrength: specStrength,
-          lightbandColor: lightbandColor,
+    try {
+      return GestureDetector(
+        onTap: onPressed,
+        child: OCLiquidGlassGroup(
+          settings: OCLiquidGlassSettings(
+            refractStrength: refractStrength,
+            blurRadiusPx: blurRadius,
+            specStrength: specStrength,
+            lightbandColor: lightbandColor,
+          ),
+          child: OCLiquidGlass(
+            width: size,
+            height: size,
+            borderRadius: borderRadius,
+            color: color,
+            shadow:
+                shadow ??
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  spreadRadius: 1,
+                ),
+            child: child,
+          ),
         ),
-        child: OCLiquidGlass(
-          width: size,
-          height: size,
-          borderRadius: borderRadius,
-          color: color,
-          shadow:
-              shadow ??
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.25),
-                blurRadius: 16,
-                spreadRadius: 1,
-              ),
+      );
+    } catch (e) {
+      dev.log("cannot use liqid glass $e");
+      return SizedBox(
+        width: size,
+        height: size,
+        child: FloatingActionButton(
+          onPressed: onPressed,
+          backgroundColor: color.withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+          ),
           child: child,
         ),
-      ),
-    );
+      );
+    }
   }
 }

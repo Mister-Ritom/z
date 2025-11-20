@@ -60,7 +60,27 @@ class ZapModel {
             : (map['mediaUrl'] != null ? [map['mediaUrl']] : []),
       ),
 
-      createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
+      createdAt: () {
+        final value = map['createdAt'];
+
+        if (value == null) return DateTime.now();
+
+        // Firestore Timestamp
+        if (value is Timestamp) return value.toDate();
+
+        // int milliseconds (or seconds)
+        if (value is int) {
+          // If it's too small (e.g., 10-digit seconds), convert to ms
+          if (value < 1000000000000) {
+            return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+          }
+          return DateTime.fromMillisecondsSinceEpoch(value);
+        }
+
+        // Fallback
+        return DateTime.now();
+      }(),
+
       likesCount: map['likesCount'] ?? 0,
       rezapsCount: map['rezapsCount'] ?? 0,
       repliesCount: map['repliesCount'] ?? 0,

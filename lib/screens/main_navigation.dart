@@ -166,87 +166,92 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     bool isDark,
     String currentUserId,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: OCLiquidGlassGroup(
-        settings: OCLiquidGlassSettings(
-          refractStrength: -0.07,
-          blurRadiusPx: 8.0,
-          specStrength: 25.0,
-          lightbandColor: isDark ? Colors.cyanAccent : Colors.blueAccent,
-        ),
-        child: OCLiquidGlass(
-          width: double.infinity,
-          height: 78,
-          borderRadius: 24,
-          color:
-              isDark
-                  ? Colors.white.withOpacityAlpha(0.05)
-                  : Colors.black.withOpacityAlpha(0.05),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_pages.length, (index) {
-                final isSelected = index == _currentIndex;
-                final color =
-                    isSelected
-                        ? theme.colorScheme.secondary
-                        : _currentIndex == 2
-                        ? Colors.grey
-                        : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
-                final icon = _getIcon(index);
+    try {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: OCLiquidGlassGroup(
+          settings: OCLiquidGlassSettings(
+            refractStrength: -0.07,
+            blurRadiusPx: 8.0,
+            specStrength: 25.0,
+            lightbandColor: isDark ? Colors.cyanAccent : Colors.blueAccent,
+          ),
+          child: OCLiquidGlass(
+            width: double.infinity,
+            height: 78,
+            borderRadius: 24,
+            color:
+                isDark
+                    ? Colors.white.withOpacityAlpha(0.05)
+                    : Colors.black.withOpacityAlpha(0.05),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(_pages.length, (index) {
+                  final isSelected = index == _currentIndex;
+                  final color =
+                      isSelected
+                          ? theme.colorScheme.secondary
+                          : _currentIndex == 2
+                          ? Colors.grey
+                          : theme.colorScheme.onSurface.withOpacityAlpha(0.6);
+                  final icon = _getIcon(index);
 
-                if (index == 4) {
-                  final notificationsAsync = ref.watch(
-                    unreadNotificationsCountProvider(currentUserId),
-                  );
+                  if (index == 4) {
+                    final notificationsAsync = ref.watch(
+                      unreadNotificationsCountProvider(currentUserId),
+                    );
+                    return Expanded(
+                      child: notificationsAsync.when(
+                        data:
+                            (count) => _buildNavItem(
+                              index: index,
+                              icon: icon,
+                              color: color,
+                              isSelected: isSelected,
+                              onTap: () => _onItemTapped(index),
+                              badgeCount: count,
+                            ),
+                        loading:
+                            () => _buildNavItem(
+                              index: index,
+                              icon: icon,
+                              color: color,
+                              isSelected: isSelected,
+                              onTap: () => _onItemTapped(index),
+                            ),
+                        error:
+                            (_, __) => _buildNavItem(
+                              index: index,
+                              icon: icon,
+                              color: color,
+                              isSelected: isSelected,
+                              onTap: () => _onItemTapped(index),
+                            ),
+                      ),
+                    );
+                  }
+
                   return Expanded(
-                    child: notificationsAsync.when(
-                      data:
-                          (count) => _buildNavItem(
-                            index: index,
-                            icon: icon,
-                            color: color,
-                            isSelected: isSelected,
-                            onTap: () => _onItemTapped(index),
-                            badgeCount: count,
-                          ),
-                      loading:
-                          () => _buildNavItem(
-                            index: index,
-                            icon: icon,
-                            color: color,
-                            isSelected: isSelected,
-                            onTap: () => _onItemTapped(index),
-                          ),
-                      error:
-                          (_, __) => _buildNavItem(
-                            index: index,
-                            icon: icon,
-                            color: color,
-                            isSelected: isSelected,
-                            onTap: () => _onItemTapped(index),
-                          ),
+                    child: _buildNavItem(
+                      index: index,
+                      icon: icon,
+                      color: color,
+                      isSelected: isSelected,
+                      onTap: () => _onItemTapped(index),
                     ),
                   );
-                }
-
-                return Expanded(
-                  child: _buildNavItem(
-                    index: index,
-                    icon: icon,
-                    color: color,
-                    isSelected: isSelected,
-                    onTap: () => _onItemTapped(index),
-                  ),
-                );
-              }),
+                }),
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      log("Error $e");
+      return _buildWebNav(theme, isDark);
+    }
   }
 
   // 🔸 NAV ITEM

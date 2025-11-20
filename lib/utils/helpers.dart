@@ -134,6 +134,5 @@ class Helpers {
         !(path.startsWith('http://') || path.startsWith('https://'));
   }
 
-  static bool get isGlassSupported =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+  static bool get isGlassSupported => !kIsWeb && (Platform.isIOS);
 }
