@@ -89,4 +89,10 @@ class AppConstants {
   static const Duration adPreloadTimeout = Duration(
     seconds: 10,
   ); // Timeout for ad loading
+
+  // FCM Tokens Collection
+  static const String fcmTokensCollection = 'fcm_tokens';
+
+  // iOS Notification Support
+  static const bool iosNotificationAvailable = false;
 }

@@ -1,3 +1,5 @@
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
@@ -5,20 +7,27 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+kotlin {
+    jvmToolchain(17)
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
 android {
     namespace = "me.ritom.z.z"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "17"
     }
-
     defaultConfig {
         applicationId = "me.ritom.z.z"
         minSdk = flutter.minSdkVersion
@@ -26,13 +35,11 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
-
     signingConfigs {
         create("release") {
             val storeFilePath = System.getenv("Z_KEYSTORE_PATH")
             val storeAlias = System.getenv("Z_KEYSTORE_ALIAS")
             val storePassword = System.getenv("Z_KEYSTORE_PASSWORD")
-
             if (storeFilePath != null) {
                 storeFile = file(storeFilePath)
             }
@@ -41,7 +48,6 @@ android {
             keyPassword = storePassword
         }
     }
-
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")

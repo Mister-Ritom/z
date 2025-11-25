@@ -29,10 +29,10 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
         }
         adView.background = background
         adView.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        adView.setPadding(padding, padding, padding, padding)
+        // Padding moved to mainLayout to prevent bounds conflicts with Flutter's container
 
         val headlineView = TextView(context).apply {
-            text = nativeAd.headline
+            text = nativeAd.headline ?: ""
             setTextColor(textColor)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, if (adType == "small") 15f else 19f)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -48,12 +48,14 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
         }
 
         val ctaButton = TextView(context).apply {
-            text = nativeAd.callToAction
+            text = nativeAd.callToAction ?: ""
             setBackgroundColor(Color.parseColor("#1E88E5"))
             setTextColor(Color.WHITE)
             setPadding(30, 20, 30, 20)
             textSize = 14f
             gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
         }
 
         val adLabel = TextView(context).apply {
@@ -82,15 +84,48 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
             clipToPadding = true
         }
 
-        val mediaView = MediaView(context)
+        val mediaView = MediaView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
         mediaContainer.addView(mediaView)
 
         val mainLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setPadding(padding, padding, padding, padding)  // Padding moved here to prevent bounds conflicts
         }
 
+        // Variable to hold advertiser view for tracking (used in both layouts)
+        var advertiserView: TextView? = null
+        
         if (adLayout == "vertical") {
+            val headlineRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(headlineView)
+                addView(adLabel)
+            }
+            
+            val textColumn = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(headlineRow)
+                if (nativeAd.body != null) addView(bodyView)
+            }
+            
+            // Add advertiser view in vertical layout if present
+            nativeAd.advertiser?.let {
+                advertiserView = TextView(context).apply {
+                    text = it
+                    setTextColor(textColor)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    alpha = 0.7f
+                }
+                textColumn.addView(advertiserView)
+            }
+            
             val topRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -98,17 +133,6 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
                 addView(Space(context).apply {
                     layoutParams = LinearLayout.LayoutParams(8, 0)
                 })
-                val headlineRow = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    addView(headlineView)
-                    addView(adLabel)
-                }
-                val textColumn = LinearLayout(context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(headlineRow)
-                    if (nativeAd.body != null) addView(bodyView)
-                }
                 addView(textColumn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             }
 
@@ -134,7 +158,7 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
             }
 
             nativeAd.advertiser?.let {
-                val advertiserView = TextView(context).apply {
+                advertiserView = TextView(context).apply {
                     text = it
                     setTextColor(textColor)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
@@ -165,6 +189,10 @@ class MultiNativeAdFactory(private val context: Context) : GoogleMobileAdsPlugin
         adView.callToActionView = ctaButton
         if (nativeAd.icon != null) adView.iconView = iconView
         adView.mediaView = mediaView
+        // Assign advertiser view if present (for tracking)
+        advertiserView?.let {
+            adView.advertiserView = it
+        }
 
         adView.setNativeAd(nativeAd)
 
