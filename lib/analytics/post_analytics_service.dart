@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/utils/constants.dart';
+import '../services/firebase_analytics_service.dart';
 
 class PostAnalyticsService {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -95,6 +96,8 @@ class PostAnalyticsService {
 
     if (!liked) {
       await _updateUserTagWeights(userId, tags);
+      // Track like event in Firebase Analytics
+      await FirebaseAnalyticsService.logPostLiked(isShort: isShortVideo);
     }
   }
 
@@ -102,12 +105,16 @@ class PostAnalyticsService {
     await _analytics.doc(id).set({
       'comments': FieldValue.increment(1),
     }, SetOptions(merge: true));
+    // Track comment event in Firebase Analytics
+    await FirebaseAnalyticsService.logPostCommented(isShort: isShortVideo);
   }
 
   Future<void> share(String id) async {
     await _analytics.doc(id).set({
       'shares': FieldValue.increment(1),
     }, SetOptions(merge: true));
+    // Track share event in Firebase Analytics
+    await FirebaseAnalyticsService.logPostShared(isShort: isShortVideo);
   }
 
   Future<void> toggleRepost(String userId, String id) async {

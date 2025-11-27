@@ -10,6 +10,7 @@ import 'package:z/widgets/video_player_widget.dart';
 import '../providers/zap_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/storage_provider.dart';
+import '../services/firebase_analytics_service.dart';
 import '../utils/constants.dart';
 
 class ZapComposer extends ConsumerStatefulWidget {
@@ -132,6 +133,11 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
               mediaUrls: urls,
               parentZapId: widget.replyToZapId,
             );
+            // Track post creation
+            await FirebaseAnalyticsService.logPostCreated(
+              contentType: 'media',
+              isShort: isShort,
+            );
           },
         );
       } else if (isShort && mounted) {
@@ -146,9 +152,21 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
           text: text,
           parentZapId: widget.replyToZapId,
         );
+        // Track post creation
+        await FirebaseAnalyticsService.logPostCreated(
+          contentType: 'text',
+          isShort: isShort,
+        );
       }
     } catch (e, st) {
       log('Failed async zap upload', error: e, stackTrace: st);
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        st,
+        reason: 'Failed to create zap/short',
+        fatal: false,
+      );
     }
 
     widget.onZapSent?.call();

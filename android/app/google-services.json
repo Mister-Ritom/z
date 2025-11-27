@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "385298524193-hgd8mtdkvmvkjc9ae2s2d5dnrucneq9s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "me.ritom.z.z",
+            "certificate_hash": "8593a9e42d3290e31fc613cf534a68229ef6a7c9"
+          }
+        },
+        {
+          "client_id": "385298524193-nt9q6c2v7jsiqiveh4fgcg00e44th4t9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "me.ritom.z.z",
+            "certificate_hash": "6d0dedfccf1b7fc41278bf6fb9fbd170baaf678b"
+          }
+        },
+        {
           "client_id": "385298524193-ri320pd2a3o4grlpo77qv0vrj33m3a18.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -47,7 +63,8 @@
             }
           ]
         }
-      }
+      },
+      "admob_app_id": "ca-app-pub-2032620092700178~9610038961"
     }
   ],
   "configuration_version": "1"

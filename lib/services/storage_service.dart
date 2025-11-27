@@ -6,6 +6,7 @@ import 'package:video_compress/video_compress.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/utils/helpers.dart';
 import '../utils/constants.dart';
+import 'firebase_analytics_service.dart';
 
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -91,6 +92,13 @@ class StorageService {
         stackTrace: st,
         name: "Storage service",
       );
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        st,
+        reason: 'Failed to upload file',
+        fatal: false,
+      );
       throw Exception('Failed to upload file: $e');
     }
   }
@@ -111,17 +119,16 @@ class StorageService {
 
       await ref.putData(fileBytes, SettableMetadata(contentType: mimeType));
       return await ref.getDownloadURL();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        stackTrace,
+        reason: 'Failed to upload document',
+        fatal: false,
+      );
       throw Exception('Failed to upload document: $e');
     }
   }
 
-  Future<void> deleteFile(String bucket, String fileName) async {
-    try {
-      final ref = _storage.ref().child('$bucket/$fileName');
-      await ref.delete();
-    } catch (e) {
-      throw Exception('Failed to delete file: $e');
-    }
-  }
 }

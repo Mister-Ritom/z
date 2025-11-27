@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/utils/constants.dart';
 import '../services/message_service.dart';
 import '../models/message_model.dart';
+import 'auth_provider.dart';
 
 final messageServiceProvider = Provider<MessageService>((ref) {
   return MessageService();
@@ -18,9 +19,13 @@ final messagesProvider = StreamProvider.family<List<MessageModel>, String>((
   ref,
   key,
 ) {
-  final recipients = key.split('_');
+  // Use ||| as separator - this must never appear in user IDs
+  const separator = '|||';
+  final recipients = key.split(separator);
   final messageService = ref.watch(messageServiceProvider);
-  return messageService.getMessages(recipients);
+  final currentUser = ref.watch(currentUserProvider).valueOrNull;
+  final currentUserId = currentUser?.uid ?? recipients.first;
+  return messageService.getMessages(recipients, currentUserId);
 });
 
 final unreadMessageCountProvider = StreamProvider.family<int, String>((
@@ -29,7 +34,8 @@ final unreadMessageCountProvider = StreamProvider.family<int, String>((
 ) {
   return FirebaseFirestore.instance
       .collection(AppConstants.messagesCollection)
-      .where('receiverIds', arrayContains: userId)
+      .where('recipientsIds', arrayContains: userId)
+      .where('senderId', isNotEqualTo: userId)
       .where('isRead', isEqualTo: false)
       .snapshots()
       .map((snapshot) => snapshot.docs.length);

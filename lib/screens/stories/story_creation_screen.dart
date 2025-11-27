@@ -10,6 +10,7 @@ import 'package:z/widgets/camera_view.dart';
 import 'package:z/widgets/video_player_widget.dart';
 import '../../models/story_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/firebase_analytics_service.dart';
 
 class StoryCreationScreen extends ConsumerStatefulWidget {
   const StoryCreationScreen({super.key});
@@ -80,14 +81,26 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
       type: UploadType.document,
       referenceId: user.uid,
       onComplete: (urls) async {
-        final mediaUrl = urls.first;
-        await service.createStory(
-          uid: user.uid,
-          caption: _textController.text.trim(),
-          mediaUrl: mediaUrl,
-          visibility: _visibility,
-          visibleTo: visibleTo,
-        );
+        try {
+          final mediaUrl = urls.first;
+          await service.createStory(
+            uid: user.uid,
+            caption: _textController.text.trim(),
+            mediaUrl: mediaUrl,
+            visibility: _visibility,
+            visibleTo: visibleTo,
+          );
+          // Track story creation in Firebase Analytics
+          await FirebaseAnalyticsService.logStoryCreated();
+        } catch (e, stackTrace) {
+          // Report error to Crashlytics
+          await FirebaseAnalyticsService.recordError(
+            e,
+            stackTrace,
+            reason: 'Failed to create story',
+            fatal: false,
+          );
+        }
       },
     );
     if (mounted) {

@@ -11,6 +11,7 @@ import 'package:z/screens/main_navigation.dart';
 import 'package:z/utils/helpers.dart';
 import '../../models/user_model.dart';
 import '../../providers/message_provider.dart';
+import '../../services/firebase_analytics_service.dart';
 import '../../widgets/message_bubble.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -53,9 +54,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  // Use ||| as separator - this must never appear in user IDs
+  static const String _conversationSeparator = '|||';
+  
   String _getConversationId() {
     final ids = [widget.currentUserId, widget.otherUserId]..sort();
-    return ids.join('_');
+    return ids.join(_conversationSeparator);
   }
 
   Future<void> _sendMessage() async {
@@ -73,7 +77,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       setState(() => _selectedFiles = []);
       _messageController.clear();
       _scrollToBottom();
-      // only create a pending message when files are being uploaded
       final pendingMessage = await messageService.addPendingMessage(
         senderId: widget.currentUserId,
         recipients: recipients,
@@ -141,7 +144,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       _messageController.clear();
       _scrollToBottom();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        stackTrace,
+        reason: 'Failed to send message in chat screen',
+        fatal: false,
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -211,7 +221,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final key = [widget.currentUserId, widget.otherUserId]..sort();
-    final messagesAsync = ref.watch(messagesProvider(key.join('_')));
+    final messagesAsync = ref.watch(messagesProvider(key.join(_conversationSeparator)));
 
     return Scaffold(
       appBar: AppBar(
@@ -253,7 +263,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   return const Center(child: Text('No messages yet'));
                 }
 
-                // ALWAYS scroll to bottom after build so new/pending messages are visible
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_scrollController.hasClients) {
                     _scrollToBottom();
@@ -274,7 +283,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) {
-                log("Error $error");
+                log("MESSAGES ERROR: $error", stackTrace: stack);
                 return Center(child: Text('Error: $error'));
               },
             ),

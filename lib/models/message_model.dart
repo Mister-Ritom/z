@@ -2,7 +2,7 @@ class MessageModel {
   final String id;
   final String conversationId;
   final String senderId;
-  final List<String> receiverIds;
+  final List<String> recipientsIds;
   final String text;
   final List<String>? mediaUrls;
   final DateTime createdAt;
@@ -14,7 +14,7 @@ class MessageModel {
     required this.id,
     required this.conversationId,
     required this.senderId,
-    required this.receiverIds,
+    required this.recipientsIds,
     required this.text,
     this.isPending = false,
     this.mediaUrls,
@@ -28,7 +28,7 @@ class MessageModel {
       id: map['id'] ?? '',
       conversationId: map['conversationId'] ?? '',
       senderId: map['senderId'] ?? '',
-      receiverIds: List<String>.from(map['receiverIds'] ?? []),
+      recipientsIds: List<String>.from(map['recipientsIds'] ?? map['receiverIds'] ?? []),
       text: map['text'] ?? '',
       mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
       createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
@@ -43,7 +43,7 @@ class MessageModel {
       'id': id,
       'conversationId': conversationId,
       'senderId': senderId,
-      'receiverIds': receiverIds,
+      'recipientsIds': recipientsIds,
       'text': text,
       'mediaUrls': mediaUrls,
       'createdAt': createdAt,

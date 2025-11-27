@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/models/comment_model.dart';
@@ -5,6 +6,7 @@ import '../models/zap_model.dart';
 import '../models/notification_model.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import 'firebase_analytics_service.dart';
 
 class ZapService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -144,6 +146,13 @@ class ZapService {
       return zap;
     } catch (e, st) {
       log('Error creating zap', error: e, stackTrace: st);
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        st,
+        reason: 'Failed to create zap',
+        fatal: false,
+      );
       throw Exception('Failed to create zap: $e');
     }
   }
@@ -155,6 +164,13 @@ class ZapService {
       return ZapModel.fromMap({'id': doc.id, ...doc.data() as Map});
     } catch (e, st) {
       log('Error fetching zap by ID', error: e, stackTrace: st);
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        st,
+        reason: 'Failed to fetch zap by ID',
+        fatal: false,
+      );
       return null;
     }
   }
@@ -184,6 +200,15 @@ class ZapService {
       );
     } catch (e, st) {
       log('Error getting for-you feed', error: e, stackTrace: st);
+      // Report error to Crashlytics (fire-and-forget since this is a stream function)
+      unawaited(
+        FirebaseAnalyticsService.recordError(
+          e,
+          st,
+          reason: 'Failed to get for-you feed',
+          fatal: false,
+        ),
+      );
       rethrow;
     }
   }
@@ -485,20 +510,6 @@ class ZapService {
     );
   }
 
-  Stream<List<CommentModel>> streamReplies(String parentCommentId) {
-    return _firestore
-        .collection('comments')
-        .where('parentCommentId', isEqualTo: parentCommentId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => CommentModel.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
-  }
-
   Stream<List<ZapModel>> getUserReplies(String userId) {
     if (isShort) {
       // Shorts can’t have replies — return empty stream
@@ -519,19 +530,5 @@ class ZapService {
                   )
                   .toList(),
         );
-  }
-
-  Future<int> getCommentsCount(String postId) async {
-    try {
-      final snapshot =
-          await _firestore
-              .collection('comments')
-              .where('postId', isEqualTo: postId)
-              .get();
-      return snapshot.size;
-    } catch (e, st) {
-      log('Error getting comments count', error: e, stackTrace: st);
-      return 0;
-    }
   }
 }

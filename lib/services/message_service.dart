@@ -1,13 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message_model.dart';
 import '../utils/constants.dart';
+import 'firebase_analytics_service.dart';
 
 class MessageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Use ||| as separator - this must never appear in user IDs
+  static const String _conversationSeparator = '|||';
+
   String _getConversationId(List<String> recipients) {
     final sortedIds = [...recipients]..sort();
-    return sortedIds.join('_');
+    return sortedIds.join(_conversationSeparator);
   }
 
   // ✅ NEW: Add a pending message immediately to Firestore
@@ -23,7 +27,7 @@ class MessageService {
         id: _firestore.collection(AppConstants.messagesCollection).doc().id,
         conversationId: conversationId,
         senderId: senderId,
-        receiverIds: recipients.where((id) => id != senderId).toList(),
+        recipientsIds: recipients,
         text: text,
         mediaUrls: localPaths,
         isPending: true,
@@ -77,7 +81,7 @@ class MessageService {
         id: _firestore.collection(AppConstants.messagesCollection).doc().id,
         conversationId: conversationId,
         senderId: senderId,
-        receiverIds: recipients.where((id) => id != senderId).toList(),
+        recipientsIds: recipients,
         text: text,
         mediaUrls: mediaUrls,
         isPending: false,
@@ -107,17 +111,32 @@ class MessageService {
         'lastMessageSender': senderId,
       }, SetOptions(merge: true));
 
+      // Track message sent in Firebase Analytics
+      await FirebaseAnalyticsService.logMessageSent();
+
       return message;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        stackTrace,
+        reason: 'Failed to send message',
+        fatal: false,
+      );
       throw Exception('Failed to send message: $e');
     }
   }
 
   // ✅ Everything else remains unchanged below...
-  Stream<List<MessageModel>> getMessages(List<String> recipients) {
+  Stream<List<MessageModel>> getMessages(
+    List<String> recipients,
+    String currentUserId,
+  ) {
     final conversationId = _getConversationId(recipients);
+
     return _firestore
         .collection(AppConstants.messagesCollection)
+        .where('recipientsIds', arrayContains: currentUserId)
         .where('conversationId', isEqualTo: conversationId)
         .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
@@ -179,6 +198,7 @@ class MessageService {
         final messages =
             await _firestore
                 .collection(AppConstants.messagesCollection)
+                .where('recipientsIds', arrayContains: currentUserId)
                 .where('conversationId', isEqualTo: conversationId)
                 .where('isRead', isEqualTo: false)
                 .get();
@@ -230,17 +250,6 @@ class MessageService {
       await batch.commit();
     } catch (e) {
       throw Exception('❌ Failed to mark message notifications as read: $e');
-    }
-  }
-
-  Future<void> deleteMessage(String messageId) async {
-    try {
-      await _firestore
-          .collection(AppConstants.messagesCollection)
-          .doc(messageId)
-          .update({'isDeleted': true});
-    } catch (e) {
-      throw Exception('Failed to delete message: $e');
     }
   }
 }

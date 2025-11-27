@@ -8,6 +8,8 @@ import 'package:z/info/privacy/privacy_screen.dart';
 import 'package:z/info/terms/terms_screen.dart';
 import 'package:z/utils/helpers.dart';
 import '../providers/auth_provider.dart';
+import '../services/firebase_analytics_service.dart';
+import 'dart:async';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -64,11 +66,21 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         displayName: _displayNameController.text.trim(),
       );
 
+      // Track successful signup
+      await FirebaseAnalyticsService.logSignUp(signUpMethod: 'email');
+
       if (mounted) {
         context.pushReplacement('/');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       log("Email sign in failed", error: e);
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        stackTrace,
+        reason: 'Email sign up failed',
+        fatal: false,
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -86,13 +98,25 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.signInWithGoogle();
+      final user = await authService.signInWithGoogle();
+
+      // Track signup if new user, login if existing
+      if (user != null) {
+        await FirebaseAnalyticsService.logSignUp(signUpMethod: 'google');
+      }
 
       if (mounted) {
         context.go('/');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       log("Google sign in failed", error: e);
+      // Report error to Crashlytics
+      await FirebaseAnalyticsService.recordError(
+        e,
+        stackTrace,
+        reason: 'Google sign up failed',
+        fatal: false,
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -103,6 +127,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Track screen view
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(FirebaseAnalyticsService.logScreenView(screenName: 'signup'));
+    });
   }
 
   @override

@@ -47,23 +47,5 @@ class SharingService {
     
     return xFiles;
   }
-  
-  /// Check if shared media contains only a single video
-  bool isSingleVideo(List<SharedMediaFile> sharedFiles) {
-    if (sharedFiles.length != 1) return false;
-    final file = sharedFiles.first;
-    return file.type == SharedMediaType.video;
-  }
-  
-  /// Check if shared media contains only images
-  bool isOnlyImages(List<SharedMediaFile> sharedFiles) {
-    return sharedFiles.isNotEmpty && 
-           sharedFiles.every((file) => file.type == SharedMediaType.image);
-  }
-  
-  /// Check if shared media contains videos
-  bool hasVideos(List<SharedMediaFile> sharedFiles) {
-    return sharedFiles.any((file) => file.type == SharedMediaType.video);
-  }
 }
 

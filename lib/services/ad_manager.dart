@@ -383,20 +383,6 @@ class AdManager {
     }
   }
 
-  /// Get native ad widget options
-  Map<String, dynamic> getNativeAdOptions({
-    String size = 'small',
-    String layout = 'horizontal',
-  }) {
-    return {
-      'adType': size,
-      'adLayout': layout,
-      'bgColor': 'F0F0F0',
-      'textColor': '000000',
-      'cornerRadius': 12.0,
-    };
-  }
-
   /// Dispose and cleanup
   /// CRITICAL: Dispose all ads safely
   void dispose() {

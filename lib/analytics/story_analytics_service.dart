@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/utils/constants.dart';
+import '../services/firebase_analytics_service.dart';
 
 class StoryAnalyticsService {
   final firestore = FirebaseFirestore.instance;
@@ -39,11 +40,14 @@ class StoryAnalyticsService {
     if (await isStoryViewed(userId, storyId)) return;
     await _analytics.doc(storyId).set({
       'views': FieldValue.increment(1),
+      'viewedBy': FieldValue.arrayUnion([userId]),
     }, SetOptions(merge: true));
     await _userRef(userId, storyId).set({
       'viewed': true,
       'lastViewedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    // Track story view in Firebase Analytics
+    await FirebaseAnalyticsService.logStoryViewed();
   }
 
   Future<bool> isStoryViewed(String userId, String storyId) async {

@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '385298524193',
     projectId: 'zdotcom',
     storageBucket: 'zdotcom.firebasestorage.app',
-    androidClientId: '385298524193-ri320pd2a3o4grlpo77qv0vrj33m3a18.apps.googleusercontent.com',
+    androidClientId: '385298524193-hgd8mtdkvmvkjc9ae2s2d5dnrucneq9s.apps.googleusercontent.com',
     iosClientId: '385298524193-8bremu8ucbhu3h7jkbl4atk4kkhm5fc6.apps.googleusercontent.com',
     iosBundleId: 'me.ritom.z.z',
   );
@@ -75,7 +75,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '385298524193',
     projectId: 'zdotcom',
     storageBucket: 'zdotcom.firebasestorage.app',
-    androidClientId: '385298524193-ri320pd2a3o4grlpo77qv0vrj33m3a18.apps.googleusercontent.com',
+    androidClientId: '385298524193-hgd8mtdkvmvkjc9ae2s2d5dnrucneq9s.apps.googleusercontent.com',
     iosClientId: '385298524193-8bremu8ucbhu3h7jkbl4atk4kkhm5fc6.apps.googleusercontent.com',
     iosBundleId: 'me.ritom.z.z',
   );

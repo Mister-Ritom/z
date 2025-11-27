@@ -1,1 +1,47 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"zdotcom","appId":"1:385298524193:android:7b4c43922fe75c3f215b60","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"zdotcom","appId":"1:385298524193:ios:4706257fa6ac5b68215b60","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"zdotcom","appId":"1:385298524193:ios:4706257fa6ac5b68215b60","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"zdotcom","configurations":{"android":"1:385298524193:android:7b4c43922fe75c3f215b60","ios":"1:385298524193:ios:4706257fa6ac5b68215b60","macos":"1:385298524193:ios:4706257fa6ac5b68215b60","web":"1:385298524193:web:2cfadf9612698f40215b60","windows":"1:385298524193:web:99e9a08256d0b579215b60"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "zdotcom",
+          "appId": "1:385298524193:android:7b4c43922fe75c3f215b60",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "zdotcom",
+          "appId": "1:385298524193:ios:4706257fa6ac5b68215b60",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "zdotcom",
+          "appId": "1:385298524193:ios:4706257fa6ac5b68215b60",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "zdotcom",
+          "configurations": {
+            "android": "1:385298524193:android:7b4c43922fe75c3f215b60",
+            "ios": "1:385298524193:ios:4706257fa6ac5b68215b60",
+            "macos": "1:385298524193:ios:4706257fa6ac5b68215b60",
+            "web": "1:385298524193:web:2cfadf9612698f40215b60",
+            "windows": "1:385298524193:web:99e9a08256d0b579215b60"
+          }
+        }
+      }
+    }
+  },
+  "functions": {
+    "source": "functions",
+    "predeploy": [
+      "npm --prefix \"$RESOURCE_DIR\" run build"
+    ]
+  }
+}
