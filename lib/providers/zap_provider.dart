@@ -1,86 +1,236 @@
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/utils/logger.dart';
-import '../services/zap_service.dart';
 import '../models/zap_model.dart';
+import '../services/recommendation_service.dart';
+import '../services/recommendation_cache_service.dart';
+import '../services/zap_service.dart';
+import '../utils/constants.dart';
+import 'recommendation_provider.dart';
 
 final zapServiceProvider = Provider.family<ZapService, bool>((ref, isShort) {
   return ZapService(isShort: isShort);
 });
 
+class ForYouFeedState {
+  const ForYouFeedState({
+    this.zaps = const <ZapModel>[],
+    this.isLoading = false,
+    this.hasMore = true,
+    this.nextLastZap,
+    this.lastViewedZapId,
+  });
+
+  final List<ZapModel> zaps;
+  final bool isLoading;
+  final bool hasMore;
+  final String? nextLastZap;
+  final String?
+  lastViewedZapId; // Last zap ID the user viewed (for resuming position)
+
+  ForYouFeedState copyWith({
+    List<ZapModel>? zaps,
+    bool? isLoading,
+    bool? hasMore,
+    String? nextLastZap,
+    String? lastViewedZapId,
+  }) {
+    return ForYouFeedState(
+      zaps: zaps ?? this.zaps,
+      isLoading: isLoading ?? this.isLoading,
+      hasMore: hasMore ?? this.hasMore,
+      nextLastZap: nextLastZap ?? this.nextLastZap,
+      lastViewedZapId: lastViewedZapId ?? this.lastViewedZapId,
+    );
+  }
+}
+
 final forYouFeedProvider =
-    StateNotifierProvider.family<ForYouFeedNotifier, List<ZapModel>, bool>((
+    StateNotifierProvider.family<ForYouFeedNotifier, ForYouFeedState, bool>((
       ref,
       isShort,
     ) {
-      final zapService = ref.watch(zapServiceProvider(isShort));
-      return ForYouFeedNotifier(zapService);
+      final recommendationService = ref.watch(recommendationServiceProvider);
+      return ForYouFeedNotifier(recommendationService, isShort: isShort);
     });
 
-class ForYouFeedNotifier extends StateNotifier<List<ZapModel>> {
-  final ZapService _zapService;
-  bool _isLoading = false;
-  bool _hasMore = true;
-  final List<StreamSubscription<List<ZapModel>>> _pageSubs = [];
+class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
+  ForYouFeedNotifier(
+    this._recommendationService, {
+    required this.isShort,
+    RecommendationCacheService? cacheService,
+  }) : _cacheService = cacheService ?? RecommendationCacheService(),
+       super(const ForYouFeedState());
 
-  ForYouFeedNotifier(this._zapService) : super([]) {
-    loadInitial();
+  final RecommendationService _recommendationService;
+  final RecommendationCacheService _cacheService;
+  final bool isShort;
+
+  Future<void> loadInitial({String? lastViewedZapId}) async {
+    if (state.isLoading) return;
+
+    // Try to load from cache first (for offline support)
+    final cached = await _cacheService.loadRecommendations(isShort: isShort);
+    if (cached != null && cached.zaps.isNotEmpty) {
+      // Use cached lastViewedZapId if not provided
+      final viewId = lastViewedZapId ?? cached.lastViewedZapId;
+
+      state = state.copyWith(
+        zaps: cached.zaps,
+        hasMore: cached.hasMore,
+        nextLastZap: cached.nextLastZap,
+        lastViewedZapId: viewId,
+        isLoading: false,
+      );
+
+      AppLogger.info(
+        'ForYouFeedNotifier',
+        'Loaded initial recommendations from cache',
+        data: {
+          'isShort': isShort,
+          'count': cached.zaps.length,
+          'hasMore': cached.hasMore,
+        },
+      );
+    } else {
+      state = state.copyWith(
+        hasMore: true,
+        nextLastZap: null,
+        zaps: const <ZapModel>[],
+        lastViewedZapId: lastViewedZapId,
+      );
+    }
+
+    // Always try to fetch fresh data (will update cache on success)
+    await _fetchRecommendations(reset: true);
   }
 
-  Future<void> loadInitial() async {
-    if (_isLoading) return;
-    _isLoading = true;
-
-    final firstPageStream = _zapService.getForYouFeed();
-    _subscribeToPage(firstPageStream);
-
-    _isLoading = false;
+  Future<void> loadMore({String? lastViewedZapId}) async {
+    if (state.isLoading || !state.hasMore) return;
+    if (lastViewedZapId != null) {
+      state = state.copyWith(lastViewedZapId: lastViewedZapId);
+    }
+    await _fetchRecommendations(reset: false);
   }
 
-  Future<void> loadMore() async {
-    if (_isLoading || !_hasMore || state.isEmpty) return;
-    _isLoading = true;
-
-    final lastDoc = state.last.docSnapshot;
-    final nextPageStream = _zapService.getForYouFeed(lastDoc: lastDoc);
-    _subscribeToPage(nextPageStream);
-
-    _isLoading = false;
+  /// Update the last viewed zap ID (called when user scrolls)
+  void updateLastViewedZapId(String? zapId) {
+    if (zapId != null && zapId != state.lastViewedZapId) {
+      state = state.copyWith(lastViewedZapId: zapId);
+      // Save to cache asynchronously (don't await to avoid blocking UI)
+      _cacheService.updateLastViewedZapId(isShort: isShort, zapId: zapId);
+    }
   }
 
   Future<void> refreshFeed() async {
-    for (var sub in _pageSubs) {
-      await sub.cancel();
-    }
-    _pageSubs.clear();
-    state = [];
-    _hasMore = true;
-    _isLoading = false;
-
-    await loadInitial();
+    if (state.isLoading) return;
+    state = state.copyWith(
+      zaps: const <ZapModel>[],
+      hasMore: true,
+      nextLastZap: null,
+    );
+    await _fetchRecommendations(reset: true);
   }
 
-  void _subscribeToPage(Stream<List<ZapModel>> pageStream) {
-    final sub = pageStream.listen((zaps) {
-      if (zaps.isEmpty) {
-        _hasMore = false;
-      } else {
-        final currentMap = {for (var t in state) t.id: t};
-        for (var zap in zaps) {
-          currentMap[zap.id] = zap;
+  Future<void> _fetchRecommendations({required bool reset}) async {
+    if (state.isLoading) return;
+    state = state.copyWith(isLoading: true);
+
+    try {
+      final result = await _recommendationService.getRecommendationsWithZaps(
+        perPage: AppConstants.zapsPerPage,
+        lastZap: reset ? null : state.nextLastZap,
+        lastViewedZapId:
+            reset ? state.lastViewedZapId : null, // Only send on initial load
+        isShort: isShort,
+      );
+
+      final fetched = (result['zaps'] as List<ZapModel>?) ?? <ZapModel>[];
+      final hasMore = result['hasMore'] as bool? ?? false;
+      final nextLastZap = result['nextLastZap'] as String?;
+
+      final updated = reset ? <ZapModel>[] : List<ZapModel>.from(state.zaps);
+      for (final zap in fetched) {
+        final index = updated.indexWhere((existing) => existing.id == zap.id);
+        if (index >= 0) {
+          updated[index] = zap;
+        } else {
+          updated.add(zap);
         }
-        state = currentMap.values.toList();
       }
-    });
-    _pageSubs.add(sub);
-  }
 
-  @override
-  void dispose() {
-    for (var sub in _pageSubs) {
-      sub.cancel();
+      // Update lastViewedZapId to the last zap in the list if we have zaps
+      final newLastViewedZapId =
+          updated.isNotEmpty ? updated.last.id : state.lastViewedZapId;
+
+      if (reset || fetched.isNotEmpty) {
+        state = state.copyWith(
+          zaps: updated,
+          hasMore: hasMore,
+          nextLastZap: nextLastZap,
+          isLoading: false,
+          lastViewedZapId: newLastViewedZapId,
+        );
+
+        // Save to cache for offline support
+        await _cacheService.saveRecommendations(
+          isShort: isShort,
+          zaps: updated,
+          hasMore: hasMore,
+          nextLastZap: nextLastZap,
+          lastViewedZapId: newLastViewedZapId,
+        );
+      } else {
+        state = state.copyWith(
+          hasMore: hasMore,
+          nextLastZap: nextLastZap,
+          isLoading: false,
+        );
+      }
+
+      AppLogger.info(
+        'ForYouFeedNotifier',
+        'Loaded recommendations',
+        data: {
+          'isShort': isShort,
+          'fetched': fetched.length,
+          'total': state.zaps.length,
+          'hasMore': hasMore,
+        },
+      );
+    } catch (e, st) {
+      AppLogger.error(
+        'ForYouFeedNotifier',
+        'Failed to load recommendations',
+        error: e,
+        stackTrace: st,
+        data: {'isShort': isShort, 'reset': reset},
+      );
+
+      // If fetch failed and we have no zaps, try to load from cache as fallback
+      if (state.zaps.isEmpty) {
+        final cached = await _cacheService.loadRecommendations(
+          isShort: isShort,
+        );
+        if (cached != null && cached.zaps.isNotEmpty) {
+          state = state.copyWith(
+            zaps: cached.zaps,
+            hasMore: cached.hasMore,
+            nextLastZap: cached.nextLastZap,
+            lastViewedZapId: cached.lastViewedZapId,
+            isLoading: false,
+          );
+
+          AppLogger.info(
+            'ForYouFeedNotifier',
+            'Using cached recommendations after fetch failure',
+            data: {'isShort': isShort, 'count': cached.zaps.length},
+          );
+          return;
+        }
+      }
+
+      state = state.copyWith(isLoading: false, hasMore: false);
     }
-    super.dispose();
   }
 }
 
@@ -161,7 +311,13 @@ final isBookmarkedProvider =
       try {
         return await zapService.isBookmarked(args.zapId, args.userId);
       } catch (e, st) {
-        AppLogger.error('ZapProvider', 'Error checking bookmark', error: e, stackTrace: st, data: {'zapId': args.zapId, 'userId': args.userId});
+        AppLogger.error(
+          'ZapProvider',
+          'Error checking bookmark',
+          error: e,
+          stackTrace: st,
+          data: {'zapId': args.zapId, 'userId': args.userId},
+        );
         return false;
       }
     });

@@ -41,23 +41,35 @@ class FirebaseAnalyticsService {
   }) async {
     await logEvent(
       name: 'post_created',
-      parameters: {'content_type': contentType ?? 'text', 'is_short': isShort},
+      parameters: {
+        'content_type': contentType ?? 'text',
+        'is_short': isShort ? 1 : 0,
+      },
     );
   }
 
   /// Log when user likes a post
   static Future<void> logPostLiked({bool isShort = false}) async {
-    await logEvent(name: 'post_liked', parameters: {'is_short': isShort});
+    await logEvent(
+      name: 'post_liked',
+      parameters: {'is_short': isShort ? 1 : 0},
+    );
   }
 
   /// Log when user comments on a post
   static Future<void> logPostCommented({bool isShort = false}) async {
-    await logEvent(name: 'post_commented', parameters: {'is_short': isShort});
+    await logEvent(
+      name: 'post_commented',
+      parameters: {'is_short': isShort ? 1 : 0},
+    );
   }
 
   /// Log when user shares a post
   static Future<void> logPostShared({bool isShort = false}) async {
-    await logEvent(name: 'post_shared', parameters: {'is_short': isShort});
+    await logEvent(
+      name: 'post_shared',
+      parameters: {'is_short': isShort ? 1 : 0},
+    );
   }
 
   /// Log when user views a story

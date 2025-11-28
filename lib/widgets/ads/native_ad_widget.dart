@@ -134,52 +134,65 @@ class _NativeAdWidgetState extends State<NativeAdWidget>
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           clipBehavior: Clip.hardEdge,
-          child: Stack(
-            clipBehavior: Clip.hardEdge,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                height: adHeight,
-                child: NativeAdWidgetView(
-                  ad: _ad!,
-                  customOptions: widget.customOptions,
-                ),
-              ),
-              if (widget.showSkipButton)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Material(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(20),
-                    child: InkWell(
-                      onTap: _skipAd,
-                      borderRadius: BorderRadius.circular(20),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.close, color: Colors.white, size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              'Skip',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width =
+                  constraints.maxWidth > 0
+                      ? constraints.maxWidth
+                      : MediaQuery.of(context).size.width -
+                          32; // Account for margin
+              return Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  SizedBox(
+                    width: width,
+                    height: adHeight,
+                    child: NativeAdWidgetView(
+                      ad: _ad!,
+                      customOptions: widget.customOptions,
+                    ),
+                  ),
+                  if (widget.showSkipButton)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Material(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          onTap: _skipAd,
+                          borderRadius: BorderRadius.circular(20),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
                             ),
-                          ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Skip',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -198,12 +211,35 @@ class NativeAdWidgetView extends StatelessWidget {
     final adType = (customOptions?['adType'] as String?) ?? 'small';
     final adHeight = adType == 'small' ? 250.0 : 300.0;
 
-    return ClipRect(
-      child: SizedBox(
-        width: double.infinity,
-        height: adHeight,
-        child: AdWidget(ad: ad),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Ensure we have valid constraints before rendering the platform view
+        if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
+          return SizedBox(
+            width:
+                constraints.maxWidth > 0
+                    ? constraints.maxWidth
+                    : double.infinity,
+            height: adHeight,
+          );
+        }
+
+        return ClipRect(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: constraints.maxWidth,
+              maxWidth: constraints.maxWidth,
+              minHeight: adHeight,
+              maxHeight: adHeight,
+            ),
+            child: SizedBox(
+              width: constraints.maxWidth,
+              height: adHeight,
+              child: AdWidget(ad: ad),
+            ),
+          ),
+        );
+      },
     );
   }
 }

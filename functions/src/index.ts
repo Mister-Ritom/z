@@ -265,4 +265,7 @@ export const sendNotificationOnCreate = functions.firestore
 // Export recommendation functions
 export { generateZapRecommendations } from "./recommendations";
 export { updateDailyCuratedZaps } from "./dailyCuratedZaps";
+export { generateShortRecommendations } from "./shortRecommendations";
+export { updateDailyCuratedShorts } from "./dailyCuratedShorts";
+export { generateStoryRecommendations } from "./storyRecommendations";
 

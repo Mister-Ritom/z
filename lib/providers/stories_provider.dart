@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/story_model.dart';
 import '../services/story_service.dart';
+import 'recommendation_provider.dart';
 
 final storyServiceProvider = Provider((ref) => StoryService());
 
@@ -27,12 +28,22 @@ final groupedStoriesProvider =
         return grouped;
       });
     });
-final storiesPublicProvider = StreamProvider.family<List<StoryModel>, String>((
+final storiesPublicProvider = FutureProvider.family<List<StoryModel>, String>((
   ref,
   currentUserId,
-) {
-  final service = ref.watch(storyServiceProvider);
-  return service.getPublicStories();
+) async {
+  final storyService = ref.watch(storyServiceProvider);
+  final recommendationService = ref.watch(recommendationServiceProvider);
+
+  final storyIds = await recommendationService.getStoryRecommendations(
+    limit: 200,
+  );
+
+  if (storyIds.isEmpty) {
+    return storyService.getLatestPublicStories(limit: 200);
+  }
+
+  return storyService.getStoriesByIds(storyIds);
 });
 
 final groupedPublicStoriesProvider =

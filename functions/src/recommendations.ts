@@ -4,8 +4,8 @@ import { ZapCandidate, UserProfile, rankZaps } from "./ranking";
 
 const db = admin.firestore();
 
-// Cache expiration: 12 hours in milliseconds
-const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000;
+// Cache expiration: 6 hours in milliseconds (shorter for fresher content)
+const CACHE_EXPIRATION_MS = 6 * 60 * 60 * 1000;
 
 // Collection names
 const ZAPS_COLLECTION = "zaps";
@@ -20,10 +20,17 @@ const MAX_TRENDING_CANDIDATES = 200;
 const MAX_FOLLOWED_CANDIDATES = 100;
 const MAX_NEW_POSTS = 30; // New posts from last 24 hours
 const MAX_OLDER_POSTS = 100; // Older posts (beyond 7 days)
-const MAX_FINAL_RECOMMENDATIONS = 100; // Always generate 100 recommendations
+const MAX_FINAL_RECOMMENDATIONS = 500; // Always generate large pool of recommendations
+const MAX_CACHE_SIZE = 1000; // Upper bound for cached zap IDs (increased for endless feed)
 const MIN_INTERACTIONS_FOR_PERSONALIZATION = 5; // Minimum interactions for full personalization
 const PAGINATION_REFRESH_THRESHOLD = 80; // Trigger refresh when user reaches this position
 const DEFAULT_PER_PAGE = 20; // Default items per page
+const MIN_RANDOM_TOPUP = 5; // Minimum number of random zaps to sprinkle when near the end
+
+type CacheMergeStrategy = "replace" | "append";
+interface CacheOptions {
+  mergeStrategy?: CacheMergeStrategy;
+}
 
 /**
  * Get user's tag preferences from analytics
@@ -443,12 +450,141 @@ async function fetchFollowedUserZaps(
 }
 
 /**
+ * Fetch similar zaps based on tags from existing recommendations
+ */
+async function fetchSimilarZapsByTags(
+  existingZapIds: string[],
+  userTags: Record<string, number>,
+  excludeZapIds: Set<string>,
+  limit: number
+): Promise<ZapCandidate[]> {
+  if (Object.keys(userTags).length === 0 || limit <= 0) return [];
+
+  try {
+    // Get top 3 most liked tags
+    const topTags = Object.entries(userTags)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([tag]) => tag);
+
+    if (topTags.length === 0) return [];
+
+    const candidates: ZapCandidate[] = [];
+
+    // Try to find zaps with matching tags
+    for (const tag of topTags) {
+      if (candidates.length >= limit) break;
+
+      const tagSnapshot = await db
+        .collection(ZAPS_COLLECTION)
+        .where("isDeleted", "==", false)
+        .where("parentZapId", "==", null)
+        .where("hashtags", "array-contains", tag)
+        .orderBy("createdAt", "desc")
+        .limit(limit * 2)
+        .get();
+
+      if (tagSnapshot.empty) continue;
+
+      const analyticsPromises = tagSnapshot.docs.map((doc) =>
+        db
+          .collection(ANALYTICS_COLLECTION)
+          .doc(ZAPS_COLLECTION)
+          .collection(ZAPS_COLLECTION)
+          .doc(doc.id)
+          .get()
+      );
+
+      const analyticsDocs = await Promise.all(analyticsPromises);
+
+      for (let i = 0; i < tagSnapshot.docs.length && candidates.length < limit; i++) {
+        const doc = tagSnapshot.docs[i];
+        const analyticsDoc = analyticsDocs[i];
+        const data = doc.data();
+        const analyticsData = analyticsDoc.data() || {};
+
+        if (excludeZapIds.has(doc.id)) continue;
+
+        candidates.push({
+          zapId: doc.id,
+          userId: data.userId as string,
+          hashtags: (data.hashtags as string[]) || [],
+          createdAt: data.createdAt as admin.firestore.Timestamp,
+          likesCount: (data.likesCount as number) || 0,
+          rezapsCount: (data.rezapsCount as number) || 0,
+          views: (analyticsData.views as number) || 0,
+          score: 0,
+        });
+      }
+    }
+
+    return candidates.slice(0, limit);
+  } catch (error) {
+    functions.logger.error("Error fetching similar zaps by tags:", error);
+    return [];
+  }
+}
+
+/**
+ * Get random zaps as last resort (truly random, not personalized)
+ */
+async function getRandomSprinkleZapIds(
+  existingZapIds: string[],
+  count: number
+): Promise<string[]> {
+  if (count <= 0) return [];
+
+  try {
+    const excludeSet = new Set(existingZapIds);
+    
+    // Fetch a larger pool to get variety
+    const randomCandidates = await fetchTrendingZaps(
+      excludeSet,
+      Math.max(count * 3, 100)
+    );
+
+    // Shuffle and take random selection
+    const shuffled = randomCandidates.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count).map((candidate) => candidate.zapId);
+  } catch (error) {
+    functions.logger.error("Error fetching random sprinkle zaps:", error);
+    return [];
+  }
+}
+
+/**
+ * Get total count of non-deleted zaps in the system
+ */
+async function getTotalZapCount(): Promise<number> {
+  try {
+    // Use a count query (more efficient than fetching all docs)
+    const countSnapshot = await db
+      .collection(ZAPS_COLLECTION)
+      .where("isDeleted", "==", false)
+      .where("parentZapId", "==", null)
+      .count()
+      .get();
+
+    return countSnapshot.data().count;
+  } catch (error) {
+    functions.logger.warn("Error getting total zap count:", error);
+    // Return a large number as fallback to ensure we never show "end" prematurely
+    return 100000;
+  }
+}
+
+/**
  * Get cached recommendations for a user
- * Returns { zapIds, isFallback, position } or null
+ * Returns { zapIds, isFallback, position, lastViewedZapId } or null
  */
 async function getCachedRecommendations(
   userId: string
-): Promise<{ zapIds: string[]; isFallback: boolean; position: number } | null> {
+): Promise<{
+  zapIds: string[];
+  isFallback: boolean;
+  position: number;
+  lastViewedZapId: string | null;
+} | null> {
   try {
     const cacheDoc = await db
       .collection(CACHED_RECOMMENDATIONS_COLLECTION)
@@ -464,12 +600,13 @@ async function getCachedRecommendations(
 
     const cacheAge = Date.now() - updatedAt.toMillis();
 
-    // Check if cache is still valid (< 12 hours old)
+    // Check if cache is still valid (< 6 hours old)
     if (cacheAge < CACHE_EXPIRATION_MS) {
       return {
         zapIds: (data?.zapIds as string[]) || [],
         isFallback: (data?.isFallback as boolean) || false,
         position: (data?.lastPosition as number) || 0, // Track last position for pagination
+        lastViewedZapId: (data?.lastViewedZapId as string) || null, // Last zap user viewed
       };
     }
 
@@ -487,13 +624,60 @@ async function saveRecommendationsToCache(
   userId: string,
   zapIds: string[],
   isFallback: boolean = false,
-  position: number = 0
+  position: number = 0,
+  options: CacheOptions = {}
 ): Promise<void> {
+  const mergeStrategy = options.mergeStrategy ?? "replace";
+
   try {
+    let finalZapIds = zapIds.slice(0, MAX_CACHE_SIZE);
+
+    if (mergeStrategy === "append") {
+      try {
+        const existingDoc = await db
+          .collection(CACHED_RECOMMENDATIONS_COLLECTION)
+          .doc(userId)
+          .get();
+
+        const existingZapIds =
+          ((existingDoc.data()?.zapIds as string[]) || []).slice();
+
+        // If we've already reached cache limit, start fresh with new zapIds
+        if (existingZapIds.length >= MAX_CACHE_SIZE) {
+          finalZapIds = zapIds.slice(0, MAX_CACHE_SIZE);
+        } else {
+          const seen = new Set(existingZapIds);
+          const merged = [...existingZapIds];
+
+          zapIds.forEach((id) => {
+            if (!seen.has(id)) {
+              merged.push(id);
+              seen.add(id);
+            }
+          });
+
+          if (merged.length > MAX_CACHE_SIZE) {
+            const overflow = merged.length - MAX_CACHE_SIZE;
+            finalZapIds = merged.slice(overflow);
+          } else {
+            finalZapIds = merged;
+          }
+        }
+      } catch (error) {
+        functions.logger.warn(
+          `Failed to append cache for ${userId}, falling back to replace:`,
+          error
+        );
+        finalZapIds = zapIds.slice(0, MAX_CACHE_SIZE);
+      }
+    }
+
+    const safePosition = Math.min(position, finalZapIds.length);
+
     await db.collection(CACHED_RECOMMENDATIONS_COLLECTION).doc(userId).set({
-      zapIds,
+      zapIds: finalZapIds,
       isFallback,
-      lastPosition: position, // Track pagination position
+      lastPosition: safePosition, // Track pagination position
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   } catch (error) {
@@ -629,10 +813,17 @@ async function generatePersonalizedRecommendations(
       .slice(0, MAX_FINAL_RECOMMENDATIONS - curatedCount)
       .map((c) => c.zapId);
 
-    const mixedZapIds = [
+    let mixedZapIds = [
       ...curatedZapIds.slice(0, curatedCount),
       ...trendingZapIds,
     ].slice(0, MAX_FINAL_RECOMMENDATIONS);
+
+    // Pad with random if needed
+    if (mixedZapIds.length < MAX_FINAL_RECOMMENDATIONS) {
+      const needed = MAX_FINAL_RECOMMENDATIONS - mixedZapIds.length;
+      const randomIds = await getRandomSprinkleZapIds(mixedZapIds, needed);
+      mixedZapIds = [...mixedZapIds, ...randomIds];
+    }
 
     return { zapIds: mixedZapIds, isFallback: true };
   }
@@ -672,10 +863,17 @@ async function generatePersonalizedRecommendations(
       .map((c) => c.zapId);
 
     // Mix: 50% curated, 50% personalized
-    const mixedZapIds = [
+    let mixedZapIds = [
       ...curatedZapIds.slice(0, Math.floor(MAX_FINAL_RECOMMENDATIONS * 0.5)),
       ...personalizedZapIds,
     ].slice(0, MAX_FINAL_RECOMMENDATIONS);
+
+    // Pad with random if needed
+    if (mixedZapIds.length < MAX_FINAL_RECOMMENDATIONS) {
+      const needed = MAX_FINAL_RECOMMENDATIONS - mixedZapIds.length;
+      const randomIds = await getRandomSprinkleZapIds(mixedZapIds, needed);
+      mixedZapIds = [...mixedZapIds, ...randomIds];
+    }
 
     return { zapIds: mixedZapIds, isFallback: false };
   }
@@ -716,10 +914,17 @@ async function generatePersonalizedRecommendations(
   // Rank candidates with full scoring
   const ranked = rankZaps(candidates, userProfile);
 
-  // Return top N zap IDs
-  const zapIds = ranked
+  // Get top ranked zaps
+  let zapIds = ranked
     .slice(0, MAX_FINAL_RECOMMENDATIONS)
     .map((candidate) => candidate.zapId);
+
+  // If we don't have enough recommendations, pad with random trending zaps
+  if (zapIds.length < MAX_FINAL_RECOMMENDATIONS) {
+    const needed = MAX_FINAL_RECOMMENDATIONS - zapIds.length;
+    const randomIds = await getRandomSprinkleZapIds(zapIds, needed);
+    zapIds = [...zapIds, ...randomIds];
+  }
 
   return { zapIds, isFallback: false };
 }
@@ -728,22 +933,25 @@ async function generatePersonalizedRecommendations(
  * Main callable function: generateZapRecommendations
  *
  * Supports pagination with perPage and lastZap parameters
- * Always generates 100 recommendations and caches them
+ * Always generates large pool (500) of recommendations and caches them
  * Returns paginated slice based on lastZap position
+ * Never shows "end" unless user has seen 95%+ of all zaps in system
  *
  * Phase A: Returns cached recommendations or daily curated zaps immediately
  * Phase B: Updates cache in background when near end of recommendations
+ * Phase C: Tops up with similar/random zaps when cache exhausted
  */
 export const generateZapRecommendations = functions
   .region("us-central1")
   .runWith({
-    timeoutSeconds: 9, // Keep it fast
-    memory: "256MB",
+    timeoutSeconds: 30,
+    memory: "512MB",
   })
   .https.onCall(async (data, context) => {
     const userId = data?.userId as string | undefined;
     const perPage = (data?.perPage as number) || DEFAULT_PER_PAGE;
     const lastZap = data?.lastZap as string | undefined;
+    const lastViewedZapId = data?.lastViewedZapId as string | undefined; // From client
 
     if (!userId) {
       throw new functions.https.HttpsError(
@@ -770,12 +978,166 @@ export const generateZapRecommendations = functions
     const cached = await getCachedRecommendations(userId);
 
     if (cached && cached.zapIds.length > 0) {
+      // Determine starting point: prioritize client's lastViewedZapId, then lastZap, then cached lastViewedZapId
+      let startZapId: string | undefined = lastZap;
+      
+      if (lastViewedZapId && cached.zapIds.includes(lastViewedZapId)) {
+        // Client sent lastViewedZapId and it exists in cache - use it
+        startZapId = lastViewedZapId;
+        functions.logger.info(
+          `Using client's lastViewedZapId ${lastViewedZapId} for ${userId}`
+        );
+      } else if (!lastZap && cached.lastViewedZapId && cached.zapIds.includes(cached.lastViewedZapId)) {
+        // No client input, but cache has lastViewedZapId - resume from there
+        startZapId = cached.lastViewedZapId;
+        functions.logger.info(
+          `Resuming from cached lastViewedZapId ${cached.lastViewedZapId} for ${userId}`
+        );
+      }
+
       // Get paginated slice
-      const paginated = getPaginatedSlice(cached.zapIds, lastZap, perPage);
+      const paginated = getPaginatedSlice(cached.zapIds, startZapId, perPage);
+
+      // If cache is exhausted, try to top up with similar/random zaps
+      if (!paginated.hasMore || paginated.zapIds.length < perPage) {
+        functions.logger.info(
+          `Cache near exhaustion for ${userId} (remaining: ${paginated.zapIds.length}), topping up with similar/random zaps`
+        );
+
+        // Get user's viewed zaps and tag preferences for similarity matching
+        const [viewedZapIds, tagsLiked] = await Promise.all([
+          getViewedZapIds(userId),
+          getUserTagPreferences(userId),
+        ]);
+
+        const allSeenZaps = new Set([
+          ...cached.zapIds,
+          ...Array.from(viewedZapIds),
+        ]);
+
+        // Check if user has seen all zaps in the system
+        const totalZapCount = await getTotalZapCount();
+        const hasSeenEverything = allSeenZaps.size >= totalZapCount * 0.95; // 95% threshold
+
+        if (hasSeenEverything) {
+          // User has seen almost everything, legitimately show end
+          functions.logger.info(
+            `User ${userId} has seen ${allSeenZaps.size}/${totalZapCount} zaps, showing end`
+          );
+        } else {
+          // Top up with similar zaps first, then random
+          let topUpIds: string[] = [];
+
+          // Try similar zaps by tags
+          if (Object.keys(tagsLiked).length > 0) {
+            const similarCandidates = await fetchSimilarZapsByTags(
+              cached.zapIds,
+              tagsLiked,
+              allSeenZaps,
+              MIN_RANDOM_TOPUP * 2
+            );
+            topUpIds = similarCandidates.map((c) => c.zapId);
+          }
+
+          // If not enough similar zaps, add random ones
+          if (topUpIds.length < MIN_RANDOM_TOPUP) {
+            const randomIds = await getRandomSprinkleZapIds(
+              [...cached.zapIds, ...topUpIds],
+              MIN_RANDOM_TOPUP - topUpIds.length
+            );
+            topUpIds = [...topUpIds, ...randomIds];
+          }
+
+          if (topUpIds.length > 0) {
+            // Append to cache
+            const updatedZapIds = [...cached.zapIds, ...topUpIds].slice(
+              0,
+              MAX_CACHE_SIZE
+            );
+
+            await saveRecommendationsToCache(
+              userId,
+              updatedZapIds,
+              cached.isFallback,
+              cached.position
+            );
+
+            // Get fresh slice with top-up
+            const freshPaginated = getPaginatedSlice(
+              updatedZapIds,
+              lastZap,
+              perPage
+            );
+
+            return {
+              zapIds: freshPaginated.zapIds,
+              hasMore: true, // Always true unless user has seen everything
+              nextLastZap: freshPaginated.nextLastZap,
+              source: cached.isFallback ? "cache_fallback" : "cache",
+              generatedAt: new Date().toISOString(),
+            };
+          }
+        }
+      }
 
       functions.logger.info(
         `Returning cached recommendations for ${userId} (${paginated.zapIds.length} zaps, position: ${paginated.position}/${cached.zapIds.length}, fallback: ${cached.isFallback})`
       );
+
+      let responseZapIds = paginated.zapIds;
+      let responseHasMore = paginated.hasMore;
+      let responseNextLastZap = paginated.nextLastZap;
+
+      // Always ensure we have more content unless user has seen everything
+      if (!responseHasMore) {
+        const viewedZapIds = await getViewedZapIds(userId);
+        const allSeenZaps = new Set([
+          ...cached.zapIds,
+          ...Array.from(viewedZapIds),
+        ]);
+        const totalZapCount = await getTotalZapCount();
+        const hasSeenEverything = allSeenZaps.size >= totalZapCount * 0.95;
+
+        if (!hasSeenEverything) {
+          // Top up with similar/random zaps
+          const tagsLiked = await getUserTagPreferences(userId);
+          let topUpIds: string[] = [];
+
+          // Try similar zaps first
+          if (Object.keys(tagsLiked).length > 0) {
+            const similarCandidates = await fetchSimilarZapsByTags(
+              cached.zapIds,
+              tagsLiked,
+              allSeenZaps,
+              MIN_RANDOM_TOPUP * 2
+            );
+            topUpIds = similarCandidates.map((c) => c.zapId);
+          }
+
+          // Add random if needed
+          if (topUpIds.length < MIN_RANDOM_TOPUP) {
+            const randomIds = await getRandomSprinkleZapIds(
+              [...cached.zapIds, ...topUpIds],
+              MIN_RANDOM_TOPUP - topUpIds.length
+            );
+            topUpIds = [...topUpIds, ...randomIds];
+          }
+
+          if (topUpIds.length > 0) {
+            responseZapIds = [...responseZapIds, ...topUpIds];
+            responseHasMore = true;
+            responseNextLastZap = topUpIds[topUpIds.length - 1];
+
+            await saveRecommendationsToCache(
+              userId,
+              topUpIds,
+              cached.isFallback,
+              paginated.position,
+              { mergeStrategy: "append" }
+            );
+          }
+        }
+      }
 
       // PHASE B: If near end of recommendations, refresh in background
       if (paginated.position >= PAGINATION_REFRESH_THRESHOLD) {
@@ -790,7 +1152,8 @@ export const generateZapRecommendations = functions
                 userId,
                 result.zapIds,
                 result.isFallback,
-                paginated.position // Preserve current position
+                paginated.position, // Preserve current position
+                { mergeStrategy: "append" }
               );
             }
             return null;
@@ -810,7 +1173,8 @@ export const generateZapRecommendations = functions
                 userId,
                 result.zapIds,
                 result.isFallback,
-                cached.position
+                cached.position,
+                { mergeStrategy: "append" }
               );
             }
             return null;
@@ -823,10 +1187,29 @@ export const generateZapRecommendations = functions
           });
       }
 
+      // Update cache with lastViewedZapId (from client or last zap in response)
+      const zapIdToSave = lastViewedZapId || responseZapIds[responseZapIds.length - 1] || null;
+      if (zapIdToSave && cached.zapIds.includes(zapIdToSave)) {
+        try {
+          await db
+            .collection(CACHED_RECOMMENDATIONS_COLLECTION)
+            .doc(userId)
+            .update({
+              lastViewedZapId: zapIdToSave,
+              lastViewedPosition: paginated.position,
+            });
+        } catch (error) {
+          functions.logger.warn(
+            `Failed to update lastViewedZapId for ${userId}:`,
+            error
+          );
+        }
+      }
+
       return {
-        zapIds: paginated.zapIds,
-        hasMore: paginated.hasMore,
-        nextLastZap: paginated.nextLastZap,
+        zapIds: responseZapIds,
+        hasMore: responseHasMore,
+        nextLastZap: responseNextLastZap,
         source: cached.isFallback ? "cache_fallback" : "cache",
         generatedAt: new Date().toISOString(),
       };
@@ -863,10 +1246,80 @@ export const generateZapRecommendations = functions
           );
         });
 
+      let responseZapIds = paginated.zapIds;
+      let responseHasMore = paginated.hasMore;
+      let responseNextLastZap = paginated.nextLastZap;
+
+      // Always ensure we have more content unless user has seen everything
+      if (!responseHasMore) {
+        const viewedZapIds = await getViewedZapIds(userId);
+        const allSeenZaps = new Set([
+          ...curatedZapIds,
+          ...Array.from(viewedZapIds),
+        ]);
+        const totalZapCount = await getTotalZapCount();
+        const hasSeenEverything = allSeenZaps.size >= totalZapCount * 0.95;
+
+        if (!hasSeenEverything) {
+          const tagsLiked = await getUserTagPreferences(userId);
+          let topUpIds: string[] = [];
+
+          if (Object.keys(tagsLiked).length > 0) {
+            const similarCandidates = await fetchSimilarZapsByTags(
+              curatedZapIds,
+              tagsLiked,
+              allSeenZaps,
+              MIN_RANDOM_TOPUP * 2
+            );
+            topUpIds = similarCandidates.map((c) => c.zapId);
+          }
+
+          if (topUpIds.length < MIN_RANDOM_TOPUP) {
+            const randomIds = await getRandomSprinkleZapIds(
+              [...curatedZapIds, ...topUpIds],
+              MIN_RANDOM_TOPUP - topUpIds.length
+            );
+            topUpIds = [...topUpIds, ...randomIds];
+          }
+
+          if (topUpIds.length > 0) {
+            responseZapIds = [...responseZapIds, ...topUpIds];
+            responseHasMore = true;
+            responseNextLastZap = topUpIds[topUpIds.length - 1];
+          }
+        }
+      }
+
+      // Update cache with lastViewedZapId if provided
+      if (lastViewedZapId) {
+        try {
+          const cacheRef = db
+            .collection(CACHED_RECOMMENDATIONS_COLLECTION)
+            .doc(userId);
+          const cacheDoc = await cacheRef.get();
+          
+          if (cacheDoc.exists) {
+            const cacheData = cacheDoc.data();
+            const cacheZapIds = (cacheData?.zapIds as string[]) || [];
+            
+            if (cacheZapIds.includes(lastViewedZapId)) {
+              await cacheRef.update({
+                lastViewedZapId: lastViewedZapId,
+              });
+            }
+          }
+        } catch (error) {
+          functions.logger.warn(
+            `Failed to update lastViewedZapId for ${userId} (curated path):`,
+            error
+          );
+        }
+      }
+
       return {
-        zapIds: paginated.zapIds,
-        hasMore: paginated.hasMore,
-        nextLastZap: paginated.nextLastZap,
+        zapIds: responseZapIds,
+        hasMore: responseHasMore,
+        nextLastZap: responseNextLastZap,
         source: "curated",
         generatedAt: new Date().toISOString(),
       };
@@ -901,10 +1354,31 @@ export const generateZapRecommendations = functions
       `Generated recommendations for ${userId} in ${elapsed}ms (${paginated.zapIds.length} zaps, position: ${paginated.position}/${allZapIds.length}, fallback: ${result.isFallback})`
     );
 
+    let responseZapIds = paginated.zapIds;
+    let responseHasMore = paginated.hasMore;
+    let responseNextLastZap = paginated.nextLastZap;
+
+    if (!responseHasMore) {
+      const topUpCount = Math.max(
+        MIN_RANDOM_TOPUP,
+        perPage - responseZapIds.length
+      );
+      const sprinkle = await getRandomSprinkleZapIds(
+        allZapIds.concat(responseZapIds),
+        topUpCount
+      );
+
+      if (sprinkle.length > 0) {
+        responseZapIds = [...responseZapIds, ...sprinkle];
+        responseHasMore = true;
+        responseNextLastZap = sprinkle[sprinkle.length - 1];
+      }
+    }
+
     return {
-      zapIds: paginated.zapIds,
-      hasMore: paginated.hasMore,
-      nextLastZap: paginated.nextLastZap,
+      zapIds: responseZapIds,
+      hasMore: responseHasMore,
+      nextLastZap: responseNextLastZap,
       source: result.isFallback
         ? "fallback"
         : result.zapIds.length > 0

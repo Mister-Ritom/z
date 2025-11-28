@@ -75,7 +75,12 @@ class ZapCard extends ConsumerWidget {
             if (shouldShowRepost && userAsync.valueOrNull != null)
               ZapRepostBanner(
                 username: userAsync.valueOrNull!.username,
-                onTap: () => onUserTap(context, userAsync.valueOrNull!),
+                onTap: () {
+                  final user = userAsync.valueOrNull;
+                  if (user != null) {
+                    onUserTap(context, user);
+                  }
+                },
               ),
             originalUserAsync.when(
               data:

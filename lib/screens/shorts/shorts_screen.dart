@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/services/ad_manager.dart';
+import 'package:z/services/recommendation_cache_service.dart';
 import 'package:z/widgets/ads/ad_widgets.dart';
 import 'package:z/widgets/media/short_video/short_video_widget.dart';
 
@@ -22,6 +23,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
   VideoPlayerController? _currentController;
   final AdManager _adManager = AdManager();
   bool _showingAd = false;
+  bool _hasInitialized = false;
 
   int _currentIndex = 0;
   get forYouFeed => forYouFeedProvider(true);
@@ -29,8 +31,18 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
   @override
   void initState() {
     super.initState();
-    _pageController.addListener(_onScroll);
-    _onRefresh(); // Load initial data
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _hasInitialized = true;
+      
+      // Load lastViewedZapId from cache
+      final cacheService = RecommendationCacheService();
+      final lastViewedZapId = await cacheService.getLastViewedZapId(isShort: true);
+      
+      await ref.read(forYouFeed.notifier).loadInitial(
+        lastViewedZapId: lastViewedZapId,
+      );
+    });
   }
 
   @override
@@ -57,15 +69,8 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
   @override
   bool get wantKeepAlive => true; // keeps state in IndexedStack
 
-  void _onScroll() {
-    final scrollPos = _pageController.position;
-    if (scrollPos.pixels >= scrollPos.maxScrollExtent - 200) {
-      ref.read(forYouFeed.notifier).loadMore();
-    }
-  }
-
   Future<void> _onRefresh() async {
-    await ref.read(forYouFeed.notifier).loadInitial();
+    await ref.read(forYouFeed.notifier).refreshFeed();
   }
 
   void _showShortsAd() {
@@ -98,11 +103,38 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
     );
   }
 
+  bool _handleScrollNotification(
+    ScrollNotification notification,
+    ForYouFeedState feedState,
+  ) {
+    if (!_hasInitialized || !mounted) return false;
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (feedState.isLoading || !feedState.hasMore) return false;
+    if (notification is! ScrollUpdateNotification ||
+        notification.dragDetails == null) {
+      return false;
+    }
+
+    const thresholdPages = 2.0;
+    final viewport = notification.metrics.viewportDimension;
+    if (viewport <= 0) return false;
+    final remainingPages = notification.metrics.extentAfter / viewport;
+
+    if (remainingPages <= thresholdPages) {
+      ref.read(forYouFeed.notifier).loadMore(
+        lastViewedZapId: feedState.lastViewedZapId,
+      );
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    final zaps = ref.watch(forYouFeed).reversed.toList();
+    final feedState = ref.watch(forYouFeed);
+    final zaps = feedState.zaps.reversed.toList();
+    final isLoading = feedState.isLoading;
 
     if (zaps.isEmpty) {
       return Scaffold(
@@ -114,10 +146,15 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
             onRefresh: _onRefresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
+              children: [
                 SizedBox(
                   height: 500,
-                  child: Center(child: Text('No zaps yet')),
+                  child: Center(
+                    child:
+                        isLoading
+                            ? const CircularProgressIndicator()
+                            : const Text('No zaps yet'),
+                  ),
                 ),
               ],
             ),
@@ -138,56 +175,69 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
           removeBottom: true,
           child: RefreshIndicator(
             onRefresh: _onRefresh,
-            child: PageView.builder(
-              key: const PageStorageKey('shortsPageView'),
-              scrollDirection: Axis.vertical,
-              controller: _pageController,
-              itemCount: zaps.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                  _showingAd = false;
-                });
-
-                // Check if we should show an ad after this video
-                if (_adManager.shouldShowShortsAd() &&
-                    index > 0 &&
-                    index < zaps.length - 1 &&
-                    !_showingAd) {
-                  // Show ad on next swipe
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    if (mounted && _currentIndex == index) {
-                      _showShortsAd();
-                    }
+            child: NotificationListener<ScrollNotification>(
+              onNotification:
+                  (notification) =>
+                      _handleScrollNotification(notification, feedState),
+              child: PageView.builder(
+                key: const PageStorageKey('shortsPageView'),
+                scrollDirection: Axis.vertical,
+                controller: _pageController,
+                itemCount: zaps.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                    _showingAd = false;
                   });
-                }
-              },
-              itemBuilder: (context, index) {
-                // Check if this position should show an ad
-                if (_showingAd && index == _currentIndex) {
-                  return VideoAdWidget(
-                    showSkipButton: true,
-                    skipDelay: const Duration(seconds: 5),
-                    onAdDismissed: () {
+
+                  // Track last viewed zap ID
+                  if (index < zaps.length) {
+                    final currentZap = zaps[index] as ZapModel;
+                    ref.read(forYouFeed.notifier).updateLastViewedZapId(currentZap.id);
+                  }
+
+                  // Check if we should show an ad after this video
+                  if (_adManager.shouldShowShortsAd() &&
+                      index > 0 &&
+                      index < zaps.length - 1 &&
+                      !_showingAd) {
+                    // Show ad on next swipe
+                    Future.delayed(const Duration(milliseconds: 500), () {
+                      if (mounted && _currentIndex == index) {
+                        _showShortsAd();
+                      }
+                    });
+                  }
+                },
+                itemBuilder: (context, index) {
+                  // Check if this position should show an ad
+                  if (_showingAd && index == _currentIndex) {
+                    return VideoAdWidget(
+                      showSkipButton: true,
+                      skipDelay: const Duration(seconds: 5),
+                      onAdDismissed: () {
+                        setState(() {
+                          _showingAd = false;
+                        });
+                      },
+                    );
+                  }
+
+                  final zap = zaps[index] as ZapModel;
+                  return ShortVideoWidget(
+                    zap: zap,
+                    shouldPlay:
+                        widget.isActive &&
+                        index == _currentIndex &&
+                        !_showingAd,
+                    onControllerChange: (controller) {
                       setState(() {
-                        _showingAd = false;
+                        _currentController = controller;
                       });
                     },
                   );
-                }
-
-                final zap = zaps[index] as ZapModel;
-                return ShortVideoWidget(
-                  zap: zap,
-                  shouldPlay:
-                      widget.isActive && index == _currentIndex && !_showingAd,
-                  onControllerChange: (controller) {
-                    setState(() {
-                      _currentController = controller;
-                    });
-                  },
-                );
-              },
+                },
+              ),
             ),
           ),
         ),
