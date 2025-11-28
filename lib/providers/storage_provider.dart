@@ -1,6 +1,6 @@
-import 'dart:developer';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:z/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
@@ -88,12 +88,13 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
 
       tasks.add(
         Future(() async {
+          String? mimeType;
           try {
-            final mimeType = file.mimeType ?? getMimeTypeFromPath(file.path);
+            mimeType = file.mimeType ?? getMimeTypeFromPath(file.path);
             final fileBytes = await file.readAsBytes();
             String downloadUrl = "";
 
-            log("📤 Uploading: ${file.name} [$mimeType] as $type");
+            AppLogger.info('StorageProvider', 'Starting file upload', data: {'fileName': file.name, 'mimeType': mimeType, 'type': type.name, 'fileIndex': i});
 
             Future<void> updateProgress(double p) async {
               state = [
@@ -207,7 +208,7 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
             await Future.delayed(const Duration(seconds: 2));
             state = state.where((t) => t.fileName != taskId).toList();
           } catch (e, st) {
-            log("❌ Upload failed for ${file.path}", error: e, stackTrace: st);
+            AppLogger.error('StorageProvider', 'Upload failed', error: e, stackTrace: st, data: {'filePath': file.path, 'fileName': file.name, 'type': type.name, 'mimeType': mimeType});
             state = [
               for (int j = 0; j < state.length; j++)
                 if (j == taskIndex)
@@ -222,7 +223,7 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
 
     await Future.wait(tasks);
 
-    log("✅ All uploads done. URLs:\n${uploadedUrls.join("\n")}");
+    AppLogger.info('StorageProvider', 'All uploads completed', data: {'totalFiles': files.length, 'successfulUploads': uploadedUrls.length, 'type': type.name});
     if (onComplete != null) onComplete(uploadedUrls);
   }
 

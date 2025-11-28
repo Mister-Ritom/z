@@ -1,17 +1,18 @@
-import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:z/widgets/app_image.dart';
-import 'package:z/widgets/profile_picture.dart';
-import 'package:z/widgets/video_player_widget.dart';
-import '../providers/zap_provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/storage_provider.dart';
-import '../services/firebase_analytics_service.dart';
-import '../utils/constants.dart';
+import 'package:z/utils/logger.dart';
+import 'package:z/widgets/common/profile_picture.dart';
+import 'package:z/widgets/media/video_player_widget.dart';
+import 'package:z/providers/zap_provider.dart';
+import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/storage_provider.dart';
+import 'package:z/services/firebase_analytics_service.dart';
+import 'package:z/utils/constants.dart';
+
+import 'media_preview.dart';
 
 class ZapComposer extends ConsumerStatefulWidget {
   final String? replyToZapId;
@@ -158,8 +159,19 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
           isShort: isShort,
         );
       }
+      AppLogger.info(
+        'ZapComposer',
+        'Zap created successfully',
+        data: {'zapId': id, 'isShort': isShort, 'hasMedia': media.isNotEmpty},
+      );
     } catch (e, st) {
-      log('Failed async zap upload', error: e, stackTrace: st);
+      AppLogger.error(
+        'ZapComposer',
+        'Failed to create zap',
+        error: e,
+        stackTrace: st,
+        data: {'isShort': isShort, 'hasMedia': media.isNotEmpty},
+      );
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,
@@ -251,8 +263,8 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
                 child: VideoPlayerWidget(isFile: true, url: media.first.path),
               )
             else if (!isShort)
-              _MediaPreview(
-                mediaNotifier: media,
+              ZapMediaPreview(
+                media: media,
                 onRemoveMedia: (file) {
                   ref.read(selectedMediaProvider.notifier).state = List.from(
                     media,
@@ -292,57 +304,6 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MediaPreview extends StatelessWidget {
-  final List<XFile> mediaNotifier;
-  final void Function(XFile file) onRemoveMedia;
-
-  const _MediaPreview({
-    required this.mediaNotifier,
-    required this.onRemoveMedia,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (mediaNotifier.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children:
-          mediaNotifier.map((file) {
-            final isVideo =
-                file.path.toLowerCase().endsWith('.mp4') ||
-                file.path.toLowerCase().endsWith('.mov') ||
-                file.path.toLowerCase().endsWith('.avi');
-            return Stack(
-              children: [
-                isVideo
-                    ? SizedBox(
-                      width: 100,
-                      height: 100,
-                      child: VideoPlayerWidget(isFile: true, url: file.path),
-                    )
-                    : AppImage.xFile(
-                      file,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                    ),
-                Positioned(
-                  top: 2,
-                  right: 2,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => onRemoveMedia(file),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
     );
   }
 }

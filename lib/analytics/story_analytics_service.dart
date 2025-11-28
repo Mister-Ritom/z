@@ -37,23 +37,42 @@ class StoryAnalyticsService {
   }
 
   Future<void> viewStory(String userId, String storyId) async {
-    if (await isStoryViewed(userId, storyId)) return;
-    await _analytics.doc(storyId).set({
-      'views': FieldValue.increment(1),
-      'viewedBy': FieldValue.arrayUnion([userId]),
-    }, SetOptions(merge: true));
+    final alreadyViewed = await isStoryViewedStream(userId, storyId).first;
+    if (alreadyViewed) return;
+
+    // Check if analytics document exists, then use update or create accordingly
+    final analyticsDoc = _analytics.doc(storyId);
+    final analyticsSnapshot = await analyticsDoc.get();
+
+    if (analyticsSnapshot.exists) {
+      // Document exists, use update (allows FieldValue operations)
+      await analyticsDoc.update({
+        'views': FieldValue.increment(1),
+        'viewedBy': FieldValue.arrayUnion([userId]),
+      });
+    } else {
+      // Document doesn't exist, create with initial numeric values
+      await analyticsDoc.set({
+        'views': 1,
+        'viewedBy': [userId],
+      });
+    }
+
     await _userRef(userId, storyId).set({
       'viewed': true,
       'lastViewedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
     // Track story view in Firebase Analytics
     await FirebaseAnalyticsService.logStoryViewed();
   }
 
-  Future<bool> isStoryViewed(String userId, String storyId) async {
-    final doc = await _userRef(userId, storyId).get();
-    return doc.exists && (doc.data() as Map<String, dynamic>)['viewed'] == true;
-  }
+  Stream<bool> isStoryViewedStream(String userId, String storyId) =>
+      _userRef(userId, storyId).snapshots().map(
+        (snap) =>
+            snap.exists &&
+            (snap.data() as Map<String, dynamic>?)?['viewed'] == true,
+      );
 
   Future<void> toggleLikeStory(String userId, String storyId) async {
     final userDoc = await _userRef(userId, storyId).get();
@@ -61,18 +80,25 @@ class StoryAnalyticsService {
         userDoc.exists &&
         (userDoc.data() as Map<String, dynamic>)['liked'] == true;
 
+    final analyticsDoc = _analytics.doc(storyId);
+    final analyticsSnapshot = await analyticsDoc.get();
+
     if (isLiked) {
-      await _analytics.doc(storyId).set({
-        'likes': FieldValue.increment(-1),
-      }, SetOptions(merge: true));
+      if (analyticsSnapshot.exists) {
+        await analyticsDoc.update({'likes': FieldValue.increment(-1)});
+      } else {
+        await analyticsDoc.set({'likes': 0});
+      }
       await _userRef(userId, storyId).set({
         'liked': false,
         'likedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } else {
-      await _analytics.doc(storyId).set({
-        'likes': FieldValue.increment(1),
-      }, SetOptions(merge: true));
+      if (analyticsSnapshot.exists) {
+        await analyticsDoc.update({'likes': FieldValue.increment(1)});
+      } else {
+        await analyticsDoc.set({'likes': 1});
+      }
       await _userRef(userId, storyId).set({
         'liked': true,
         'likedAt': FieldValue.serverTimestamp(),
@@ -81,15 +107,25 @@ class StoryAnalyticsService {
   }
 
   Future<void> replyStory(String storyId) async {
-    await _analytics.doc(storyId).set({
-      'replies': FieldValue.increment(1),
-    }, SetOptions(merge: true));
+    final analyticsDoc = _analytics.doc(storyId);
+    final analyticsSnapshot = await analyticsDoc.get();
+
+    if (analyticsSnapshot.exists) {
+      await analyticsDoc.update({'comments': FieldValue.increment(1)});
+    } else {
+      await analyticsDoc.set({'comments': 1});
+    }
   }
 
   Future<void> shareStory(String storyId) async {
-    await _analytics.doc(storyId).set({
-      'shares': FieldValue.increment(1),
-    }, SetOptions(merge: true));
+    final analyticsDoc = _analytics.doc(storyId);
+    final analyticsSnapshot = await analyticsDoc.get();
+
+    if (analyticsSnapshot.exists) {
+      await analyticsDoc.update({'shares': FieldValue.increment(1)});
+    } else {
+      await analyticsDoc.set({'shares': 1});
+    }
   }
 
   Stream<List<String>> getStoriesLikedBy(String userId) {

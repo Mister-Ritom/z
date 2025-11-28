@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:developer';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:z/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -14,7 +14,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize Firebase if not already initialized
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  log('Handling background message: ${message.messageId}');
+  AppLogger.info('FCMService', 'Handling background message', data: {'messageId': message.messageId});
   // Background messages are handled here
   // FCM will automatically show notifications when app is in background
   // This handler is for processing data if needed
@@ -40,9 +40,7 @@ class FCMService {
               AppConstants.iosNotificationAvailable);
 
       if (!shouldEnable) {
-        log(
-          'FCM disabled for this platform (iOS/macOS notifications not available)',
-        );
+        AppLogger.warn('FCMService', 'FCM disabled for this platform (iOS/macOS notifications not available)', data: {'platform': defaultTargetPlatform.name});
         return;
       }
 
@@ -55,12 +53,12 @@ class FCMService {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        log('User granted notification permission');
+        AppLogger.info('FCMService', 'User granted notification permission');
       } else if (settings.authorizationStatus ==
           AuthorizationStatus.provisional) {
-        log('User granted provisional notification permission');
+        AppLogger.info('FCMService', 'User granted provisional notification permission');
       } else {
-        log('User declined or has not accepted notification permission');
+        AppLogger.warn('FCMService', 'User declined or has not accepted notification permission');
         return;
       }
 
@@ -71,7 +69,7 @@ class FCMService {
       _messageSubscription = FirebaseMessaging.onMessage.listen((
         RemoteMessage message,
       ) {
-        log('Received foreground message: ${message.messageId}');
+        AppLogger.info('FCMService', 'Received foreground message', data: {'messageId': message.messageId});
         // Don't show notifications when app is in foreground
         // They will be handled by the app's notification system
       });
@@ -79,21 +77,21 @@ class FCMService {
       // Handle notification taps when app is opened from terminated state
       _messaging.getInitialMessage().then((RemoteMessage? message) {
         if (message != null) {
-          log('App opened from terminated state via notification');
+          AppLogger.info('FCMService', 'App opened from terminated state via notification', data: {'messageId': message.messageId});
           _handleNotificationTap(message);
         }
       });
 
       // Handle notification taps when app is in background
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        log('App opened from background via notification');
+        AppLogger.info('FCMService', 'App opened from background via notification', data: {'messageId': message.messageId});
         _handleNotificationTap(message);
       });
 
       _isInitialized = true;
-      log('FCM Service initialized successfully');
+      AppLogger.info('FCMService', 'FCM Service initialized successfully');
     } catch (e, stackTrace) {
-      log('Error initializing FCM Service: $e', stackTrace: stackTrace);
+      AppLogger.error('FCMService', 'Error initializing FCM Service', error: e, stackTrace: stackTrace);
     }
   }
 
@@ -116,18 +114,18 @@ class FCMService {
       final token = await _messaging.getToken();
       if (token != null) {
         await _saveTokenToFirestore(userId, token);
-        log('FCM token saved for user: $userId');
+        AppLogger.info('FCMService', 'FCM token saved for user', data: {'userId': userId});
       }
 
       // Listen for token refresh
       _messaging.onTokenRefresh.listen((newToken) {
         _saveTokenToFirestore(userId, newToken);
-        log('FCM token refreshed for user: $userId');
+        AppLogger.info('FCMService', 'FCM token refreshed for user', data: {'userId': userId});
       });
 
       return token;
     } catch (e, stackTrace) {
-      log('Error getting FCM token: $e', stackTrace: stackTrace);
+      AppLogger.error('FCMService', 'Error getting FCM token', error: e, stackTrace: stackTrace, data: {'userId': userId});
       return null;
     }
   }
@@ -160,8 +158,9 @@ class FCMService {
         'tokens': tokens,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      AppLogger.info('FCMService', 'FCM token saved to Firestore', data: {'userId': userId});
     } catch (e, stackTrace) {
-      log('Error saving FCM token to Firestore: $e', stackTrace: stackTrace);
+      AppLogger.error('FCMService', 'Error saving FCM token to Firestore', error: e, stackTrace: stackTrace, data: {'userId': userId});
     }
   }
 
@@ -192,8 +191,9 @@ class FCMService {
           }
         }
       }
+      AppLogger.info('FCMService', 'FCM token deleted from Firestore', data: {'userId': userId});
     } catch (e, stackTrace) {
-      log('Error deleting FCM token: $e', stackTrace: stackTrace);
+      AppLogger.error('FCMService', 'Error deleting FCM token', error: e, stackTrace: stackTrace, data: {'userId': userId});
     }
   }
 

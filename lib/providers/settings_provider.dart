@@ -37,8 +37,9 @@ class AppSettings {
 }
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
-  SettingsNotifier()
-    : super(
+  SettingsNotifier({SharedPreferences? preferences})
+    : _prefs = preferences,
+      super(
         const AppSettings(
           enablePushNotifications: true,
           autoplayVideos: true,
@@ -46,17 +47,25 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
           theme: AppTheme.system,
         ),
       ) {
-    _loadSettings();
+    _initialization = _loadSettings();
   }
 
-  late SharedPreferences _prefs;
+  SharedPreferences? _prefs;
+  late final Future<void> _initialization;
+
+  Future<void> get initialized => _initialization;
+
+  Future<SharedPreferences> _ensurePrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
 
   Future<void> _loadSettings() async {
-    _prefs = await SharedPreferences.getInstance();
-    final push = _prefs.getBool('settings.push_enabled') ?? true;
-    final autoplay = _prefs.getBool('settings.autoplay_videos') ?? true;
-    final glass = _prefs.getBool('settings.glass_enabled') ?? false;
-    final themeString = _prefs.getString('settings.theme');
+    final prefs = await _ensurePrefs();
+    final push = prefs.getBool('settings.push_enabled') ?? true;
+    final autoplay = prefs.getBool('settings.autoplay_videos') ?? true;
+    final glass = prefs.getBool('settings.glass_enabled') ?? false;
+    final themeString = prefs.getString('settings.theme');
     final theme =
         themeString != null
             ? AppTheme.values.firstWhere(
@@ -74,23 +83,27 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   Future<void> setPushNotifications(bool value) async {
+    final prefs = await _ensurePrefs();
     state = state.copyWith(enablePushNotifications: value);
-    await _prefs.setBool('settings.push_enabled', value);
+    await prefs.setBool('settings.push_enabled', value);
   }
 
   Future<void> setAutoplayVideos(bool value) async {
+    final prefs = await _ensurePrefs();
     state = state.copyWith(autoplayVideos: value);
-    await _prefs.setBool('settings.autoplay_videos', value);
+    await prefs.setBool('settings.autoplay_videos', value);
   }
 
   Future<void> setGlassMorphismEnabled(bool value) async {
+    final prefs = await _ensurePrefs();
     state = state.copyWith(glassMorphismEnabled: value);
-    await _prefs.setBool('settings.glass_enabled', value);
+    await prefs.setBool('settings.glass_enabled', value);
   }
 
   Future<void> setTheme(AppTheme theme) async {
+    final prefs = await _ensurePrefs();
     state = state.copyWith(theme: theme);
-    await _prefs.setString('settings.theme', theme.toString().split('.').last);
+    await prefs.setString('settings.theme', theme.toString().split('.').last);
   }
 
   ThemeData getThemeData(Brightness systemBrightness) {

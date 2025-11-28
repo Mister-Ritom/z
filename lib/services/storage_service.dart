@@ -1,5 +1,5 @@
-import 'dart:developer';
 import 'dart:typed_data';
+import 'package:z/utils/logger.dart';
 import 'dart:io' show Platform, File;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:video_compress/video_compress.dart';
@@ -84,14 +84,10 @@ class StorageService {
         );
       }
 
+      AppLogger.info('StorageService', 'File uploaded successfully', data: {'type': type.name, 'referenceId': referenceId});
       return await ref.getDownloadURL();
     } catch (e, st) {
-      log(
-        "Something went wrong trying",
-        error: e,
-        stackTrace: st,
-        name: "Storage service",
-      );
+      AppLogger.error('StorageService', 'Failed to upload file', error: e, stackTrace: st, data: {'type': type.name, 'referenceId': referenceId});
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,
@@ -118,8 +114,10 @@ class StorageService {
       );
 
       await ref.putData(fileBytes, SettableMetadata(contentType: mimeType));
+      AppLogger.info('StorageService', 'Document uploaded successfully', data: {'referenceId': referenceId, 'mimeType': mimeType});
       return await ref.getDownloadURL();
     } catch (e, stackTrace) {
+      AppLogger.error('StorageService', 'Failed to upload document', error: e, stackTrace: stackTrace, data: {'referenceId': referenceId, 'mimeType': mimeType});
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,

@@ -1,12 +1,14 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:oc_liquid_glass/oc_liquid_glass.dart';
+import 'package:z/providers/settings_provider.dart';
 import 'package:z/utils/helpers.dart';
 
 /// A universal glass container that uses oc_liquid_glass for realistic GPU-accelerated effects.
 /// Falls back to a blurred container on web or unsupported platforms.
-class GlassContainer extends StatelessWidget {
+class GlassContainer extends ConsumerWidget {
   final Widget child;
   final double width;
   final double height;
@@ -23,8 +25,11 @@ class GlassContainer extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (!Helpers.isGlassSupported) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final glassEnabled = ref.watch(settingsProvider).glassMorphismEnabled;
+    final shouldUseGlass = glassEnabled && Helpers.isGlassSupported;
+
+    if (!shouldUseGlass) {
       // Fallback for web (blur effect only)
       return Container(
         width: width,
@@ -58,7 +63,7 @@ class GlassContainer extends StatelessWidget {
 }
 
 /// Example: A glassy card widget.
-class GlassCard extends StatelessWidget {
+class GlassCard extends ConsumerWidget {
   final Widget child;
   final EdgeInsets padding;
   final double borderRadius;
@@ -71,7 +76,7 @@ class GlassCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GlassContainer(
       borderRadius: borderRadius,
       child: Padding(padding: padding, child: child),
@@ -80,14 +85,14 @@ class GlassCard extends StatelessWidget {
 }
 
 /// A glass button using oc_liquid_glass underneath.
-class GlassButton extends StatelessWidget {
+class GlassButton extends ConsumerWidget {
   final VoidCallback onPressed;
   final String text;
 
   const GlassButton({super.key, required this.onPressed, required this.text});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: onPressed,
       child: GlassContainer(
@@ -112,11 +117,11 @@ class GlassButton extends StatelessWidget {
 
 /// A Floating Action Button that uses oc_liquid_glass for realistic shader-based glass effects.
 /// Falls back to a visually consistent Material FAB on web.
-class GlassFAB extends StatelessWidget {
+class GlassFAB extends ConsumerWidget {
   final VoidCallback onPressed;
   final Widget child;
   final double size;
-  final Color color;
+  final Color? color;
   final double borderRadius;
   final double blurRadius;
   final double refractStrength;
@@ -129,7 +134,7 @@ class GlassFAB extends StatelessWidget {
     required this.onPressed,
     required this.child,
     this.size = 64,
-    this.color = const Color.fromARGB(80, 255, 255, 255),
+    this.color,
     this.borderRadius = 32,
     this.blurRadius = 2.5,
     this.refractStrength = -0.08,
@@ -139,15 +144,18 @@ class GlassFAB extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (!Helpers.isGlassSupported) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final glassEnabled = ref.watch(settingsProvider).glassMorphismEnabled;
+    final shouldUseGlass = glassEnabled && Helpers.isGlassSupported;
+
+    if (!shouldUseGlass) {
       // Web fallback with matching look and size
       return SizedBox(
         width: size,
         height: size,
         child: FloatingActionButton(
           onPressed: onPressed,
-          backgroundColor: color.withValues(alpha: 0.6),
+          backgroundColor: color,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),
@@ -155,7 +163,9 @@ class GlassFAB extends StatelessWidget {
         ),
       );
     }
+
     try {
+      final color = this.color ?? Colors.white.withValues(alpha: 0.6);
       return GestureDetector(
         onTap: onPressed,
         child: OCLiquidGlassGroup(
@@ -188,7 +198,7 @@ class GlassFAB extends StatelessWidget {
         height: size,
         child: FloatingActionButton(
           onPressed: onPressed,
-          backgroundColor: color.withValues(alpha: 0.6),
+          backgroundColor: color?.withValues(alpha: 0.6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),

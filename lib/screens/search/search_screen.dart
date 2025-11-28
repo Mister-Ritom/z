@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/zap_provider.dart';
-import '../../widgets/user_card.dart';
-import '../../widgets/zap_card.dart'; // assume you have a ZapCard widget
+import 'package:z/widgets/common/user_card.dart';
+import 'package:z/widgets/zap/card/zap_card.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});

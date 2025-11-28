@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/screens/profile/profile_screen.dart';
-import 'package:z/widgets/profile_picture.dart';
-import '../models/user_model.dart';
-import '../providers/profile_provider.dart';
-import '../providers/auth_provider.dart';
+import 'package:z/widgets/common/profile_picture.dart';
+import 'package:z/models/user_model.dart';
+import 'package:z/providers/profile_provider.dart';
+import 'package:z/providers/auth_provider.dart';
 
 class UserCard extends ConsumerWidget {
   final UserModel user;

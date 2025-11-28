@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:z/widgets/media_carousel.dart';
-import '../models/message_model.dart';
+import 'package:z/widgets/media/media_carousel.dart';
+import 'package:z/models/message_model.dart';
 
 class MessageBubble extends StatelessWidget {
   final MessageModel message;

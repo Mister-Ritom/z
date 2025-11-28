@@ -7,6 +7,7 @@ const ZAPS_COLLECTION = "zaps";
 const ANALYTICS_COLLECTION = "analytics";
 const DAILY_CURATED_ZAPS_COLLECTION = "daily_curated_zaps";
 const CURATED_COUNT = 100;
+const MAX_FETCH_LIMIT = 500; // Maximum zaps to fetch per query
 
 /**
  * Scheduled function to update daily curated zaps
@@ -24,6 +25,57 @@ export const updateDailyCuratedZaps = functions
     functions.logger.info("Starting daily curated zaps update");
 
     try {
+      /**
+       * Helper function to score zaps by engagement
+       */
+      async function scoreZaps(
+        zapDocs: admin.firestore.QueryDocumentSnapshot[]
+      ): Promise<Array<{ zapId: string; score: number }>> {
+        if (zapDocs.length === 0) return [];
+
+        // Batch fetch analytics data
+        const analyticsPromises = zapDocs.map((doc) =>
+          db
+            .collection(ANALYTICS_COLLECTION)
+            .doc(ZAPS_COLLECTION)
+            .collection(ZAPS_COLLECTION)
+            .doc(doc.id)
+            .get()
+        );
+
+        const analyticsDocs = await Promise.all(analyticsPromises);
+        const scoredZaps: Array<{ zapId: string; score: number }> = [];
+
+        for (let i = 0; i < zapDocs.length; i++) {
+          const zapDoc = zapDocs[i];
+          const analyticsDoc = analyticsDocs[i];
+          const zapData = zapDoc.data();
+          const analyticsData = analyticsDoc.data() || {};
+
+          const likesCount = (zapData.likesCount as number) || 0;
+          const rezapsCount = (zapData.rezapsCount as number) || 0;
+          const views = (analyticsData.views as number) || 0;
+          const createdAt = zapData.createdAt as admin.firestore.Timestamp;
+
+          // Calculate engagement score
+          // Weight: likes (1.0), rezaps (1.5), views (0.5), freshness (0.3)
+          const ageInHours =
+            (Date.now() - createdAt.toMillis()) / (1000 * 60 * 60);
+          const freshnessMultiplier = Math.exp(-ageInHours / 48); // Decay over 48 hours
+
+          const engagementScore =
+            (likesCount * 1.0 + rezapsCount * 1.5 + Math.log1p(views) * 0.5) *
+            (1 + freshnessMultiplier * 0.3);
+
+          scoredZaps.push({
+            zapId: zapDoc.id,
+            score: engagementScore,
+          });
+        }
+
+        return scoredZaps;
+      }
+
       // Fetch top zaps from the last 7 days by engagement
       const sevenDaysAgo = admin.firestore.Timestamp.fromDate(
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
@@ -36,56 +88,45 @@ export const updateDailyCuratedZaps = functions
         .where("parentZapId", "==", null) // Only top-level zaps
         .where("createdAt", ">=", sevenDaysAgo)
         .orderBy("createdAt", "desc")
-        .limit(500) // Fetch more to score and filter
+        .limit(MAX_FETCH_LIMIT)
         .get();
 
       functions.logger.info(
         `Fetched ${recentZapsSnapshot.docs.length} recent zaps for curation`
       );
 
-      // Score zaps by engagement
-      const scoredZaps: Array<{
-        zapId: string;
-        score: number;
-      }> = [];
+      // Score recent zaps
+      let scoredZaps = await scoreZaps(recentZapsSnapshot.docs);
 
-      // Batch fetch analytics data
-      const analyticsPromises = recentZapsSnapshot.docs.map((doc) =>
-        db
-          .collection(ANALYTICS_COLLECTION)
-          .doc(ZAPS_COLLECTION)
+      // If we don't have enough zaps, fetch older posts
+      if (scoredZaps.length < CURATED_COUNT) {
+        functions.logger.info(
+          `Only found ${scoredZaps.length} zaps from last 7 days, fetching older posts to reach ${CURATED_COUNT}`
+        );
+
+        // Fetch older zaps (older than 7 days)
+        const olderZapsSnapshot = await db
           .collection(ZAPS_COLLECTION)
-          .doc(doc.id)
-          .get()
-      );
+          .where("isDeleted", "==", false)
+          .where("parentZapId", "==", null) // Only top-level zaps
+          .where("createdAt", "<", sevenDaysAgo)
+          .orderBy("createdAt", "desc")
+          .limit(MAX_FETCH_LIMIT)
+          .get();
 
-      const analyticsDocs = await Promise.all(analyticsPromises);
+        functions.logger.info(
+          `Fetched ${olderZapsSnapshot.docs.length} older zaps for curation`
+        );
 
-      for (let i = 0; i < recentZapsSnapshot.docs.length; i++) {
-        const zapDoc = recentZapsSnapshot.docs[i];
-        const analyticsDoc = analyticsDocs[i];
-        const zapData = zapDoc.data();
-        const analyticsData = analyticsDoc.data() || {};
+        // Score older zaps
+        const olderScoredZaps = await scoreZaps(olderZapsSnapshot.docs);
 
-        const likesCount = (zapData.likesCount as number) || 0;
-        const rezapsCount = (zapData.rezapsCount as number) || 0;
-        const views = (analyticsData.views as number) || 0;
-        const createdAt = zapData.createdAt as admin.firestore.Timestamp;
+        // Combine recent and older zaps
+        scoredZaps = [...scoredZaps, ...olderScoredZaps];
 
-        // Calculate engagement score
-        // Weight: likes (1.0), rezaps (1.5), views (0.5), freshness (0.3)
-        const ageInHours =
-          (Date.now() - createdAt.toMillis()) / (1000 * 60 * 60);
-        const freshnessMultiplier = Math.exp(-ageInHours / 48); // Decay over 48 hours
-
-        const engagementScore =
-          (likesCount * 1.0 + rezapsCount * 1.5 + Math.log1p(views) * 0.5) *
-          (1 + freshnessMultiplier * 0.3);
-
-        scoredZaps.push({
-          zapId: zapDoc.id,
-          score: engagementScore,
-        });
+        functions.logger.info(
+          `Combined total: ${scoredZaps.length} zaps (${recentZapsSnapshot.docs.length} recent + ${olderZapsSnapshot.docs.length} older)`
+        );
       }
 
       // Sort by score and take top N
@@ -94,11 +135,19 @@ export const updateDailyCuratedZaps = functions
         .slice(0, CURATED_COUNT)
         .map((item) => item.zapId);
 
-      // Save to daily curated zaps collection
-      await db.collection(DAILY_CURATED_ZAPS_COLLECTION).doc("today").set({
+      // Get today's date in YYYY-MM-DD format (UTC)
+      const today = new Date();
+      const year = today.getUTCFullYear();
+      const month = String(today.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(today.getUTCDate()).padStart(2, "0");
+      const dateString = `${year}-${month}-${day}`;
+
+      // Save to daily curated zaps collection with today's date as document ID
+      await db.collection(DAILY_CURATED_ZAPS_COLLECTION).doc(dateString).set({
         zapIds: topZapIds,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         count: topZapIds.length,
+        date: dateString,
       });
 
       functions.logger.info(
@@ -111,4 +160,3 @@ export const updateDailyCuratedZaps = functions
       throw error;
     }
   });
-

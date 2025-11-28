@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/zap_provider.dart';
 import '../../providers/profile_provider.dart';
-import '../../widgets/zap_card.dart';
-import '../../widgets/loading_shimmer.dart';
-import '../../widgets/zap_composer.dart';
+import 'package:z/widgets/zap/card/zap_card.dart';
+import 'package:z/widgets/common/loading_shimmer.dart';
+import 'package:z/widgets/zap/composer/zap_composer.dart';
 
 class ZapDetailScreen extends ConsumerWidget {
   final String zapId;

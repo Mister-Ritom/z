@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
+import 'package:z/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,7 +12,7 @@ import 'package:z/utils/helpers.dart';
 import '../../models/user_model.dart';
 import '../../providers/message_provider.dart';
 import '../../services/firebase_analytics_service.dart';
-import '../../widgets/message_bubble.dart';
+import 'package:z/widgets/messages/message_bubble.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String currentUserId;
@@ -48,15 +48,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final List<XFile> files = await _picker.pickMultipleMedia();
       if (files.isNotEmpty) {
         setState(() => _selectedFiles = files);
+        AppLogger.info(
+          'ChatScreen',
+          'Media picked successfully',
+          data: {'fileCount': files.length},
+        );
       }
-    } catch (e) {
-      log('Error picking media: $e');
+    } catch (e, st) {
+      AppLogger.error(
+        'ChatScreen',
+        'Error picking media',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
   // Use ||| as separator - this must never appear in user IDs
   static const String _conversationSeparator = '|||';
-  
+
   String _getConversationId() {
     final ids = [widget.currentUserId, widget.otherUserId]..sort();
     return ids.join(_conversationSeparator);
@@ -96,8 +106,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               messageId: pendingMessage.id,
               uploadedUrls: urls,
             );
+            AppLogger.info(
+              'ChatScreen',
+              'Pending message finalized successfully',
+              data: {'messageId': pendingMessage.id},
+            );
           } catch (e, st) {
-            log('Error finalizing pending message: $e', stackTrace: st);
+            AppLogger.error(
+              'ChatScreen',
+              'Error finalizing pending message',
+              error: e,
+              stackTrace: st,
+              data: {'messageId': pendingMessage.id},
+            );
           }
         },
       );
@@ -221,7 +242,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final key = [widget.currentUserId, widget.otherUserId]..sort();
-    final messagesAsync = ref.watch(messagesProvider(key.join(_conversationSeparator)));
+    final messagesAsync = ref.watch(
+      messagesProvider(key.join(_conversationSeparator)),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -283,7 +306,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) {
-                log("MESSAGES ERROR: $error", stackTrace: stack);
+                AppLogger.error(
+                  'ChatScreen',
+                  'Error loading messages',
+                  error: error,
+                  stackTrace: stack,
+                  data: {
+                    'currentUserId': widget.currentUserId,
+                    'otherUserId': widget.otherUserId,
+                  },
+                );
                 return Center(child: Text('Error: $error'));
               },
             ),

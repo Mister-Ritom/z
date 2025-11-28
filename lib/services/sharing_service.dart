@@ -1,42 +1,60 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
+import 'package:z/utils/logger.dart';
 import 'package:listen_sharing_intent/listen_sharing_intent.dart';
 import 'package:image_picker/image_picker.dart';
 
 class SharingService {
   StreamSubscription<List<SharedMediaFile>>? _intentDataStreamSubscription;
-  
-  final _sharedMediaController = StreamController<List<SharedMediaFile>>.broadcast();
-  
-  Stream<List<SharedMediaFile>> get sharedMediaStream => _sharedMediaController.stream;
-  
+
+  final _sharedMediaController =
+      StreamController<List<SharedMediaFile>>.broadcast();
+
+  Stream<List<SharedMediaFile>> get sharedMediaStream =>
+      _sharedMediaController.stream;
+
   void initialize() {
     // For sharing images coming from outside the app while the app is in the memory
-    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream()
-        .listen((List<SharedMediaFile> value) {
-      _sharedMediaController.add(value);
-    }, onError: (err) {
-      log("getIntentDataStream error: $err");
-    });
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance
+        .getMediaStream()
+        .listen(
+          (List<SharedMediaFile> value) {
+            _sharedMediaController.add(value);
+            AppLogger.info(
+              'SharingService',
+              'Received shared media',
+              data: {'fileCount': value.length},
+            );
+          },
+          onError: (err, st) {
+            AppLogger.error(
+              'SharingService',
+              'Error in getIntentDataStream',
+              error: err,
+              stackTrace: st,
+            );
+          },
+        );
 
     // For sharing images coming from outside the app while the app is closed
-    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+    ReceiveSharingIntent.instance.getInitialMedia().then((
+      List<SharedMediaFile> value,
+    ) {
       if (value.isNotEmpty) {
         _sharedMediaController.add(value);
       }
     });
   }
-  
+
   void dispose() {
     _intentDataStreamSubscription?.cancel();
     _sharedMediaController.close();
   }
-  
+
   /// Convert SharedMediaFile to XFile
   Future<List<XFile>> convertToXFiles(List<SharedMediaFile> sharedFiles) async {
     final xFiles = <XFile>[];
-    
+
     for (final sharedFile in sharedFiles) {
       final path = sharedFile.path;
       final file = File(path);
@@ -44,8 +62,7 @@ class SharingService {
         xFiles.add(XFile(path));
       }
     }
-    
+
     return xFiles;
   }
 }
-

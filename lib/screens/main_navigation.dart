@@ -15,8 +15,8 @@ import 'package:z/providers/notification_provider.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/screens/stories/story_creation_screen.dart';
 import 'package:z/utils/helpers.dart';
-import 'package:z/widgets/glass_widget.dart';
-import 'package:z/widgets/zap_composer.dart';
+import 'package:z/widgets/common/glass_widget.dart';
+import 'package:z/widgets/zap/composer/zap_composer.dart';
 
 extension ColorX on Color {
   Color withOpacityAlpha(double opacity) {

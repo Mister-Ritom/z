@@ -11,8 +11,8 @@ import 'package:z/providers/stories_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/utils/constants.dart';
 import 'package:z/utils/helpers.dart';
-import 'package:z/widgets/app_image.dart';
-import 'package:z/widgets/video_player_widget.dart';
+import 'package:z/widgets/common/app_image.dart';
+import 'package:z/widgets/media/video_player_widget.dart';
 import '../../models/story_model.dart';
 import '../../providers/profile_provider.dart';
 

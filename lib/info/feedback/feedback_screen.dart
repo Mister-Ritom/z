@@ -1,6 +1,5 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
+import 'package:z/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -63,12 +62,23 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         const SnackBar(content: Text('Thanks for your feedback!')),
       );
       _controller.clear();
-    } catch (e) {
+      AppLogger.info(
+        'FeedbackScreen',
+        'Feedback submitted successfully',
+        data: {'userId': user.uid},
+      );
+    } catch (e, st) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      log("Error", error: e);
+      AppLogger.error(
+        'FeedbackScreen',
+        'Error submitting feedback',
+        error: e,
+        stackTrace: st,
+        data: {'userId': user.uid},
+      );
     } finally {
       if (mounted) {
         setState(() => _loading = false);

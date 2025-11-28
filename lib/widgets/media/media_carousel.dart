@@ -2,9 +2,9 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:z/utils/helpers.dart';
-import 'package:z/widgets/app_image.dart';
-import 'package:z/widgets/photo_view_screen.dart';
-import 'package:z/widgets/video_player_widget.dart';
+import 'package:z/widgets/common/app_image.dart';
+import 'package:z/widgets/media/photo_view_screen.dart';
+import 'package:z/widgets/media/video_player_widget.dart';
 
 class MediaCarousel extends StatefulWidget {
   final List<String> mediaUrls;

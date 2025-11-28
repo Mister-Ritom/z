@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:z/firebase_options.dart';
@@ -9,7 +10,8 @@ import 'package:z/providers/fcm_provider.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/services/ad_manager.dart';
 import 'package:z/services/firebase_analytics_service.dart';
-import 'package:z/widgets/sharing_listener.dart';
+import 'package:z/utils/logger.dart';
+import 'package:z/widgets/sharing/sharing_listener.dart';
 import 'utils/router.dart';
 
 void main() async {
@@ -51,6 +53,7 @@ class MyApp extends ConsumerStatefulWidget {
 
 class _MyAppState extends ConsumerState<MyApp> {
   String? _previousUserId;
+  ProviderSubscription<AsyncValue<User?>>? _authSubscription;
 
   @override
   void initState() {
@@ -60,10 +63,41 @@ class _MyAppState extends ConsumerState<MyApp> {
       try {
         final fcmService = ref.read(fcmServiceProvider);
         await fcmService.initialize();
-      } catch (e) {
-        // Handle error silently
+      } catch (e, st) {
+        // Log error but don't crash the app
+        AppLogger.error(
+          'MyApp',
+          'Error initializing FCM service in initState',
+          error: e,
+          stackTrace: st,
+        );
       }
     });
+
+    _authSubscription = ref.listenManual<AsyncValue<User?>>(
+      currentUserProvider,
+      (previous, next) {
+        next.whenData((user) async {
+          final fcmService = ref.read(fcmServiceProvider);
+          if (user != null) {
+            await fcmService.getTokenAndSave(user.uid);
+            await FirebaseAnalyticsService.setUserId(user.uid);
+            _previousUserId = user.uid;
+          } else if (_previousUserId != null) {
+            await fcmService.deleteToken(_previousUserId!);
+            await FirebaseAnalyticsService.setUserId(null);
+            _previousUserId = null;
+          }
+        });
+      },
+      fireImmediately: true,
+    );
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.close();
+    super.dispose();
   }
 
   @override
@@ -71,26 +105,6 @@ class _MyAppState extends ConsumerState<MyApp> {
     final themeNotifier = ref.watch(settingsProvider.notifier);
     final theme = ref.watch(settingsProvider).theme;
     final router = ref.watch(routerProvider);
-
-    // Handle FCM token when auth state changes
-    ref.listen(currentUserProvider, (previous, next) {
-      next.whenData((user) async {
-        final fcmService = ref.read(fcmServiceProvider);
-        if (user != null) {
-          // User logged in, save FCM token
-          await fcmService.getTokenAndSave(user.uid);
-          // Set user ID for analytics
-          await FirebaseAnalyticsService.setUserId(user.uid);
-          _previousUserId = user.uid;
-        } else if (_previousUserId != null) {
-          // User logged out, delete FCM token
-          await fcmService.deleteToken(_previousUserId!);
-          // Clear user ID from analytics
-          await FirebaseAnalyticsService.setUserId(null);
-          _previousUserId = null;
-        }
-      });
-    });
 
     return SharingListener(
       child: MaterialApp.router(

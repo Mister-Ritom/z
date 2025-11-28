@@ -1,6 +1,5 @@
-import 'dart:developer';
-
 import 'package:flutter/gestures.dart';
+import 'package:z/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -69,11 +68,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       // Track successful signup
       await FirebaseAnalyticsService.logSignUp(signUpMethod: 'email');
 
+      AppLogger.info('SignUpScreen', 'Email sign up successful');
       if (mounted) {
         context.pushReplacement('/');
       }
     } catch (e, stackTrace) {
-      log("Email sign in failed", error: e);
+      AppLogger.error('SignUpScreen', 'Email sign up failed', error: e, stackTrace: stackTrace);
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,
@@ -105,11 +105,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         await FirebaseAnalyticsService.logSignUp(signUpMethod: 'google');
       }
 
+      AppLogger.info('SignUpScreen', 'Google sign up successful');
       if (mounted) {
         context.go('/');
       }
     } catch (e, stackTrace) {
-      log("Google sign in failed", error: e);
+      AppLogger.error('SignUpScreen', 'Google sign up failed', error: e, stackTrace: stackTrace);
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,

@@ -1,21 +1,19 @@
 import 'dart:async';
-import 'dart:developer';
-import 'dart:ui';
+import 'package:z/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:timeago/timeago.dart' as timeago;
 import 'package:z/models/ad_model.dart';
 import 'package:z/models/story_model.dart';
-import 'package:z/models/user_model.dart';
 import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/profile_provider.dart';
-import 'package:z/screens/main_navigation.dart';
+import 'package:z/providers/auth_provider.dart';
 import 'package:z/services/ad_manager.dart';
-import 'package:z/utils/helpers.dart';
-import 'package:z/widgets/ad_widgets.dart';
-import 'package:z/widgets/app_image.dart';
-import 'package:z/widgets/profile_picture.dart';
-import 'package:z/widgets/video_player_widget.dart';
+import 'package:z/widgets/ads/ad_widgets.dart';
+import 'package:z/screens/stories/widgets/story_blur_container.dart';
+import 'package:z/screens/stories/widgets/story_caption.dart';
+import 'package:z/screens/stories/widgets/story_media.dart';
+import 'package:z/screens/stories/widgets/story_progress_bars.dart';
+import 'package:z/screens/stories/widgets/story_user_info.dart';
 
 class StoryItemScreen extends ConsumerStatefulWidget {
   final Map<String, List<dynamic>> groupedStories;
@@ -76,9 +74,25 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
   }
 
   void _markStoryViewed() {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) {
+      AppLogger.warn(
+        'StoryItemScreen',
+        'Cannot mark story viewed: user not authenticated',
+      );
+      return;
+    }
     final analyticsService = ref.read(storyAnalyticsProvider);
-    analyticsService.viewStory(currentUserId, currentStory.id).catchError((e) {
-      log('Error marking story viewed: $e');
+    analyticsService.viewStory(currentUser.uid, currentStory.id).catchError((
+      e,
+      st,
+    ) {
+      AppLogger.error(
+        'StoryItemScreen',
+        'Error marking story viewed',
+        error: e,
+        stackTrace: st,
+      );
     });
   }
 
@@ -97,7 +111,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
 
   void _nextStory() {
     _timer?.cancel();
-    
+
     // Check if we should show an ad
     if (_adManager.shouldShowStoryAd()) {
       _showStoryAd(() {
@@ -106,7 +120,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
       });
       return;
     }
-    
+
     _continueToNextStory();
   }
 
@@ -122,7 +136,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
 
   void _previousStory() {
     _timer?.cancel();
-    
+
     // Check if we should show an ad
     if (_adManager.shouldShowStoryAd()) {
       _showStoryAd(() {
@@ -131,7 +145,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
       });
       return;
     }
-    
+
     _continueToPreviousStory();
   }
 
@@ -146,32 +160,34 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
 
   void _showStoryAd(VoidCallback onDismissed) {
     final adType = _adManager.getRandomAdType();
-    
+
     if (adType == AdType.interstitial || adType == AdType.video) {
       // Show full-screen ad
       showDialog(
         context: context,
         barrierDismissible: false,
         barrierColor: Colors.black,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.zero,
-          child: adType == AdType.video
-              ? VideoAdWidget(
-                  showSkipButton: true,
-                  skipDelay: const Duration(seconds: 5),
-                  onAdDismissed: () {
-                    Navigator.pop(context);
-                    onDismissed();
-                  },
-                )
-              : InterstitialAdWidget(
-                  onAdDismissed: () {
-                    Navigator.pop(context);
-                    onDismissed();
-                  },
-                ),
-        ),
+        builder:
+            (context) => Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.zero,
+              child:
+                  adType == AdType.video
+                      ? VideoAdWidget(
+                        showSkipButton: true,
+                        skipDelay: const Duration(seconds: 5),
+                        onAdDismissed: () {
+                          Navigator.pop(context);
+                          onDismissed();
+                        },
+                      )
+                      : InterstitialAdWidget(
+                        onAdDismissed: () {
+                          Navigator.pop(context);
+                          onDismissed();
+                        },
+                      ),
+            ),
       );
     } else {
       // Show native ad overlay
@@ -179,31 +195,28 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
         context: context,
         isDismissible: true,
         backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        builder:
+            (context) => Container(
+              height: MediaQuery.of(context).size.height * 0.6,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              Expanded(
-                child: NativeAdWidget(
-                  showSkipButton: true,
-                ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Expanded(child: NativeAdWidget(showSkipButton: true)),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
       ).then((_) => onDismissed());
     }
   }
@@ -241,32 +254,6 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
     super.dispose();
   }
 
-  Widget _buildProgressBars() {
-    return Row(
-      children:
-          currentUserStories.map((story) {
-            final storyIndex = currentUserStories.indexOf(story);
-            final value =
-                storyIndex < currentStoryIndex
-                    ? 1.0
-                    : storyIndex == currentStoryIndex
-                    ? progress
-                    : 0.0;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2.5),
-                child: LinearProgressIndicator(
-                  value: value.clamp(0.0, 1.0),
-                  backgroundColor: Colors.white24,
-                  color: Colors.white,
-                  minHeight: 2,
-                ),
-              ),
-            );
-          }).toList(),
-    );
-  }
-
   void _animateBackTo(double target, {int ms = 200}) {
     try {
       _animController.stop();
@@ -277,7 +264,12 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
       _animController.reset();
       _animController.forward();
     } catch (e, st) {
-      log('Error animating drag: $e\n$st');
+      AppLogger.error(
+        'StoryItemScreen',
+        'Error animating drag',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -293,7 +285,12 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
             try {
               Navigator.pop(context);
             } catch (e, st) {
-              log('Error popping after dismiss: $e\n$st');
+              AppLogger.error(
+                'StoryItemScreen',
+                'Error popping after dismiss',
+                error: e,
+                stackTrace: st,
+              );
             }
           }
         });
@@ -306,7 +303,12 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
             try {
               Navigator.pop(context);
             } catch (e, st) {
-              log('Error popping after dismiss: $e\n$st');
+              AppLogger.error(
+                'StoryItemScreen',
+                'Error popping after dismiss',
+                error: e,
+                stackTrace: st,
+              );
             }
           }
         });
@@ -315,7 +317,12 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
         setState(() => _pause = false);
       }
     } catch (e, st) {
-      log('Error during drag end: $e\n$st');
+      AppLogger.error(
+        'StoryItemScreen',
+        'Error during drag end',
+        error: e,
+        stackTrace: st,
+      );
       _animateBackTo(0.0, ms: 200);
       setState(() => _pause = false);
     }
@@ -381,7 +388,12 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
             _dragOffsetY += details.delta.dy;
             setState(() {});
           } catch (e, st) {
-            log('Error during drag update: $e\n$st');
+            AppLogger.error(
+              'StoryItemScreen',
+              'Error during drag update',
+              error: e,
+              stackTrace: st,
+            );
           }
         },
         onVerticalDragEnd: _handleDragEnd,
@@ -398,7 +410,12 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
           },
           child: Stack(
             children: [
-              Center(child: _buildStoryMedia(currentStory)),
+              Center(
+                child: StoryMedia(
+                  story: currentStory,
+                  isPlaying: !_pause && !_isDragging,
+                ),
+              ),
               Positioned(
                 top: 40,
                 left: 10,
@@ -406,59 +423,80 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildProgressBars(),
+                    StoryProgressBars(
+                      stories: currentUserStories,
+                      currentIndex: currentStoryIndex,
+                      progress: progress,
+                    ),
                     const SizedBox(height: 10),
                     userAsync.when(
-                      data: (user) => _buildUserInfo(user),
+                      data:
+                          (user) =>
+                              user == null
+                                  ? const SizedBox.shrink()
+                                  : StoryUserInfo(
+                                    user: user,
+                                    story: currentStory,
+                                    onBack: () => Navigator.pop(context),
+                                    backgroundBuilder:
+                                        (child) =>
+                                            StoryBlurContainer(child: child),
+                                  ),
                       loading: () => const CircularProgressIndicator(),
                       error: (e, st) {
-                        log('Error loading user data: $e');
+                        AppLogger.error(
+                          'StoryItemScreen',
+                          'Error loading user data',
+                          error: e,
+                          stackTrace: st,
+                        );
                         return const SizedBox();
                       },
                     ),
                   ],
                 ),
               ),
-              if (currentStory.caption.isNotEmpty)
-                Positioned(
-                  bottom: 80,
-                  left: 10,
-                  right: 10,
-                  child: _buildBackgroundBlur(
-                    Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Text(
-                        currentStory.caption,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                      ),
-                    ),
-                  ),
+              Positioned(
+                bottom: 80,
+                left: 10,
+                right: 10,
+                child: StoryCaption(
+                  caption: currentStory.caption,
+                  backgroundBuilder:
+                      (child) => StoryBlurContainer(child: child),
                 ),
+              ),
               Positioned(
                 bottom: 80,
                 right: 10,
-                child: StreamBuilder<bool>(
-                  stream: analyticsService.isStoryLikedStream(
-                    currentUserId,
-                    currentStory.id,
-                  ),
-                  initialData: false,
-                  builder: (context, snapshot) {
-                    final isLiked = snapshot.data ?? false;
-                    return IconButton(
-                      onPressed: () {
-                        analyticsService.toggleLikeStory(
-                          currentUserId,
-                          currentStory.id,
+                child: Builder(
+                  builder: (context) {
+                    final currentUser =
+                        ref.read(currentUserProvider).valueOrNull;
+                    if (currentUser == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return StreamBuilder<bool>(
+                      stream: analyticsService.isStoryLikedStream(
+                        currentUser.uid,
+                        currentStory.id,
+                      ),
+                      initialData: false,
+                      builder: (context, snapshot) {
+                        final isLiked = snapshot.data ?? false;
+                        return IconButton(
+                          onPressed: () {
+                            analyticsService.toggleLikeStory(
+                              currentUser.uid,
+                              currentStory.id,
+                            );
+                          },
+                          icon: Icon(
+                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            color: isLiked ? Colors.red : Colors.white,
+                          ),
                         );
                       },
-                      icon: Icon(
-                        isLiked ? Icons.favorite : Icons.favorite_border,
-                        color: isLiked ? Colors.red : Colors.white,
-                      ),
                     );
                   },
                 ),
@@ -466,73 +504,6 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStoryMedia(StoryModel story) {
-    try {
-      if (Helpers.isVideoPath(story.mediaUrl)) {
-        return VideoPlayerWidget(
-          url: story.mediaUrl,
-          isFile: false,
-          disableFullscreen: true,
-          isPlaying: !_pause && !_isDragging,
-        );
-      } else {
-        return AppImage.network(story.mediaUrl, fit: BoxFit.cover);
-      }
-    } catch (e, st) {
-      log('Error loading story media: $e\n$st');
-      return const Center(child: Icon(Icons.error, color: Colors.white));
-    }
-  }
-
-  Widget _buildBackgroundBlur(Widget child) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          color: Colors.black.withOpacityAlpha(0.3),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserInfo(UserModel? user) {
-    if (user == null) return const SizedBox.shrink();
-    return _buildBackgroundBlur(
-      Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-          ),
-          ProfilePicture(pfp: user.profilePictureUrl, name: user.displayName),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user.displayName,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(color: Colors.white),
-              ),
-              Text(
-                timeago.format(currentStory.createdAt),
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

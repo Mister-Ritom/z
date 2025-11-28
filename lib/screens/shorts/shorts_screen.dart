@@ -5,8 +5,8 @@ import 'package:video_player/video_player.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/services/ad_manager.dart';
-import 'package:z/widgets/ad_widgets.dart';
-import 'package:z/widgets/short_video_widget.dart';
+import 'package:z/widgets/ads/ad_widgets.dart';
+import 'package:z/widgets/media/short_video/short_video_widget.dart';
 
 class ShortsScreen extends ConsumerStatefulWidget {
   final bool isActive; // parent tells if this page is active
@@ -70,30 +70,31 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
 
   void _showShortsAd() {
     if (!mounted || _showingAd) return;
-    
+
     setState(() {
       _showingAd = true;
     });
-    
+
     // Show ad as overlay
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.zero,
-        child: VideoAdWidget(
-          showSkipButton: true,
-          skipDelay: const Duration(seconds: 5),
-          onAdDismissed: () {
-            Navigator.of(context).pop();
-            setState(() {
-              _showingAd = false;
-            });
-          },
-        ),
-      ),
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.zero,
+            child: VideoAdWidget(
+              showSkipButton: true,
+              skipDelay: const Duration(seconds: 5),
+              onAdDismissed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  _showingAd = false;
+                });
+              },
+            ),
+          ),
     );
   }
 
@@ -147,10 +148,10 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
                   _currentIndex = index;
                   _showingAd = false;
                 });
-                
+
                 // Check if we should show an ad after this video
-                if (_adManager.shouldShowShortsAd() && 
-                    index > 0 && 
+                if (_adManager.shouldShowShortsAd() &&
+                    index > 0 &&
                     index < zaps.length - 1 &&
                     !_showingAd) {
                   // Show ad on next swipe
@@ -174,13 +175,12 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
                     },
                   );
                 }
-                
+
                 final zap = zaps[index] as ZapModel;
                 return ShortVideoWidget(
                   zap: zap,
-                  shouldPlay: widget.isActive && 
-                             index == _currentIndex && 
-                             !_showingAd,
+                  shouldPlay:
+                      widget.isActive && index == _currentIndex && !_showingAd,
                   onControllerChange: (controller) {
                     setState(() {
                       _currentController = controller;

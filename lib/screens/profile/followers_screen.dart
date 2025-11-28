@@ -3,8 +3,8 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/profile_provider.dart';
-import '../../widgets/user_card.dart';
-import '../../widgets/loading_shimmer.dart';
+import 'package:z/widgets/common/user_card.dart';
+import 'package:z/widgets/common/loading_shimmer.dart';
 
 class FollowersScreen extends ConsumerWidget {
   final String userId;

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/sharing_provider.dart';
-import '../utils/router.dart';
+import 'package:z/providers/sharing_provider.dart';
+import 'package:z/utils/router.dart';
 
 class SharingListener extends ConsumerStatefulWidget {
   final Widget child;
@@ -27,8 +27,10 @@ class _SharingListenerState extends ConsumerState<SharingListener> {
   void _setupSharingListener() {
     final sharingService = ref.read(sharingServiceProvider);
     final router = ref.read(routerProvider);
-    
-    _sharingSubscription = sharingService.sharedMediaStream.listen((sharedFiles) {
+
+    _sharingSubscription = sharingService.sharedMediaStream.listen((
+      sharedFiles,
+    ) {
       if (sharedFiles.isNotEmpty && mounted) {
         router.go('/share', extra: sharedFiles);
       }
@@ -46,4 +48,3 @@ class _SharingListenerState extends ConsumerState<SharingListener> {
     return widget.child;
   }
 }
-

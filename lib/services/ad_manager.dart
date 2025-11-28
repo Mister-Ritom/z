@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:developer' as developer;
 import 'dart:math';
+import 'package:z/utils/logger.dart';
 import 'dart:io';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:z/models/ad_model.dart';
@@ -116,11 +116,11 @@ class AdManager {
       listener: NativeAdListener(
         onAdLoaded: (_) {
           if (!completer.isCompleted) completer.complete(ad);
-          developer.log("Ad  load");
+          AppLogger.info('AdManager', 'Native ad loaded successfully', data: {'adUnitId': adUnitId});
         },
         onAdFailedToLoad: (failedAd, error) {
           if (!completer.isCompleted) completer.complete(null);
-          developer.log("Ad failed to load", error: error);
+          AppLogger.error('AdManager', 'Native ad failed to load', error: error, data: {'adUnitId': adUnitId});
           failedAd.dispose();
         },
       ),
@@ -150,7 +150,7 @@ class AdManager {
         },
         onAdFailedToLoad: (error) {
           if (!completer.isCompleted) completer.complete(null);
-          developer.log("Ad failed to load", error: error);
+          AppLogger.error('AdManager', 'Video ad failed to load', error: error, data: {'adUnitId': adUnitId});
         },
       ),
     );
@@ -177,7 +177,7 @@ class AdManager {
         },
         onAdFailedToLoad: (error) {
           if (!completer.isCompleted) completer.complete(null);
-          developer.log("Ad failed to load", error: error);
+          AppLogger.error('AdManager', 'Video ad failed to load', error: error, data: {'adUnitId': adUnitId});
         },
       ),
     );

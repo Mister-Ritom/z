@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/providers/auth_provider.dart';
-import 'package:z/widgets/zap_card.dart';
+import 'package:z/widgets/zap/card/zap_card.dart';
 
 class BookmarksScreen extends ConsumerWidget {
   const BookmarksScreen({super.key});

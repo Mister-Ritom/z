@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:developer';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:z/utils/logger.dart';
 import '../services/zap_service.dart';
 import '../models/zap_model.dart';
 
@@ -162,7 +161,7 @@ final isBookmarkedProvider =
       try {
         return await zapService.isBookmarked(args.zapId, args.userId);
       } catch (e, st) {
-        log("Error checking bookmark", error: e, stackTrace: st);
+        AppLogger.error('ZapProvider', 'Error checking bookmark', error: e, stackTrace: st, data: {'zapId': args.zapId, 'userId': args.userId});
         return false;
       }
     });

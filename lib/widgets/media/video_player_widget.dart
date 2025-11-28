@@ -1,10 +1,10 @@
-import 'dart:developer';
 import 'dart:io';
+import 'package:z/utils/logger.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart';
-import 'package:z/widgets/video_cache_manager.dart';
+import 'package:z/widgets/media/video_cache_manager.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
   final bool isFile;
@@ -102,13 +102,18 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         await _controller!.play();
       }
       if (mounted) setState(() => _isInitialized = true);
-    } catch (e) {
-      log("Video init error: $e");
+    } catch (e, st) {
+      AppLogger.error(
+        'VideoPlayerWidget',
+        'Video initialization error',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
   Future<void> _togglePlayPause() async {
-    if (!_isInitialized) return;
+    if (!_isInitialized || _controller == null) return;
     _manualOverride = true;
     if (_controller!.value.isPlaying) {
       await _controller!.pause();
@@ -168,13 +173,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
               child: Center(child: VideoPlayer(_controller!)),
             );
     return GestureDetector(
-      onTap: _togglePlayPause,
+      onTap: widget.thumbnailOnly ? null : _togglePlayPause,
       onDoubleTap: widget.disableFullscreen ? null : _openFullScreen,
       child: Stack(
         alignment: Alignment.center,
         children: [
           videoWidget,
-          if (!_controller!.value.isPlaying)
+          if (!_controller!.value.isPlaying && !widget.thumbnailOnly)
             Container(
               color: Colors.black38,
               child: const Icon(

@@ -1,10 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import {
-  ZapCandidate,
-  UserProfile,
-  rankZaps,
-} from "./ranking";
+import { ZapCandidate, UserProfile, rankZaps } from "./ranking";
 
 const db = admin.firestore();
 
@@ -46,7 +42,10 @@ async function getUserTagPreferences(
     const data = analyticsDoc.data();
     return (data?.tagsLiked as Record<string, number>) || {};
   } catch (error) {
-    functions.logger.warn(`Error fetching tag preferences for ${userId}:`, error);
+    functions.logger.warn(
+      `Error fetching tag preferences for ${userId}:`,
+      error
+    );
     return {};
   }
 }
@@ -65,7 +64,10 @@ async function getFollowedUserIds(userId: string): Promise<string[]> {
 
     return followingSnapshot.docs.map((doc) => doc.id);
   } catch (error) {
-    functions.logger.warn(`Error fetching followed users for ${userId}:`, error);
+    functions.logger.warn(
+      `Error fetching followed users for ${userId}:`,
+      error
+    );
     return [];
   }
 }
@@ -127,7 +129,12 @@ async function getUserInteractionCount(userId: string): Promise<number> {
       .get();
 
     // Return approximate count (capped at 100 per type for performance)
-    return Math.min(likedSnapshot.size + repostedSnapshot.size + Math.min(viewedSnapshot.size, 50), 300);
+    return Math.min(
+      likedSnapshot.size +
+        repostedSnapshot.size +
+        Math.min(viewedSnapshot.size, 50),
+      300
+    );
   } catch (error) {
     functions.logger.warn(`Error counting interactions for ${userId}:`, error);
     return 0;
@@ -185,9 +192,9 @@ async function fetchTrendingZaps(
         userId: data.userId as string,
         hashtags: (data.hashtags as string[]) || [],
         createdAt: data.createdAt as admin.firestore.Timestamp,
-        likesCount: data.likesCount as number || 0,
-        rezapsCount: data.rezapsCount as number || 0,
-        views: analyticsData.views as number || 0,
+        likesCount: (data.likesCount as number) || 0,
+        rezapsCount: (data.rezapsCount as number) || 0,
+        views: (analyticsData.views as number) || 0,
         score: 0, // Will be calculated later
       });
     }
@@ -257,9 +264,9 @@ async function fetchNewPosts(
         userId: data.userId as string,
         hashtags: (data.hashtags as string[]) || [],
         createdAt: data.createdAt as admin.firestore.Timestamp,
-        likesCount: data.likesCount as number || 0,
-        rezapsCount: data.rezapsCount as number || 0,
-        views: analyticsData.views as number || 0,
+        likesCount: (data.likesCount as number) || 0,
+        rezapsCount: (data.rezapsCount as number) || 0,
+        views: (analyticsData.views as number) || 0,
         score: 0,
       });
     }
@@ -287,7 +294,7 @@ async function fetchOlderPosts(
     // Fetch older posts, but with pagination to get variety
     // Use a random offset to avoid always getting the same old posts
     const randomOffset = Math.floor(Math.random() * 50);
-    
+
     const olderSnapshot = await db
       .collection(ZAPS_COLLECTION)
       .where("isDeleted", "==", false)
@@ -341,9 +348,9 @@ async function fetchOlderPosts(
         userId: data.userId as string,
         hashtags: (data.hashtags as string[]) || [],
         createdAt: data.createdAt as admin.firestore.Timestamp,
-        likesCount: data.likesCount as number || 0,
-        rezapsCount: data.rezapsCount as number || 0,
-        views: analyticsData.views as number || 0,
+        likesCount: (data.likesCount as number) || 0,
+        rezapsCount: (data.rezapsCount as number) || 0,
+        views: (analyticsData.views as number) || 0,
         score: 0,
       });
     }
@@ -372,7 +379,7 @@ async function fetchFollowedUserZaps(
 
     for (let i = 0; i < followedUserIds.length; i += batchSize) {
       const batch = followedUserIds.slice(i, i + batchSize);
-      
+
       // Use whereIn to fetch multiple users at once (matches existing index pattern)
       // Pattern: isDeleted + userId (whereIn) + createdAt
       const userZapsSnapshot = await db
@@ -403,7 +410,11 @@ async function fetchFollowedUserZaps(
 
       const userAnalyticsDocs = await Promise.all(userAnalyticsPromises);
 
-      for (let j = 0; j < validUserDocs.length && candidates.length < limit; j++) {
+      for (
+        let j = 0;
+        j < validUserDocs.length && candidates.length < limit;
+        j++
+      ) {
         const doc = validUserDocs[j];
         const analyticsDoc = userAnalyticsDocs[j];
         const data = doc.data();
@@ -414,9 +425,9 @@ async function fetchFollowedUserZaps(
           userId: data.userId as string,
           hashtags: (data.hashtags as string[]) || [],
           createdAt: data.createdAt as admin.firestore.Timestamp,
-          likesCount: data.likesCount as number || 0,
-          rezapsCount: data.rezapsCount as number || 0,
-          views: analyticsData.views as number || 0,
+          likesCount: (data.likesCount as number) || 0,
+          rezapsCount: (data.rezapsCount as number) || 0,
+          views: (analyticsData.views as number) || 0,
           score: 0,
         });
       }
@@ -498,7 +509,12 @@ function getPaginatedSlice(
   allZapIds: string[],
   lastZap: string | undefined,
   perPage: number
-): { zapIds: string[]; hasMore: boolean; nextLastZap: string | null; position: number } {
+): {
+  zapIds: string[];
+  hasMore: boolean;
+  nextLastZap: string | null;
+  position: number;
+} {
   let startIndex = 0;
 
   // Find starting position based on lastZap
@@ -513,7 +529,8 @@ function getPaginatedSlice(
   const endIndex = Math.min(startIndex + perPage, allZapIds.length);
   const zapIds = allZapIds.slice(startIndex, endIndex);
   const hasMore = endIndex < allZapIds.length;
-  const nextLastZap = hasMore && zapIds.length > 0 ? zapIds[zapIds.length - 1] : null;
+  const nextLastZap =
+    hasMore && zapIds.length > 0 ? zapIds[zapIds.length - 1] : null;
   const position = endIndex;
 
   return { zapIds, hasMore, nextLastZap, position };
@@ -521,16 +538,45 @@ function getPaginatedSlice(
 
 /**
  * Get daily curated zaps (fallback content)
+ * Uses today's date in YYYY-MM-DD format (UTC)
  */
 async function getDailyCuratedZaps(): Promise<string[]> {
   try {
+    // Get today's date in YYYY-MM-DD format (UTC)
+    const today = new Date();
+    const year = today.getUTCFullYear();
+    const month = String(today.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(today.getUTCDate()).padStart(2, "0");
+    const dateString = `${year}-${month}-${day}`;
+
     const curatedDoc = await db
       .collection(DAILY_CURATED_ZAPS_COLLECTION)
-      .doc("today")
+      .doc(dateString)
       .get();
 
     if (curatedDoc.exists) {
       const data = curatedDoc.data();
+      return (data?.zapIds as string[]) || [];
+    }
+
+    // Fallback: try previous day's curated zaps if today's doesn't exist yet
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterdayYear = yesterday.getUTCFullYear();
+    const yesterdayMonth = String(yesterday.getUTCMonth() + 1).padStart(2, "0");
+    const yesterdayDay = String(yesterday.getUTCDate()).padStart(2, "0");
+    const yesterdayString = `${yesterdayYear}-${yesterdayMonth}-${yesterdayDay}`;
+
+    const yesterdayDoc = await db
+      .collection(DAILY_CURATED_ZAPS_COLLECTION)
+      .doc(yesterdayString)
+      .get();
+
+    if (yesterdayDoc.exists) {
+      const data = yesterdayDoc.data();
+      functions.logger.info(
+        `Using yesterday's curated zaps (${yesterdayString}) as fallback`
+      );
       return (data?.zapIds as string[]) || [];
     }
 
@@ -570,7 +616,7 @@ async function generatePersonalizedRecommendations(
     functions.logger.info(
       `New user ${userId} detected, using curated + trending mix`
     );
-    
+
     const curatedZapIds = await getDailyCuratedZaps();
     const trendingCandidates = await fetchTrendingZaps(
       viewedZapIds,
@@ -598,11 +644,18 @@ async function generatePersonalizedRecommendations(
     );
 
     const curatedZapIds = await getDailyCuratedZaps();
-    
+
     // Light personalization: just trending + followed
     const [trendingCandidates, followedCandidates] = await Promise.all([
-      fetchTrendingZaps(viewedZapIds, Math.floor(MAX_TRENDING_CANDIDATES * 0.5)),
-      fetchFollowedUserZaps(followedUserIds, viewedZapIds, Math.floor(MAX_FOLLOWED_CANDIDATES * 0.5)),
+      fetchTrendingZaps(
+        viewedZapIds,
+        Math.floor(MAX_TRENDING_CANDIDATES * 0.5)
+      ),
+      fetchFollowedUserZaps(
+        followedUserIds,
+        viewedZapIds,
+        Math.floor(MAX_FOLLOWED_CANDIDATES * 0.5)
+      ),
     ]);
 
     const candidateMap = new Map<string, ZapCandidate>();
@@ -636,7 +689,11 @@ async function generatePersonalizedRecommendations(
   const [trendingCandidates, followedCandidates, newPosts, olderPosts] =
     await Promise.all([
       fetchTrendingZaps(viewedZapIds, MAX_TRENDING_CANDIDATES),
-      fetchFollowedUserZaps(followedUserIds, viewedZapIds, MAX_FOLLOWED_CANDIDATES),
+      fetchFollowedUserZaps(
+        followedUserIds,
+        viewedZapIds,
+        MAX_FOLLOWED_CANDIDATES
+      ),
       fetchNewPosts(viewedZapIds, MAX_NEW_POSTS), // New posts for exploration
       fetchOlderPosts(viewedZapIds, MAX_OLDER_POSTS), // Older posts with lower probability
     ]);
@@ -669,11 +726,11 @@ async function generatePersonalizedRecommendations(
 
 /**
  * Main callable function: generateZapRecommendations
- * 
+ *
  * Supports pagination with perPage and lastZap parameters
  * Always generates 100 recommendations and caches them
  * Returns paginated slice based on lastZap position
- * 
+ *
  * Phase A: Returns cached recommendations or daily curated zaps immediately
  * Phase B: Updates cache in background when near end of recommendations
  */
@@ -715,7 +772,7 @@ export const generateZapRecommendations = functions
     if (cached && cached.zapIds.length > 0) {
       // Get paginated slice
       const paginated = getPaginatedSlice(cached.zapIds, lastZap, perPage);
-      
+
       functions.logger.info(
         `Returning cached recommendations for ${userId} (${paginated.zapIds.length} zaps, position: ${paginated.position}/${cached.zapIds.length}, fallback: ${cached.isFallback})`
       );
@@ -725,7 +782,7 @@ export const generateZapRecommendations = functions
         functions.logger.info(
           `User ${userId} near end of recommendations (${paginated.position}), refreshing in background`
         );
-        
+
         generatePersonalizedRecommendations(userId, isNewUser, interactionCount)
           .then((result) => {
             if (result.zapIds.length > 0) {
@@ -781,7 +838,7 @@ export const generateZapRecommendations = functions
     if (curatedZapIds && curatedZapIds.length > 0) {
       // Get paginated slice from curated zaps
       const paginated = getPaginatedSlice(curatedZapIds, lastZap, perPage);
-      
+
       functions.logger.info(
         `Returning daily curated zaps for ${userId} (${paginated.zapIds.length} zaps, position: ${paginated.position}/${curatedZapIds.length})`
       );
@@ -856,4 +913,3 @@ export const generateZapRecommendations = functions
       generatedAt: new Date().toISOString(),
     };
   });
-
