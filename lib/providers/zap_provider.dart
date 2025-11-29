@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/utils/logger.dart';
 import '../models/zap_model.dart';
-import '../services/recommendation_service.dart';
-import '../services/recommendation_cache_service.dart';
-import '../services/zap_service.dart';
+import '../services/content/recommendations/recommendation_service.dart';
+import '../services/content/recommendations/recommendation_cache_service.dart';
+import '../services/content/zaps/zap_service.dart';
 import '../utils/constants.dart';
 import 'recommendation_provider.dart';
 

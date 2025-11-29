@@ -10,7 +10,7 @@ import 'package:z/widgets/media/camera_view.dart';
 import 'package:z/widgets/media/video_player_widget.dart';
 import '../../models/story_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/firebase_analytics_service.dart';
+import '../../services/analytics/firebase_analytics_service.dart';
 
 class StoryCreationScreen extends ConsumerStatefulWidget {
   const StoryCreationScreen({super.key});

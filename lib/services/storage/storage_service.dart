@@ -5,8 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/utils/helpers.dart';
-import '../utils/constants.dart';
-import 'firebase_analytics_service.dart';
+import 'package:z/utils/constants.dart';
+import '../analytics/firebase_analytics_service.dart';
 
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;

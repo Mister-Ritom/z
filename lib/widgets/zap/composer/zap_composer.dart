@@ -9,7 +9,7 @@ import 'package:z/widgets/media/video_player_widget.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/storage_provider.dart';
-import 'package:z/services/firebase_analytics_service.dart';
+import 'package:z/services/analytics/firebase_analytics_service.dart';
 import 'package:z/utils/constants.dart';
 
 import 'media_preview.dart';

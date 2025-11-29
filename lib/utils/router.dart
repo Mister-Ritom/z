@@ -20,7 +20,7 @@ import 'package:listen_sharing_intent/listen_sharing_intent.dart';
 import '../screens/sharing/sharing_selection_screen.dart';
 import '../screens/messages/chat_screen.dart';
 import '../providers/profile_provider.dart';
-import '../services/fcm_service.dart';
+import '../services/notifications/fcm_service.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(currentUserProvider);

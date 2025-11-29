@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/info/zap/zap_detail_screen.dart';
 import 'package:z/providers/zap_provider.dart';
-import 'package:z/services/ad_manager.dart';
-import 'package:z/services/recommendation_cache_service.dart';
+import 'package:z/services/ads/ad_manager.dart';
+import 'package:z/services/content/recommendations/recommendation_cache_service.dart';
 import 'package:z/widgets/ads/feed_with_ads.dart';
 
 class ForYouTab extends ConsumerStatefulWidget {

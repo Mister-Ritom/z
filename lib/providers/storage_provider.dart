@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/storage_service.dart';
+import '../services/storage/storage_service.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();

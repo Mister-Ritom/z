@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/utils/constants.dart';
-import '../services/message_service.dart';
+import '../services/social/message_service.dart';
 import '../models/message_model.dart';
 import 'auth_provider.dart';
 

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/utils/constants.dart';
-import '../services/firebase_analytics_service.dart';
+import '../services/analytics/firebase_analytics_service.dart';
 
 class PostAnalyticsService {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;

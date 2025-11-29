@@ -7,7 +7,7 @@ import 'package:z/models/story_model.dart';
 import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/auth_provider.dart';
-import 'package:z/services/ad_manager.dart';
+import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/widgets/ads/ad_widgets.dart';
 import 'package:z/screens/stories/widgets/story_blur_container.dart';
 import 'package:z/screens/stories/widgets/story_caption.dart';

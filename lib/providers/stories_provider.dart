@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/story_model.dart';
-import '../services/story_service.dart';
+import '../services/content/stories/story_service.dart';
 import 'recommendation_provider.dart';
 
 final storyServiceProvider = Provider((ref) => StoryService());

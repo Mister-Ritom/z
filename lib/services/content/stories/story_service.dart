@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/utils/constants.dart';
-import '../models/story_model.dart';
-import 'shared/firestore_utils.dart';
+import 'package:z/models/story_model.dart';
+import '../../shared/firestore_utils.dart';
 
 class StoryService {
   final _firestore = FirebaseFirestore.instance;

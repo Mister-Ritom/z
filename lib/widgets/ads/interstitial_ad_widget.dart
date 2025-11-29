@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:z/services/ad_manager.dart';
+import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/utils/constants.dart';
 
 class InterstitialAdWidget extends StatefulWidget {

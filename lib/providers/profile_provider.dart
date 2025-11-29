@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/profile_service.dart';
+import '../services/social/profile_service.dart';
 import '../models/user_model.dart';
 import 'auth_provider.dart';
 

@@ -4,8 +4,8 @@ import 'package:z/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
-import '../utils/constants.dart';
-import '../firebase_options.dart';
+import 'package:z/utils/constants.dart';
+import 'package:z/firebase_options.dart';
 
 /// Top-level function for handling background messages
 /// Must be a top-level function, not a class method

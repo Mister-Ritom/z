@@ -7,7 +7,7 @@ import 'package:z/info/privacy/privacy_screen.dart';
 import 'package:z/info/terms/terms_screen.dart';
 import 'package:z/utils/helpers.dart';
 import '../providers/auth_provider.dart';
-import '../services/firebase_analytics_service.dart';
+import '../services/analytics/firebase_analytics_service.dart';
 import 'dart:async';
 
 class SignUpScreen extends ConsumerStatefulWidget {

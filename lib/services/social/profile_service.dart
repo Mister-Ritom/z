@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/models/notification_model.dart';
 import 'package:z/utils/helpers.dart';
-import '../models/user_model.dart';
-import '../utils/constants.dart';
+import 'package:z/models/user_model.dart';
+import 'package:z/utils/constants.dart';
 
 class ProfileService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

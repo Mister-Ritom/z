@@ -1,7 +1,5 @@
 part of 'zap_service.dart';
 
-import 'shared/firestore_utils.dart';
-
 mixin _ZapServiceStreams on _ZapServiceBase {
   Stream<List<ZapModel>> getForYouFeed({DocumentSnapshot? lastDoc}) {
     try {
@@ -22,19 +20,13 @@ mixin _ZapServiceStreams on _ZapServiceBase {
         ),
       );
     } catch (e, st) {
-      AppLogger.error(
-        'ZapService',
-        'Error getting for-you feed',
-        error: e,
-        stackTrace: st,
-        data: {'isShort': isShort},
-      );
       unawaited(
-        FirebaseAnalyticsService.recordError(
-          e,
-          st,
-          reason: 'Failed to get for-you feed',
-          fatal: false,
+        FirestoreUtils.handleError(
+          serviceName: 'ZapService',
+          operation: 'Error getting for-you feed',
+          error: e,
+          stackTrace: st,
+          data: {'isShort': isShort},
         ),
       );
       rethrow;

@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/zap_provider.dart';
-import 'package:z/services/ad_manager.dart';
-import 'package:z/services/recommendation_cache_service.dart';
+import 'package:z/services/ads/ad_manager.dart';
+import 'package:z/services/content/recommendations/recommendation_cache_service.dart';
 import 'package:z/widgets/ads/ad_widgets.dart';
 import 'package:z/widgets/media/short_video/short_video_widget.dart';
 

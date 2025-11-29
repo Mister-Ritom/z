@@ -2,11 +2,12 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/models/comment_model.dart';
-import '../models/zap_model.dart';
-import '../models/notification_model.dart';
-import '../utils/constants.dart';
-import '../utils/helpers.dart';
-import 'firebase_analytics_service.dart';
+import 'package:z/models/zap_model.dart';
+import 'package:z/models/notification_model.dart';
+import 'package:z/utils/constants.dart';
+import 'package:z/utils/helpers.dart';
+import '../../analytics/firebase_analytics_service.dart';
+import '../../shared/firestore_utils.dart';
 
 part 'zap_service_crud.dart';
 part 'zap_service_streams.dart';

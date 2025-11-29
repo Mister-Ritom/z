@@ -2,10 +2,9 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:z/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/zap_model.dart';
-import '../utils/constants.dart';
-import 'analytics/firebase_analytics_service.dart';
-import 'shared/firestore_utils.dart';
+import 'package:z/models/zap_model.dart';
+import 'package:z/utils/constants.dart';
+import '../../shared/firestore_utils.dart';
 
 /// Service to interact with the recommendation cloud function
 class RecommendationService {
@@ -139,7 +138,10 @@ class RecommendationService {
         ids: zapIds,
         parser: (doc) {
           final data = doc.data() as Map<String, dynamic>;
-          return ZapModel.fromMap({'id': doc.id, ...data}, snapshot: doc);
+          return ZapModel.fromMap({
+            'id': doc.id,
+            ...data,
+          }, snapshot: doc);
         },
         filter: (data) => data['isDeleted'] != true,
       );

@@ -11,7 +11,7 @@ import 'package:z/screens/main_navigation.dart';
 import 'package:z/utils/helpers.dart';
 import '../../models/user_model.dart';
 import '../../providers/message_provider.dart';
-import '../../services/firebase_analytics_service.dart';
+import '../../services/analytics/firebase_analytics_service.dart';
 import 'package:z/widgets/messages/message_bubble.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
