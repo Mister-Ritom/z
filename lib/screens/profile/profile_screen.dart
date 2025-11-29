@@ -147,12 +147,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => ChatScreen(
-              currentUserId: currentUserId,
-              otherUserId: user.id,
-              otherUser: user,
-            ),
+        builder: (_) => ChatScreen(
+          otherUserId: user.id,
+        ),
       ),
     );
   }

@@ -19,6 +19,7 @@ export interface ZapCandidate {
  */
 export interface UserProfile {
   tagsLiked: Record<string, number>;
+  usersLiked: Record<string, number>; // Weights for creators user has liked posts from
   followedUserIds: string[];
   viewedZapIds: Set<string>;
   interactionCount: number; // Total meaningful interactions (likes, views, reposts)
@@ -116,6 +117,29 @@ export function calculateCreatorAffinity(
 }
 
 /**
+ * Calculate user liking score based on how often user has liked posts from this creator
+ * Similar to tag relevance, but for creators
+ */
+export function calculateUserLikingScore(
+  zapUserId: string,
+  usersLiked: Record<string, number>
+): number {
+  if (Object.keys(usersLiked).length === 0) {
+    return 0;
+  }
+
+  const userWeight = usersLiked[zapUserId] || 0;
+  if (userWeight > 0) {
+    // Normalize weight (log scale to prevent dominance)
+    // Higher weight = more likes from this creator = higher score
+    // Use log scale similar to tag relevance
+    return Math.log1p(userWeight);
+  }
+
+  return 0;
+}
+
+/**
  * Generate random jitter to avoid static ordering
  * Returns a value between 0.9 and 1.1
  */
@@ -137,6 +161,12 @@ export function calculateZapScore(
     userProfile.tagsLiked
   );
 
+  // Component 1.5: User liking score (how often user has liked posts from this creator)
+  const userLikingScore = calculateUserLikingScore(
+    candidate.userId,
+    userProfile.usersLiked
+  );
+
   // Component 2: Creator affinity (2-3x boost for followed creators)
   const affinityMultiplier = calculateCreatorAffinity(
     candidate.userId,
@@ -156,9 +186,9 @@ export function calculateZapScore(
   // Component 5: Random jitter to avoid static ordering
   const randomJitter = calculateRandomJitter();
 
-  // Weighted combination
+  // Weighted combination (user liking score is part of relevance)
   const baseScore =
-    relevanceScore * SCORING_WEIGHTS.RELEVANCE +
+    (relevanceScore + userLikingScore) * SCORING_WEIGHTS.RELEVANCE +
     popularityScore * SCORING_WEIGHTS.POPULARITY +
     freshnessScore * SCORING_WEIGHTS.FRESHNESS +
     (affinityMultiplier > 1.0 ? 1.0 : 0.0) * SCORING_WEIGHTS.CREATOR_AFFINITY;

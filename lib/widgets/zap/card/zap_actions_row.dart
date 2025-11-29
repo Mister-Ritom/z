@@ -104,6 +104,7 @@ class ZapActionsRow extends ConsumerWidget {
                         currentUserId,
                         zap.id,
                         zap.hashtags,
+                        creatorUserId: zap.userId,
                       );
                     } finally {
                       ref.read(likingProvider(zap.id).notifier).state = false;

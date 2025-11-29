@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:z/screens/main_navigation.dart';
+import 'package:z/screens/sharing/sharing_screen.dart';
 import '../providers/auth_provider.dart';
 import '../auth_screens/login_screen.dart';
 import '../auth_screens/signup_screen.dart';
@@ -16,10 +17,7 @@ import '../info/settings/settings_screen.dart';
 import '../info/feedback/feedback_screen.dart';
 import '../info/terms/terms_screen.dart';
 import '../info/privacy/privacy_screen.dart';
-import 'package:listen_sharing_intent/listen_sharing_intent.dart';
-import '../screens/sharing/sharing_selection_screen.dart';
 import '../screens/messages/chat_screen.dart';
-import '../providers/profile_provider.dart';
 import '../services/notifications/fcm_service.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -70,10 +68,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const MessagesScreen(),
       ),
       GoRoute(
-        path: '/chat/:senderId',
+        path: '/chat/:otherUserId',
         builder: (context, state) {
-          final senderId = state.pathParameters['senderId'] ?? '';
-          return ChatRouteWrapper(senderId: senderId);
+          final otherUserId = state.pathParameters['otherUserId'] ?? '';
+          return ChatScreen(otherUserId: otherUserId);
         },
       ),
       GoRoute(
@@ -88,6 +86,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final zapId = state.pathParameters['zapId'] ?? '';
           return ZapDetailScreen(zapId: zapId);
+        },
+      ),
+      GoRoute(
+        path: '/sharing',
+        builder: (context, state) {
+          final mediaUrls = state.extra as List<String>;
+          return SharingScreen(mediaUrls);
         },
       ),
       GoRoute(
@@ -107,29 +112,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/privacy',
         builder: (context, state) => const PrivacyScreen(),
       ),
-      GoRoute(
-        path: '/share',
-        builder: (context, state) {
-          // Get shared files from extra state
-          final extra = state.extra;
-          if (extra is List<SharedMediaFile>) {
-            return SharingSelectionScreen(sharedFiles: extra);
-          }
-          return const Scaffold(
-            body: Center(child: Text('No shared content')),
-          );
-        },
-      ),
     ],
-    errorBuilder:
-        (context, state) =>
-            Scaffold(body: Center(child: Text('Error: ${state.error}'))),
+    errorBuilder: (context, state) {
+      return Scaffold(body: Center(child: Text('Error: ${state.error}')));
+    },
   );
 
   // Set up FCM navigation handler after router is created
-  FCMNavigationHandler.navigateToChat = (String senderId) {
+  FCMNavigationHandler.navigateToChat = (String otherUserId) {
     Future.microtask(() {
-      router.go('/chat/$senderId');
+      router.go('/chat/$otherUserId');
     });
   };
 
@@ -152,47 +144,5 @@ class GoRouterRefreshNotifier extends ChangeNotifier {
   void dispose() {
     _subscription.close();
     super.dispose();
-  }
-}
-
-/// Wrapper widget for chat route that fetches user profile
-class ChatRouteWrapper extends ConsumerWidget {
-  final String senderId;
-
-  const ChatRouteWrapper({super.key, required this.senderId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserProvider).valueOrNull;
-    final userAsync = ref.watch(userProfileProvider(senderId));
-
-    if (currentUser == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return userAsync.when(
-      data: (user) {
-        if (user == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('User not found')),
-            body: const Center(child: Text('User not found')),
-          );
-        }
-        return ChatScreen(
-          currentUserId: currentUser.uid,
-          otherUserId: senderId,
-          otherUser: user,
-        );
-      },
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('Error')),
-        body: Center(child: Text('Error: $error')),
-      ),
-    );
   }
 }

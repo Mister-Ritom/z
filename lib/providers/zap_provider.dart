@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/utils/logger.dart';
 import '../models/zap_model.dart';
@@ -136,13 +137,25 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      final result = await _recommendationService.getRecommendationsWithZaps(
-        perPage: AppConstants.zapsPerPage,
-        lastZap: reset ? null : state.nextLastZap,
-        lastViewedZapId:
-            reset ? state.lastViewedZapId : null, // Only send on initial load
-        isShort: isShort,
-      );
+      final result = await _recommendationService
+          .getRecommendationsWithZaps(
+            perPage: AppConstants.zapsPerPage,
+            lastZap: reset ? null : state.nextLastZap,
+            lastViewedZapId:
+                reset
+                    ? state.lastViewedZapId
+                    : null, // Only send on initial load
+            isShort: isShort,
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw TimeoutException(
+                'Recommendation fetch timed out',
+                const Duration(seconds: 30),
+              );
+            },
+          );
 
       final fetched = (result['zaps'] as List<ZapModel>?) ?? <ZapModel>[];
       final hasMore = result['hasMore'] as bool? ?? false;
@@ -206,30 +219,45 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
         data: {'isShort': isShort, 'reset': reset},
       );
 
-      // If fetch failed and we have no zaps, try to load from cache as fallback
-      if (state.zaps.isEmpty) {
-        final cached = await _cacheService.loadRecommendations(
-          isShort: isShort,
-        );
-        if (cached != null && cached.zaps.isNotEmpty) {
-          state = state.copyWith(
-            zaps: cached.zaps,
-            hasMore: cached.hasMore,
-            nextLastZap: cached.nextLastZap,
-            lastViewedZapId: cached.lastViewedZapId,
-            isLoading: false,
-          );
+      // Always try to load from cache as fallback when fetch fails
+      // This ensures users can still see content even if server is down
+      final cached = await _cacheService.loadRecommendations(isShort: isShort);
 
-          AppLogger.info(
-            'ForYouFeedNotifier',
-            'Using cached recommendations after fetch failure',
-            data: {'isShort': isShort, 'count': cached.zaps.length},
-          );
-          return;
-        }
+      if (cached != null && cached.zaps.isNotEmpty) {
+        // Merge cached zaps with existing state (if any)
+        final existingZapIds = state.zaps.map((z) => z.id).toSet();
+        final newZaps =
+            cached.zaps.where((z) => !existingZapIds.contains(z.id)).toList();
+        final mergedZaps = reset ? cached.zaps : [...state.zaps, ...newZaps];
+
+        state = state.copyWith(
+          zaps: mergedZaps,
+          hasMore: cached.hasMore || state.hasMore, // Keep hasMore if we had it
+          nextLastZap: cached.nextLastZap ?? state.nextLastZap,
+          lastViewedZapId: cached.lastViewedZapId ?? state.lastViewedZapId,
+          isLoading: false,
+        );
+
+        AppLogger.info(
+          'ForYouFeedNotifier',
+          'Using cached recommendations after fetch failure',
+          data: {
+            'isShort': isShort,
+            'cachedCount': cached.zaps.length,
+            'mergedCount': mergedZaps.length,
+            'error': e.toString(),
+          },
+        );
+        return;
       }
 
-      state = state.copyWith(isLoading: false, hasMore: false);
+      // If no cache available and we have no zaps, show error state
+      if (state.zaps.isEmpty) {
+        state = state.copyWith(isLoading: false, hasMore: false);
+      } else {
+        // If we have some zaps, just stop loading (keep what we have)
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 }

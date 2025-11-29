@@ -96,6 +96,7 @@ class ShortVideoWidget extends ConsumerWidget {
                       currentUser.uid,
                       zap.id,
                       zap.hashtags,
+                      creatorUserId: zap.userId,
                     );
                   },
                   onComment: () async {

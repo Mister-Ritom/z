@@ -82,7 +82,12 @@ class PostAnalyticsService {
     }, SetOptions(merge: true));
   }
 
-  Future<void> toggleLike(String userId, String id, List<String> tags) async {
+  Future<void> toggleLike(
+    String userId,
+    String id,
+    List<String> tags, {
+    String? creatorUserId,
+  }) async {
     final liked = await isLiked(userId, id);
 
     await _analytics.doc(id).set({
@@ -96,8 +101,17 @@ class PostAnalyticsService {
 
     if (!liked) {
       await _updateUserTagWeights(userId, tags);
+      // Update user liking weights if creator is different from current user
+      if (creatorUserId != null && creatorUserId != userId) {
+        await _updateUserLikingWeights(userId, creatorUserId);
+      }
       // Track like event in Firebase Analytics
       await FirebaseAnalyticsService.logPostLiked(isShort: isShortVideo);
+    } else {
+      // When unliking, decrease the weight
+      if (creatorUserId != null && creatorUserId != userId) {
+        await _updateUserLikingWeights(userId, creatorUserId, increment: -1);
+      }
     }
   }
 
@@ -200,6 +214,30 @@ class PostAnalyticsService {
       data[tag] = (data[tag] ?? 0) + 1;
     }
     await ref.set({'tagsLiked': data}, SetOptions(merge: true));
+  }
+
+  Future<void> _updateUserLikingWeights(
+    String userId,
+    String creatorUserId, {
+    int increment = 1,
+  }) async {
+    final ref = firestore
+        .collection('analytics')
+        .doc('users')
+        .collection('users')
+        .doc(userId);
+    final snap = await ref.get();
+    final Map<String, dynamic> data = Map<String, dynamic>.from(
+      snap.data()?['usersLiked'] ?? {},
+    );
+    final currentWeight = (data[creatorUserId] ?? 0) as int;
+    final newWeight = (currentWeight + increment).clamp(0, double.infinity).toInt();
+    if (newWeight > 0) {
+      data[creatorUserId] = newWeight;
+    } else {
+      data.remove(creatorUserId);
+    }
+    await ref.set({'usersLiked': data}, SetOptions(merge: true));
   }
 
   Stream<List<String>> getLikedBy(String userId) {

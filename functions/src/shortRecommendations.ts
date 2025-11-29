@@ -47,6 +47,31 @@ async function getUserTagPreferences(
   }
 }
 
+/**
+ * Get user's liking preferences (weights for creators they've liked posts from)
+ */
+async function getUserLikingPreferences(
+  userId: string
+): Promise<Record<string, number>> {
+  try {
+    const analyticsDoc = await db
+      .collection(ANALYTICS_COLLECTION)
+      .doc("users")
+      .collection("users")
+      .doc(userId)
+      .get();
+
+    const data = analyticsDoc.data();
+    return (data?.usersLiked as Record<string, number>) || {};
+  } catch (error) {
+    functions.logger.warn(
+      `Error fetching user liking preferences for ${userId}:`,
+      error
+    );
+    return {};
+  }
+}
+
 async function getFollowedUserIds(userId: string): Promise<string[]> {
   try {
     const followingSnapshot = await db
@@ -363,23 +388,6 @@ async function getRandomShortSprinkleIds(
   }
 }
 
-/**
- * Get total count of non-deleted shorts in the system
- */
-async function getTotalShortCount(): Promise<number> {
-  try {
-    const countSnapshot = await db
-      .collection(SHORTS_COLLECTION)
-      .where("isDeleted", "==", false)
-      .count()
-      .get();
-
-    return countSnapshot.data().count;
-  } catch (error) {
-    functions.logger.warn("Error getting total short count:", error);
-    return 100000; // Large fallback
-  }
-}
 
 async function saveShortRecommendationsToCache(
   userId: string,
@@ -514,14 +522,16 @@ async function generateShortRecommendationsList(
   userId: string,
   interactionCount: number
 ): Promise<{ shortIds: string[]; isFallback: boolean }> {
-  const [tagsLiked, followedUserIds, viewedShortIds] = await Promise.all([
+  const [tagsLiked, usersLiked, followedUserIds, viewedShortIds] = await Promise.all([
     getUserTagPreferences(userId),
+    getUserLikingPreferences(userId),
     getFollowedUserIds(userId),
     getViewedShortIds(userId),
   ]);
 
   const userProfile: UserProfile = {
     tagsLiked,
+    usersLiked,
     followedUserIds,
     viewedZapIds: viewedShortIds,
     interactionCount,
@@ -574,26 +584,35 @@ export const generateShortRecommendations = functions
     memory: "512MB",
   })
   .https.onCall(async (data, context) => {
-    const userId = data?.userId as string | undefined;
-    const perPage = (data?.perPage as number) || SHORTS_DEFAULT_PER_PAGE;
-    const lastZap = data?.lastZap as string | undefined;
-    const lastViewedZapId = data?.lastViewedZapId as string | undefined; // From client
+    const startTime = Date.now();
+    let userId: string | undefined;
+    
+    try {
+      userId = data?.userId as string | undefined;
+      const perPage = (data?.perPage as number) || SHORTS_DEFAULT_PER_PAGE;
+      const lastZap = data?.lastZap as string | undefined;
+      const lastViewedZapId = data?.lastViewedZapId as string | undefined; // From client
 
-    if (!userId) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "userId is required"
+      functions.logger.info(
+        `generateShortRecommendations called`,
+        { userId, perPage, lastZap, lastViewedZapId, hasAuth: !!context.auth }
       );
-    }
 
-    if (context.auth && context.auth.uid !== userId) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "userId must match authenticated user"
-      );
-    }
+      if (!userId) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "userId is required"
+        );
+      }
 
-    const interactionCount = await getShortInteractionCount(userId);
+      if (context.auth && context.auth.uid !== userId) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "userId must match authenticated user"
+        );
+      }
+
+      const interactionCount = await getShortInteractionCount(userId);
     const cached = await getCachedShortRecommendations(userId);
 
     if (cached && cached.shortIds.length > 0) {
@@ -616,88 +635,100 @@ export const generateShortRecommendations = functions
 
       const paginated = getPaginatedSlice(cached.shortIds, startZapId, perPage);
 
-      // If cache is exhausted, top up with similar/random shorts
+      // If cache is exhausted, return what we have and top up in background
+      // Don't block the response with slow operations
       if (!paginated.hasMore || paginated.zapIds.length < perPage) {
         functions.logger.info(
-          `Cache near exhaustion for ${userId} (remaining: ${paginated.zapIds.length}), topping up with similar/random shorts`
+          `Cache near exhaustion for ${userId} (remaining: ${paginated.zapIds.length}), will top up in background`
         );
 
-        const [viewedShortIds, tagsLiked] = await Promise.all([
-          getViewedShortIds(userId),
-          getUserTagPreferences(userId),
-        ]);
+        // Top up in background (don't await - return immediately)
+        Promise.all([
+          getViewedShortIds(userId!),
+          getUserTagPreferences(userId!),
+        ])
+          .then(async ([viewedShortIds, tagsLiked]) => {
+            const allSeenShorts = new Set([
+              ...cached.shortIds,
+              ...Array.from(viewedShortIds),
+            ]);
 
-        const allSeenShorts = new Set([
-          ...cached.shortIds,
-          ...Array.from(viewedShortIds),
-        ]);
+            // Skip expensive totalShortCount check - just try to top up
+            let topUpIds: string[] = [];
 
-        const totalShortCount = await getTotalShortCount();
-        const hasSeenEverything = allSeenShorts.size >= totalShortCount * 0.95;
+            // Try similar shorts by tags (with timeout)
+            if (Object.keys(tagsLiked).length > 0) {
+              try {
+                const similarCandidates = await Promise.race([
+                  fetchSimilarShortsByTags(
+                    cached.shortIds,
+                    tagsLiked,
+                    allSeenShorts,
+                    MIN_RANDOM_SHORT_TOPUP * 2
+                  ),
+                  new Promise<ZapCandidate[]>((resolve) =>
+                    setTimeout(() => resolve([]), 5000)
+                  ), // 5s timeout
+                ]);
+                topUpIds = similarCandidates.map((c) => c.zapId);
+              } catch (error) {
+                functions.logger.warn(
+                  `Similar shorts fetch timed out for ${userId}`,
+                  error
+                );
+              }
+            }
 
-        if (hasSeenEverything) {
-          functions.logger.info(
-            `User ${userId} has seen ${allSeenShorts.size}/${totalShortCount} shorts, showing end`
-          );
-        } else {
-          // Top up with similar shorts first, then random
-          let topUpIds: string[] = [];
+            // If not enough similar shorts, add random ones (with timeout)
+            if (topUpIds.length < MIN_RANDOM_SHORT_TOPUP) {
+              try {
+                const randomIds = await Promise.race([
+                  getRandomShortSprinkleIds(
+                    [...cached.shortIds, ...topUpIds],
+                    MIN_RANDOM_SHORT_TOPUP - topUpIds.length
+                  ),
+                  new Promise<string[]>((resolve) =>
+                    setTimeout(() => resolve([]), 5000)
+                  ), // 5s timeout
+                ]);
+                topUpIds = [...topUpIds, ...randomIds];
+              } catch (error) {
+                functions.logger.warn(
+                  `Random shorts fetch timed out for ${userId}`,
+                  error
+                );
+              }
+            }
 
-          if (Object.keys(tagsLiked).length > 0) {
-            const similarCandidates = await fetchSimilarShortsByTags(
-              cached.shortIds,
-              tagsLiked,
-              allSeenShorts,
-              MIN_RANDOM_SHORT_TOPUP * 2
+            if (topUpIds.length > 0) {
+              const updatedShortIds = [...cached.shortIds, ...topUpIds].slice(
+                0,
+                MAX_SHORT_CACHE_SIZE
+              );
+
+              await saveShortRecommendationsToCache(
+                userId!,
+                updatedShortIds,
+                cached.isFallback,
+                cached.position,
+                false
+              );
+            }
+          })
+          .catch((error) => {
+            functions.logger.error(
+              `Background top-up failed for ${userId}:`,
+              error
             );
-            topUpIds = similarCandidates.map((c) => c.zapId);
-          }
-
-          if (topUpIds.length < MIN_RANDOM_SHORT_TOPUP) {
-            const randomIds = await getRandomShortSprinkleIds(
-              [...cached.shortIds, ...topUpIds],
-              MIN_RANDOM_SHORT_TOPUP - topUpIds.length
-            );
-            topUpIds = [...topUpIds, ...randomIds];
-          }
-
-          if (topUpIds.length > 0) {
-            const updatedShortIds = [...cached.shortIds, ...topUpIds].slice(
-              0,
-              MAX_SHORT_CACHE_SIZE
-            );
-
-            await saveShortRecommendationsToCache(
-              userId,
-              updatedShortIds,
-              cached.isFallback,
-              cached.position,
-              false
-            );
-
-            const freshPaginated = getPaginatedSlice(
-              updatedShortIds,
-              lastZap,
-              perPage
-            );
-
-            return {
-              zapIds: freshPaginated.zapIds,
-              hasMore: true,
-              nextLastZap: freshPaginated.nextLastZap,
-              source: cached.isFallback ? "cache_fallback" : "cache",
-              generatedAt: new Date().toISOString(),
-            };
-          }
-        }
+          });
       }
 
       if (paginated.position >= SHORTS_REFRESH_THRESHOLD) {
-        generateShortRecommendationsList(userId, interactionCount)
+        generateShortRecommendationsList(userId!, interactionCount)
           .then((result) => {
             if (result.shortIds.length > 0) {
               return saveShortRecommendationsToCache(
-                userId,
+                userId!,
                 result.shortIds,
                 result.isFallback,
                 paginated.position,
@@ -713,11 +744,11 @@ export const generateShortRecommendations = functions
             );
           });
       } else {
-        generateShortRecommendationsList(userId, interactionCount)
+        generateShortRecommendationsList(userId!, interactionCount)
           .then((result) => {
             if (result.shortIds.length > 0) {
               return saveShortRecommendationsToCache(
-                userId,
+                userId!,
                 result.shortIds,
                 result.isFallback,
                 cached.position,
@@ -738,53 +769,84 @@ export const generateShortRecommendations = functions
       let responseHasMore = paginated.hasMore;
       let responseNextLastZap = paginated.nextLastZap;
 
-      // Always ensure we have more content unless user has seen everything
+      // Always ensure we have more content (skip expensive checks, top up in background)
       if (!responseHasMore) {
-        const viewedShortIds = await getViewedShortIds(userId);
-        const allSeenShorts = new Set([
-          ...cached.shortIds,
-          ...Array.from(viewedShortIds),
-        ]);
-        const totalShortCount = await getTotalShortCount();
-        const hasSeenEverything = allSeenShorts.size >= totalShortCount * 0.95;
+        // Return hasMore: true to prevent "end" message, top up in background
+        responseHasMore = true;
+        
+        // Top up in background (don't block response)
+        Promise.all([
+          getViewedShortIds(userId!),
+          getUserTagPreferences(userId!),
+        ])
+          .then(async ([viewedShortIds, tagsLiked]) => {
+            const allSeenShorts = new Set([
+              ...cached.shortIds,
+              ...Array.from(viewedShortIds),
+            ]);
 
-        if (!hasSeenEverything) {
-          // Top up with similar/random shorts
-          const tagsLiked = await getUserTagPreferences(userId);
-          let topUpIds: string[] = [];
+            let topUpIds: string[] = [];
 
-          if (Object.keys(tagsLiked).length > 0) {
-            const similarCandidates = await fetchSimilarShortsByTags(
-              cached.shortIds,
-              tagsLiked,
-              allSeenShorts,
-              MIN_RANDOM_SHORT_TOPUP * 2
+            // Try similar shorts first (with timeout)
+            if (Object.keys(tagsLiked).length > 0) {
+              try {
+                const similarCandidates = await Promise.race([
+                  fetchSimilarShortsByTags(
+                    cached.shortIds,
+                    tagsLiked,
+                    allSeenShorts,
+                    MIN_RANDOM_SHORT_TOPUP * 2
+                  ),
+                  new Promise<ZapCandidate[]>((resolve) =>
+                    setTimeout(() => resolve([]), 5000)
+                  ),
+                ]);
+                topUpIds = similarCandidates.map((c) => c.zapId);
+              } catch (error) {
+                functions.logger.warn(
+                  `Similar shorts fetch timed out for ${userId}`,
+                  error
+                );
+              }
+            }
+
+            // Add random if needed (with timeout)
+            if (topUpIds.length < MIN_RANDOM_SHORT_TOPUP) {
+              try {
+                const randomIds = await Promise.race([
+                  getRandomShortSprinkleIds(
+                    [...cached.shortIds, ...topUpIds],
+                    MIN_RANDOM_SHORT_TOPUP - topUpIds.length
+                  ),
+                  new Promise<string[]>((resolve) =>
+                    setTimeout(() => resolve([]), 5000)
+                  ),
+                ]);
+                topUpIds = [...topUpIds, ...randomIds];
+              } catch (error) {
+                functions.logger.warn(
+                  `Random shorts fetch timed out for ${userId}`,
+                  error
+                );
+              }
+            }
+
+            if (topUpIds.length > 0) {
+              await saveShortRecommendationsToCache(
+                userId!,
+                topUpIds,
+                cached.isFallback,
+                paginated.position,
+                true
+              );
+            }
+          })
+          .catch((error) => {
+            functions.logger.error(
+              `Background top-up failed for ${userId}:`,
+              error
             );
-            topUpIds = similarCandidates.map((c) => c.zapId);
-          }
-
-          if (topUpIds.length < MIN_RANDOM_SHORT_TOPUP) {
-            const randomIds = await getRandomShortSprinkleIds(
-              [...cached.shortIds, ...topUpIds],
-              MIN_RANDOM_SHORT_TOPUP - topUpIds.length
-            );
-            topUpIds = [...topUpIds, ...randomIds];
-          }
-
-          if (topUpIds.length > 0) {
-            responseZapIds = [...responseZapIds, ...topUpIds];
-            responseHasMore = true;
-            responseNextLastZap = topUpIds[topUpIds.length - 1];
-
-            await saveShortRecommendationsToCache(
-              userId,
-              topUpIds,
-              cached.isFallback,
-              paginated.position,
-              true
-            );
-          }
-        }
+          });
       }
 
       // Update cache with lastViewedZapId (from client or last zap in response)
@@ -824,7 +886,7 @@ export const generateShortRecommendations = functions
         .then((result) => {
           if (result.shortIds.length > 0) {
             return saveShortRecommendationsToCache(
-              userId,
+              userId!,
               result.shortIds,
               result.isFallback,
               paginated.position,
@@ -922,4 +984,26 @@ export const generateShortRecommendations = functions
           : "personalized",
       generatedAt: new Date().toISOString(),
     };
+    } catch (error) {
+      const elapsed = Date.now() - startTime;
+      functions.logger.error(
+        `generateShortRecommendations failed for ${userId} after ${elapsed}ms`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          userId,
+        }
+      );
+
+      // Re-throw HttpsError as-is (these are expected errors)
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+
+      // Wrap unexpected errors
+      throw new functions.https.HttpsError(
+        "internal",
+        `Internal error: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   });

@@ -9,22 +9,16 @@ import 'package:z/models/notification_model.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/screens/main_navigation.dart';
 import 'package:z/utils/helpers.dart';
-import '../../models/user_model.dart';
 import '../../providers/message_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../services/analytics/firebase_analytics_service.dart';
 import 'package:z/widgets/messages/message_bubble.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  final String currentUserId;
   final String otherUserId;
-  final UserModel otherUser;
 
-  const ChatScreen({
-    super.key,
-    required this.currentUserId,
-    required this.otherUserId,
-    required this.otherUser,
-  });
+  const ChatScreen({super.key, required this.otherUserId});
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -67,28 +61,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // Use ||| as separator - this must never appear in user IDs
   static const String _conversationSeparator = '|||';
 
-  String _getConversationId() {
-    final ids = [widget.currentUserId, widget.otherUserId]..sort();
+  String _getConversationId(String currentUserId) {
+    final ids = [currentUserId, widget.otherUserId]..sort();
     return ids.join(_conversationSeparator);
   }
 
-  Future<void> _sendMessage() async {
+  Future<void> _sendMessage(String currentUserId) async {
     final text = _messageController.text.trim();
     final hasFiles = _selectedFiles.isNotEmpty;
     if (text.isEmpty && !hasFiles) return;
 
-    final referenceId = _getConversationId();
+    final referenceId = _getConversationId(currentUserId);
 
     if (hasFiles) {
       final messageService = ref.read(messageServiceProvider);
-      final recipients = [widget.currentUserId, widget.otherUserId];
+      final recipients = [currentUserId, widget.otherUserId];
 
       final localFiles = [..._selectedFiles];
       setState(() => _selectedFiles = []);
       _messageController.clear();
       _scrollToBottom();
       final pendingMessage = await messageService.addPendingMessage(
-        senderId: widget.currentUserId,
+        senderId: currentUserId,
         recipients: recipients,
         text: text,
         conversationId: referenceId,
@@ -123,12 +117,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         },
       );
     } else {
-      await _sendMessageText(referenceId: referenceId);
+      await _sendMessageText(
+        referenceId: referenceId,
+        currentUserId: currentUserId,
+      );
     }
 
     Helpers.createNotification(
       userId: widget.otherUserId,
-      fromUserId: widget.currentUserId,
+      fromUserId: currentUserId,
       type: NotificationType.message,
     );
   }
@@ -136,6 +133,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _sendMessageText({
     String? referenceId,
     List<String>? mediaUrls,
+    required String currentUserId,
   }) async {
     final text = _messageController.text.trim();
     if (text.isEmpty &&
@@ -145,11 +143,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     try {
       final messageService = ref.read(messageServiceProvider);
-      final recipients = [widget.currentUserId, widget.otherUserId];
+      final recipients = [currentUserId, widget.otherUserId];
 
       await messageService.sendMessage(
-        referenceId: referenceId ?? _getConversationId(),
-        senderId: widget.currentUserId,
+        referenceId: referenceId ?? _getConversationId(currentUserId),
+        senderId: currentUserId,
         recipients: recipients,
         text: text,
         mediaUrls: mediaUrls,
@@ -158,7 +156,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (text.isNotEmpty || (mediaUrls != null && mediaUrls.isNotEmpty)) {
         Helpers.createNotification(
           userId: widget.otherUserId,
-          fromUserId: widget.currentUserId,
+          fromUserId: currentUserId,
           type: NotificationType.message,
         );
       }
@@ -194,13 +192,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollController.jumpTo(target);
   }
 
-  void _markReadMessages() {
+  void _markReadMessages(String currentUserId) {
     final messageService = ref.read(messageServiceProvider);
     unawaited(
       messageService.markMessagesAsRead([
-        widget.currentUserId,
+        currentUserId,
         widget.otherUserId,
-      ], widget.currentUserId),
+      ], currentUserId),
     );
   }
 
@@ -241,40 +239,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final key = [widget.currentUserId, widget.otherUserId]..sort();
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final otherUserAsync = ref.watch(userProfileProvider(widget.otherUserId));
+
+    if (currentUser == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final currentUserId = currentUser.uid;
+    final key = [currentUserId, widget.otherUserId]..sort();
     final messagesAsync = ref.watch(
       messagesProvider(key.join(_conversationSeparator)),
     );
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage:
-                  widget.otherUser.profilePictureUrl != null
-                      ? CachedNetworkImageProvider(
-                        widget.otherUser.profilePictureUrl!,
-                      )
-                      : null,
-              child:
-                  widget.otherUser.profilePictureUrl == null
-                      ? Text(widget.otherUser.displayName[0].toUpperCase())
-                      : null,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.otherUser.displayName),
-                  if (widget.otherUser.isVerified)
-                    const Icon(Icons.verified, size: 16),
-                ],
-              ),
-            ),
-          ],
+        title: otherUserAsync.when(
+          data: (otherUser) {
+            if (otherUser == null) {
+              return const Text('User not found');
+            }
+            return Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundImage:
+                      otherUser.profilePictureUrl != null
+                          ? CachedNetworkImageProvider(
+                            otherUser.profilePictureUrl!,
+                          )
+                          : null,
+                  child:
+                      otherUser.profilePictureUrl == null
+                          ? Text(otherUser.displayName[0].toUpperCase())
+                          : null,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(otherUser.displayName),
+                      if (otherUser.isVerified)
+                        const Icon(Icons.verified, size: 16),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const Text('Loading...'),
+          error: (_, __) => const Text('Error loading user'),
         ),
       ),
       body: Column(
@@ -297,9 +312,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   padding: const EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    _markReadMessages();
+                    _markReadMessages(currentUserId);
                     final message = messages[index];
-                    final isMe = message.senderId == widget.currentUserId;
+                    final isMe = message.senderId == currentUserId;
                     return MessageBubble(message: message, isMe: isMe);
                   },
                 );
@@ -312,7 +327,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   error: error,
                   stackTrace: stack,
                   data: {
-                    'currentUserId': widget.currentUserId,
+                    'currentUserId': currentUserId,
                     'otherUserId': widget.otherUserId,
                   },
                 );
@@ -390,7 +405,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
+                  onPressed: () => _sendMessage(currentUserId),
                 ),
               ],
             ),

@@ -124,12 +124,9 @@ class MessagesScreen extends ConsumerWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder:
-                              (context) => ChatScreen(
-                                currentUserId: currentUser.uid,
-                                otherUserId: otherUserId,
-                                otherUser: user,
-                              ),
+                          builder: (context) => ChatScreen(
+                            otherUserId: otherUserId,
+                          ),
                         ),
                       );
                     },
