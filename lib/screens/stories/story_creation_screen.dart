@@ -13,7 +13,9 @@ import '../../providers/auth_provider.dart';
 import '../../services/analytics/firebase_analytics_service.dart';
 
 class StoryCreationScreen extends ConsumerStatefulWidget {
-  const StoryCreationScreen({super.key});
+  final XFile? initialFile;
+  
+  const StoryCreationScreen({super.key, this.initialFile});
 
   @override
   ConsumerState<StoryCreationScreen> createState() =>
@@ -32,12 +34,19 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
     if (!_opened) {
       _opened = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final media = await _pickMedia();
-        if (mounted) {
-          if (media != null) {
-            setState(() => _file = media);
-          } else {
-            Navigator.pop(context);
+        // Use initial file if provided, otherwise pick media
+        if (widget.initialFile != null) {
+          if (mounted) {
+            setState(() => _file = widget.initialFile);
+          }
+        } else {
+          final media = await _pickMedia();
+          if (mounted) {
+            if (media != null) {
+              setState(() => _file = media);
+            } else {
+              Navigator.pop(context);
+            }
           }
         }
       });

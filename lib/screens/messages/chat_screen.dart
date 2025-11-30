@@ -17,8 +17,13 @@ import 'package:z/widgets/messages/message_bubble.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String otherUserId;
+  final List<String>? initialMediaPaths;
 
-  const ChatScreen({super.key, required this.otherUserId});
+  const ChatScreen({
+    super.key,
+    required this.otherUserId,
+    this.initialMediaPaths,
+  });
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -29,6 +34,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   final _picker = ImagePicker();
   List<XFile> _selectedFiles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Convert initial media paths to XFile if provided
+    if (widget.initialMediaPaths != null && widget.initialMediaPaths!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final files = widget.initialMediaPaths!.map((path) {
+          final cleanPath = path.startsWith('file://') 
+              ? path.substring(7) 
+              : path;
+          return XFile(cleanPath);
+        }).toList();
+        setState(() {
+          _selectedFiles = files;
+        });
+      });
+    }
+  }
 
   @override
   void dispose() {

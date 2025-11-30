@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -14,7 +12,6 @@ import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/services/analytics/firebase_analytics_service.dart';
 import 'package:z/utils/logger.dart';
 import 'utils/router.dart';
-import 'package:listen_sharing_intent/listen_sharing_intent.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,61 +53,10 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   String? _previousUserId;
   ProviderSubscription<AsyncValue<User?>>? _authSubscription;
-  StreamSubscription? _intentSub;
-
-  void handleSharing(List<SharedMediaFile> value) {
-    if (value.isEmpty) {
-      AppLogger.warn('SharingService', 'No media shared');
-      return;
-    }
-    final mediaPaths = value.map((e) => e.path).toList();
-    AppLogger.info(
-      'SharingService',
-      'Sharing media',
-      data: {'mediaPaths': mediaPaths},
-    );
-    final router = ref.read(routerProvider);
-    //add a post frame callback to the router to navigate to the sharing screen
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      router.go('/sharing', extra: mediaPaths);
-    });
-  }
-
-  void initSharingIntent() {
-    // Listen to media sharing coming from outside the app while the app is in the memory.
-    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
-      (value) {
-        handleSharing(value);
-      },
-      onError: (err) {
-        AppLogger.error(
-          'SharingService',
-          'Error initializing sharing intent',
-          error: err,
-        );
-      },
-    );
-
-    // Get the media sharing coming from outside the app while the app is closed.
-    ReceiveSharingIntent.instance
-        .getInitialMedia()
-        .then((value) {
-          handleSharing(value);
-        })
-        .catchError((err) {
-          AppLogger.error(
-            'SharingService',
-            'Error getting initial media',
-            error: err,
-          );
-        });
-  }
 
   @override
   void initState() {
     super.initState();
-    // Initialize sharing intent
-    initSharingIntent();
     // Initialize FCM service
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -150,7 +96,6 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void dispose() {
     _authSubscription?.close();
-    _intentSub?.cancel();
     super.dispose();
   }
 

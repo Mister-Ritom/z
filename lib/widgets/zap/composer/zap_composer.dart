@@ -17,8 +17,16 @@ import 'media_preview.dart';
 class ZapComposer extends ConsumerStatefulWidget {
   final String? replyToZapId;
   final VoidCallback? onZapSent;
+  final List<XFile>? initialMedia;
+  final bool? initialIsShort;
 
-  const ZapComposer({super.key, this.replyToZapId, this.onZapSent});
+  const ZapComposer({
+    super.key,
+    this.replyToZapId,
+    this.onZapSent,
+    this.initialMedia,
+    this.initialIsShort,
+  });
 
   @override
   ConsumerState<ZapComposer> createState() => _ZapComposerState();
@@ -41,6 +49,16 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
       final remainingChars = ref.watch(remainingCharsProvider);
       if (remainingChars != newRemaining) {
         ref.read(remainingCharsProvider.notifier).state = newRemaining;
+      }
+    });
+    
+    // Initialize with provided media if available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.initialMedia != null && widget.initialMedia!.isNotEmpty) {
+        ref.read(selectedMediaProvider.notifier).state = widget.initialMedia!;
+      }
+      if (widget.initialIsShort != null) {
+        ref.read(isShortProvider.notifier).state = widget.initialIsShort!;
       }
     });
   }

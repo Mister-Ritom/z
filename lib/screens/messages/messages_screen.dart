@@ -9,11 +9,18 @@ import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import 'chat_screen.dart';
 
-class MessagesScreen extends ConsumerWidget {
-  const MessagesScreen({super.key});
+class MessagesScreen extends ConsumerStatefulWidget {
+  final List<String>? initialMediaPaths;
+
+  const MessagesScreen({super.key, this.initialMediaPaths});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MessagesScreen> createState() => _MessagesScreenState();
+}
+
+class _MessagesScreenState extends ConsumerState<MessagesScreen> {
+  @override
+  Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
 
     if (currentUser == null) {
@@ -126,6 +133,7 @@ class MessagesScreen extends ConsumerWidget {
                         MaterialPageRoute(
                           builder: (context) => ChatScreen(
                             otherUserId: otherUserId,
+                            initialMediaPaths: widget.initialMediaPaths,
                           ),
                         ),
                       );

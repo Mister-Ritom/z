@@ -30,6 +30,15 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: GoRouterRefreshNotifier(ref),
     redirect: (context, state) {
+      // Redirect file:// URIs to sharing screen (e.g., when sharing files to the app)
+      if (state.uri.scheme == 'file') {
+        // Extract the file path from the URI (remove the file:// scheme)
+        // For file:// URIs, uri.path gives us the actual file path
+        final filePath = state.uri.path;
+        final encodedPath = Uri.encodeComponent(filePath);
+        return '/sharing?file=$encodedPath';
+      }
+
       final isAuthenticated = authState.valueOrNull != null;
       final isGoingToAuth =
           state.matchedLocation == '/login' ||
@@ -91,7 +100,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sharing',
         builder: (context, state) {
-          final mediaUrls = state.extra as List<String>;
+          // Check if we have a file query parameter (from file:// URI redirect)
+          final fileParam = state.uri.queryParameters['file'];
+          if (fileParam != null) {
+            // Decode the file path from the query parameter
+            final filePath = Uri.decodeComponent(fileParam);
+            return SharingScreen([filePath]);
+          }
+          // Otherwise, use the extra data (from normal sharing flow)
+          final mediaUrls = state.extra as List<String>? ?? [];
           return SharingScreen(mediaUrls);
         },
       ),

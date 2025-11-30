@@ -199,7 +199,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
             );
           },
         ),
-        if (viewportFraction == 1)
+        if (viewportFraction == 1 && widget.mediaUrls.length > 1)
           Positioned(
             bottom: 8,
             child: Row(
