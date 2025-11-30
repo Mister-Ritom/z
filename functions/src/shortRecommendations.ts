@@ -613,7 +613,24 @@ export const generateShortRecommendations = functions
       }
 
       const interactionCount = await getShortInteractionCount(userId);
-    const cached = await getCachedShortRecommendations(userId);
+    let cached = await getCachedShortRecommendations(userId);
+
+    // If cache exists but is empty, delete it and treat as no cache
+    if (cached && cached.shortIds.length === 0) {
+      functions.logger.warn(
+        `Empty cache detected for shorts ${userId}, deleting and generating fresh recommendations`
+      );
+      try {
+        await db.collection(CACHED_SHORTS_COLLECTION).doc(userId).delete();
+        cached = null; // Treat as no cache
+      } catch (error) {
+        functions.logger.error(
+          `Failed to delete empty cache for shorts ${userId}:`,
+          error
+        );
+        cached = null; // Still treat as no cache even if delete failed
+      }
+    }
 
     if (cached && cached.shortIds.length > 0) {
       // Determine starting point: prioritize client's lastViewedZapId, then lastZap, then cached lastViewedZapId
@@ -635,9 +652,32 @@ export const generateShortRecommendations = functions
 
       const paginated = getPaginatedSlice(cached.shortIds, startZapId, perPage);
 
-      // If cache is exhausted, return what we have and top up in background
-      // Don't block the response with slow operations
-      if (!paginated.hasMore || paginated.zapIds.length < perPage) {
+      // Safety check: if pagination returns empty results, delete cache and generate fresh
+      if (paginated.zapIds.length === 0) {
+        functions.logger.warn(
+          `Pagination returned empty results for ${userId}. Cache has ${cached.shortIds.length} items, startZapId: ${startZapId}, lastZap: ${lastZap}. Deleting cache and generating fresh.`
+        );
+        // Delete the corrupted/empty cache and fall through to generate fresh
+        try {
+          await db.collection(CACHED_SHORTS_COLLECTION).doc(userId).delete();
+        } catch (error) {
+          functions.logger.error(
+            `Failed to delete cache for shorts ${userId}:`,
+            error
+          );
+        }
+        // Set cached to null so we skip the return and fall through to generate fresh
+        cached = null;
+      }
+
+      // Only proceed with cache return if we still have valid cached data
+      // Store a const reference for use in async callbacks
+      const cachedData = cached;
+      if (cachedData && paginated.zapIds.length > 0) {
+        // Normal flow: cache has items and pagination returned results
+        // If cache is exhausted, return what we have and top up in background
+        // Don't block the response with slow operations
+        if (!paginated.hasMore || paginated.zapIds.length < perPage) {
         functions.logger.info(
           `Cache near exhaustion for ${userId} (remaining: ${paginated.zapIds.length}), will top up in background`
         );
@@ -648,8 +688,10 @@ export const generateShortRecommendations = functions
           getUserTagPreferences(userId!),
         ])
           .then(async ([viewedShortIds, tagsLiked]) => {
+            if (!cachedData) return; // Safety check
+            
             const allSeenShorts = new Set([
-              ...cached.shortIds,
+              ...cachedData.shortIds,
               ...Array.from(viewedShortIds),
             ]);
 
@@ -661,7 +703,7 @@ export const generateShortRecommendations = functions
               try {
                 const similarCandidates = await Promise.race([
                   fetchSimilarShortsByTags(
-                    cached.shortIds,
+                    cachedData.shortIds,
                     tagsLiked,
                     allSeenShorts,
                     MIN_RANDOM_SHORT_TOPUP * 2
@@ -684,7 +726,7 @@ export const generateShortRecommendations = functions
               try {
                 const randomIds = await Promise.race([
                   getRandomShortSprinkleIds(
-                    [...cached.shortIds, ...topUpIds],
+                    [...cachedData.shortIds, ...topUpIds],
                     MIN_RANDOM_SHORT_TOPUP - topUpIds.length
                   ),
                   new Promise<string[]>((resolve) =>
@@ -700,8 +742,8 @@ export const generateShortRecommendations = functions
               }
             }
 
-            if (topUpIds.length > 0) {
-              const updatedShortIds = [...cached.shortIds, ...topUpIds].slice(
+            if (topUpIds.length > 0 && cachedData) {
+              const updatedShortIds = [...cachedData.shortIds, ...topUpIds].slice(
                 0,
                 MAX_SHORT_CACHE_SIZE
               );
@@ -709,8 +751,8 @@ export const generateShortRecommendations = functions
               await saveShortRecommendationsToCache(
                 userId!,
                 updatedShortIds,
-                cached.isFallback,
-                cached.position,
+                cachedData.isFallback,
+                cachedData.position,
                 false
               );
             }
@@ -743,7 +785,7 @@ export const generateShortRecommendations = functions
               error
             );
           });
-      } else {
+      } else if (cachedData) {
         generateShortRecommendationsList(userId!, interactionCount)
           .then((result) => {
             if (result.shortIds.length > 0) {
@@ -751,7 +793,7 @@ export const generateShortRecommendations = functions
                 userId!,
                 result.shortIds,
                 result.isFallback,
-                cached.position,
+                cachedData.position,
                 true
               );
             }
@@ -780,8 +822,10 @@ export const generateShortRecommendations = functions
           getUserTagPreferences(userId!),
         ])
           .then(async ([viewedShortIds, tagsLiked]) => {
+            if (!cachedData) return; // Safety check
+            
             const allSeenShorts = new Set([
-              ...cached.shortIds,
+              ...cachedData.shortIds,
               ...Array.from(viewedShortIds),
             ]);
 
@@ -792,7 +836,7 @@ export const generateShortRecommendations = functions
               try {
                 const similarCandidates = await Promise.race([
                   fetchSimilarShortsByTags(
-                    cached.shortIds,
+                    cachedData.shortIds,
                     tagsLiked,
                     allSeenShorts,
                     MIN_RANDOM_SHORT_TOPUP * 2
@@ -815,7 +859,7 @@ export const generateShortRecommendations = functions
               try {
                 const randomIds = await Promise.race([
                   getRandomShortSprinkleIds(
-                    [...cached.shortIds, ...topUpIds],
+                    [...cachedData.shortIds, ...topUpIds],
                     MIN_RANDOM_SHORT_TOPUP - topUpIds.length
                   ),
                   new Promise<string[]>((resolve) =>
@@ -831,11 +875,11 @@ export const generateShortRecommendations = functions
               }
             }
 
-            if (topUpIds.length > 0) {
+            if (topUpIds.length > 0 && cachedData) {
               await saveShortRecommendationsToCache(
                 userId!,
                 topUpIds,
-                cached.isFallback,
+                cachedData.isFallback,
                 paginated.position,
                 true
               );
@@ -849,32 +893,33 @@ export const generateShortRecommendations = functions
           });
       }
 
-      // Update cache with lastViewedZapId (from client or last zap in response)
-      const zapIdToSave = lastViewedZapId || responseZapIds[responseZapIds.length - 1] || null;
-      if (zapIdToSave && cached.shortIds.includes(zapIdToSave)) {
-        try {
-          await db
-            .collection(CACHED_SHORTS_COLLECTION)
-            .doc(userId)
-            .update({
-              lastViewedZapId: zapIdToSave,
-              lastViewedPosition: paginated.position,
-            });
-        } catch (error) {
-          functions.logger.warn(
-            `Failed to update lastViewedZapId for shorts ${userId}:`,
-            error
-          );
+        // Update cache with lastViewedZapId (from client or last zap in response)
+        const zapIdToSave = lastViewedZapId || responseZapIds[responseZapIds.length - 1] || null;
+        if (zapIdToSave && cachedData && cachedData.shortIds.includes(zapIdToSave)) {
+          try {
+            await db
+              .collection(CACHED_SHORTS_COLLECTION)
+              .doc(userId)
+              .update({
+                lastViewedZapId: zapIdToSave,
+                lastViewedPosition: paginated.position,
+              });
+          } catch (error) {
+            functions.logger.warn(
+              `Failed to update lastViewedZapId for shorts ${userId}:`,
+              error
+            );
+          }
         }
-      }
 
-      return {
-        zapIds: responseZapIds,
-        hasMore: responseHasMore,
-        nextLastZap: responseNextLastZap,
-        source: cached.isFallback ? "cache_fallback" : "cache",
-        generatedAt: new Date().toISOString(),
-      };
+        return {
+          zapIds: responseZapIds,
+          hasMore: responseHasMore,
+          nextLastZap: responseNextLastZap,
+          source: cachedData.isFallback ? "cache_fallback" : "cache",
+          generatedAt: new Date().toISOString(),
+        };
+      }
     }
 
     const curatedShortIds = await getDailyCuratedShorts();

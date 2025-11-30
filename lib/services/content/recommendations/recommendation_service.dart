@@ -94,24 +94,35 @@ class RecommendationService {
         if (lastViewedZapId != null) 'lastViewedZapId': lastViewedZapId,
       });
 
-      return result.data as Map<String, dynamic>;
+      final data = result.data as Map<String, dynamic>;
+      final zapIds = (data['zapIds'] as List?) ?? [];
+      
+      AppLogger.info(
+        'RecommendationService',
+        'Recommendation function called successfully',
+        data: {
+          'functionName': functionName,
+          'zapIdsCount': zapIds.length,
+          'isShort': isShort,
+        },
+      );
+
+      return data;
     } on FirebaseFunctionsException catch (e) {
-      if (isShort) {
-        AppLogger.warn(
-          'RecommendationService',
-          'Short recommendation function failed, falling back to zap recommendations',
-          data: {'code': e.code, 'perPage': perPage, 'lastZap': lastZap},
-        );
+      AppLogger.error(
+        'RecommendationService',
+        'Recommendation function failed',
+        error: e,
+        data: {
+          'functionName': functionName,
+          'code': e.code,
+          'message': e.message,
+          'isShort': isShort,
+        },
+      );
 
-        return _invokeRecommendationFunction(
-          userId: userId,
-          perPage: perPage,
-          lastZap: lastZap,
-          lastViewedZapId: lastViewedZapId,
-          isShort: false,
-        );
-      }
-
+      // Don't fallback for shorts - let the error propagate so it can be handled properly
+      // The fallback was causing issues where regular zap IDs were fetched from shorts collection
       rethrow;
     }
   }
@@ -199,15 +210,71 @@ class RecommendationService {
       );
 
       final zapIds = recommendations['zapIds'] as List<String>;
+      final source = recommendations['source'] as String? ?? 'unknown';
+
+      AppLogger.info(
+        'RecommendationService',
+        'Got recommendation IDs, fetching zap models',
+        data: {
+          'zapIdsCount': zapIds.length,
+          'isShort': isShort,
+          'source': source,
+        },
+      );
+
+      // If we got no zap IDs, return empty result
+      if (zapIds.isEmpty) {
+        AppLogger.warn(
+          'RecommendationService',
+          'Received empty zapIds from recommendation function',
+          data: {
+            'isShort': isShort,
+            'source': source,
+            'perPage': perPage,
+          },
+        );
+        return {
+          'zaps': <ZapModel>[],
+          'hasMore': recommendations['hasMore'] ?? false,
+          'nextLastZap': recommendations['nextLastZap'],
+          'source': source,
+          'generatedAt': recommendations['generatedAt'],
+        };
+      }
 
       // Fetch full zap models
       final zaps = await getZapModelsFromIds(zapIds, isShort: isShort);
+
+      AppLogger.info(
+        'RecommendationService',
+        'Fetched zap models from IDs',
+        data: {
+          'requestedCount': zapIds.length,
+          'fetchedCount': zaps.length,
+          'isShort': isShort,
+          'source': source,
+        },
+      );
+
+      // If we got fewer zaps than requested IDs, some might not exist
+      if (zaps.length < zapIds.length) {
+        AppLogger.warn(
+          'RecommendationService',
+          'Some zap IDs were not found in Firestore',
+          data: {
+            'requestedCount': zapIds.length,
+            'fetchedCount': zaps.length,
+            'missingCount': zapIds.length - zaps.length,
+            'isShort': isShort,
+          },
+        );
+      }
 
       return {
         'zaps': zaps,
         'hasMore': recommendations['hasMore'],
         'nextLastZap': recommendations['nextLastZap'],
-        'source': recommendations['source'],
+        'source': source,
         'generatedAt': recommendations['generatedAt'],
       };
     } catch (e, st) {

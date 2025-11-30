@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
-import 'package:z/models/zap_model.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/services/content/recommendations/recommendation_cache_service.dart';
@@ -26,7 +25,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
   bool _hasInitialized = false;
 
   int _currentIndex = 0;
-  get forYouFeed => forYouFeedProvider(true);
+  late final _forYouFeed = forYouFeedProvider(true);
 
   @override
   void initState() {
@@ -39,7 +38,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
       final cacheService = RecommendationCacheService();
       final lastViewedZapId = await cacheService.getLastViewedZapId(isShort: true);
       
-      await ref.read(forYouFeed.notifier).loadInitial(
+      await ref.read(_forYouFeed.notifier).loadInitial(
         lastViewedZapId: lastViewedZapId,
       );
     });
@@ -70,7 +69,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
   bool get wantKeepAlive => true; // keeps state in IndexedStack
 
   Future<void> _onRefresh() async {
-    await ref.read(forYouFeed.notifier).refreshFeed();
+    await ref.read(_forYouFeed.notifier).refreshFeed();
   }
 
   void _showShortsAd() {
@@ -121,7 +120,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
     final remainingPages = notification.metrics.extentAfter / viewport;
 
     if (remainingPages <= thresholdPages) {
-      ref.read(forYouFeed.notifier).loadMore(
+      ref.read(_forYouFeed.notifier).loadMore(
         lastViewedZapId: feedState.lastViewedZapId,
       );
     }
@@ -132,7 +131,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final feedState = ref.watch(forYouFeed);
+    final feedState = ref.watch(_forYouFeed);
     final zaps = feedState.zaps.reversed.toList();
     final isLoading = feedState.isLoading;
 
@@ -192,8 +191,8 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
 
                   // Track last viewed zap ID
                   if (index < zaps.length) {
-                    final currentZap = zaps[index] as ZapModel;
-                    ref.read(forYouFeed.notifier).updateLastViewedZapId(currentZap.id);
+                    final currentZap = zaps[index];
+                    ref.read(_forYouFeed.notifier).updateLastViewedZapId(currentZap.id);
                   }
 
                   // Check if we should show an ad after this video
@@ -223,7 +222,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
                     );
                   }
 
-                  final zap = zaps[index] as ZapModel;
+                  final zap = zaps[index];
                   return ShortVideoWidget(
                     zap: zap,
                     shouldPlay:

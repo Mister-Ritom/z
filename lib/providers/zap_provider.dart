@@ -160,6 +160,32 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
       final fetched = (result['zaps'] as List<ZapModel>?) ?? <ZapModel>[];
       final hasMore = result['hasMore'] as bool? ?? false;
       final nextLastZap = result['nextLastZap'] as String?;
+      final source = result['source'] as String? ?? 'unknown';
+
+      AppLogger.info(
+        'ForYouFeedNotifier',
+        'Received recommendations response',
+        data: {
+          'isShort': isShort,
+          'fetched': fetched.length,
+          'hasMore': hasMore,
+          'source': source,
+          'reset': reset,
+        },
+      );
+
+      // If we got empty results on initial load, this might indicate an issue
+      if (reset && fetched.isEmpty) {
+        AppLogger.warn(
+          'ForYouFeedNotifier',
+          'Received empty results on initial load',
+          data: {
+            'isShort': isShort,
+            'hasMore': hasMore,
+            'source': source,
+          },
+        );
+      }
 
       final updated = reset ? <ZapModel>[] : List<ZapModel>.from(state.zaps);
       for (final zap in fetched) {
@@ -175,16 +201,53 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
       final newLastViewedZapId =
           updated.isNotEmpty ? updated.last.id : state.lastViewedZapId;
 
-      if (reset || fetched.isNotEmpty) {
-        state = state.copyWith(
-          zaps: updated,
-          hasMore: hasMore,
-          nextLastZap: nextLastZap,
-          isLoading: false,
-          lastViewedZapId: newLastViewedZapId,
+      // If we got empty results from cache source, clear local cache
+      // This happens when server-side cache is corrupted or empty
+      if (fetched.isEmpty && (source == 'cache' || source == 'cache_fallback')) {
+        AppLogger.warn(
+          'ForYouFeedNotifier',
+          'Received empty results from cache source, clearing local cache',
+          data: {
+            'isShort': isShort,
+            'source': source,
+            'reset': reset,
+          },
         );
+        
+        // Clear local cache since server cache is empty/corrupted
+        await _cacheService.clearCache(isShort: isShort);
+        
+        // If this was initial load with empty results, set hasMore to false
+        // This will prevent infinite loading attempts
+        if (reset && updated.isEmpty) {
+          state = state.copyWith(
+            zaps: updated,
+            hasMore: false, // No more content available
+            nextLastZap: null,
+            isLoading: false,
+            lastViewedZapId: newLastViewedZapId,
+          );
+          
+          AppLogger.warn(
+            'ForYouFeedNotifier',
+            'Empty cache results on initial load - no content available',
+            data: {'isShort': isShort, 'source': source},
+          );
+          return; // Don't save empty cache
+        }
+      }
 
-        // Save to cache for offline support
+      // Always update state, even if fetched is empty (to show "No zaps yet" properly)
+      state = state.copyWith(
+        zaps: updated,
+        hasMore: hasMore,
+        nextLastZap: nextLastZap,
+        isLoading: false,
+        lastViewedZapId: newLastViewedZapId,
+      );
+
+      // Only save to cache if we have zaps (don't save empty results)
+      if (updated.isNotEmpty) {
         await _cacheService.saveRecommendations(
           isShort: isShort,
           zaps: updated,
@@ -192,12 +255,15 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
           nextLastZap: nextLastZap,
           lastViewedZapId: newLastViewedZapId,
         );
-      } else {
-        state = state.copyWith(
-          hasMore: hasMore,
-          nextLastZap: nextLastZap,
-          isLoading: false,
+      } else if (reset) {
+        // If we got empty results on initial load from non-cache source, clear cache
+        // This ensures we don't keep stale empty cache
+        AppLogger.info(
+          'ForYouFeedNotifier',
+          'Clearing cache after empty initial load',
+          data: {'isShort': isShort, 'source': source},
         );
+        await _cacheService.clearCache(isShort: isShort);
       }
 
       AppLogger.info(
@@ -208,6 +274,7 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
           'fetched': fetched.length,
           'total': state.zaps.length,
           'hasMore': hasMore,
+          'source': source,
         },
       );
     } catch (e, st) {
