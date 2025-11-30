@@ -13,6 +13,7 @@ import 'package:z/providers/auth_provider.dart';
 import 'package:z/widgets/zap/card/zap_user_header.dart';
 import 'package:z/widgets/zap/card/zap_repost_banner.dart';
 import 'package:z/widgets/zap/card/zap_actions_row.dart';
+import 'package:z/widgets/zap/card/zap_options_sheet.dart';
 
 final rezapingProvider = StateProvider.family<bool, String>(
   (ref, zapId) => false,
@@ -91,6 +92,17 @@ class ZapCard extends ConsumerWidget {
                             user: user,
                             createdAt: zap.createdAt,
                             onTap: () => onUserTap(context, user),
+                            onMoreOptions: () {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => ZapOptionsSheet(
+                                  zap: zap,
+                                  currentUserId: currentUser.uid,
+                                  isBookmarked: isBookmarked.value ?? false,
+                                ),
+                              );
+                            },
                           ),
               loading: () => const ZapCardShimmer(),
               error: (_, __) => const SizedBox.shrink(),

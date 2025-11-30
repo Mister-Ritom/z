@@ -23,6 +23,7 @@ export interface UserProfile {
   followedUserIds: string[];
   viewedZapIds: Set<string>;
   interactionCount: number; // Total meaningful interactions (likes, views, reposts)
+  usersWithBlockedPosts?: Set<string>; // Users whose posts have been blocked (for ranking penalty)
 }
 
 /**
@@ -167,6 +168,9 @@ export function calculateZapScore(
     userProfile.usersLiked
   );
 
+  // Component 1.6: Penalty for users whose posts have been blocked
+  const blockedPostPenalty = userProfile.usersWithBlockedPosts?.has(candidate.userId) ? 0.7 : 1.0;
+
   // Component 2: Creator affinity (2-3x boost for followed creators)
   const affinityMultiplier = calculateCreatorAffinity(
     candidate.userId,
@@ -196,8 +200,11 @@ export function calculateZapScore(
   // Apply creator affinity as multiplier (2-3x boost)
   const affinityAdjustedScore = baseScore * affinityMultiplier;
 
+  // Apply penalty for users whose posts have been blocked (lower ranking by ~30%)
+  const penaltyAdjustedScore = affinityAdjustedScore * blockedPostPenalty;
+
   // Add random jitter to avoid static ordering
-  const finalScore = affinityAdjustedScore * (1 + (randomJitter - 1) * SCORING_WEIGHTS.RANDOMNESS);
+  const finalScore = penaltyAdjustedScore * (1 + (randomJitter - 1) * SCORING_WEIGHTS.RANDOMNESS);
 
   return finalScore;
 }

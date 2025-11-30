@@ -12,7 +12,9 @@ import 'package:z/utils/helpers.dart';
 import '../../providers/message_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../providers/moderation_provider.dart';
 import '../../services/analytics/firebase_analytics_service.dart';
+import '../../widgets/moderation/block_confirmation_dialog.dart';
 import 'package:z/widgets/messages/message_bubble.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -226,6 +228,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  Future<void> _handleBlockMessaging(
+    BuildContext context,
+    String currentUserId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => BlockConfirmationDialog(
+        title: 'Block for Messaging',
+        message: 'Block this user from messaging you?',
+        onConfirm: () {},
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final blockService = ref.read(blockServiceProvider);
+
+    try {
+      await blockService.blockUserForMessaging(
+        blockerId: currentUserId,
+        blockedUserId: widget.otherUserId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User blocked for messaging')),
+        );
+        Navigator.of(context).pop(); // Go back after blocking
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to block: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildPreview(XFile file) {
     final ext = file.path.split('.').last.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
@@ -315,6 +354,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           loading: () => const Text('Loading...'),
           error: (_, __) => const Text('Error loading user'),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'block') {
+                await _handleBlockMessaging(context, currentUserId);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'block',
+                child: Row(
+                  children: [
+                    Icon(Icons.block),
+                    SizedBox(width: 8),
+                    Text('Block for messaging'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [

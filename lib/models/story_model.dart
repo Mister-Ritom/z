@@ -38,6 +38,7 @@ class StoryModel {
   final StoryVisibility visibility;
   final DateTime createdAt;
   final List<String> visibleTo;
+  final bool isDeleted;
 
   StoryModel({
     required this.id,
@@ -47,6 +48,7 @@ class StoryModel {
     required this.visibility,
     required this.createdAt,
     required this.visibleTo,
+    this.isDeleted = false,
   });
 
   factory StoryModel.fromDoc(DocumentSnapshot doc) {
@@ -59,6 +61,7 @@ class StoryModel {
       visibility: StoryVisibility.fromString(data['visibility'] ?? 'public'),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       visibleTo: List<String>.from(data['visibleTo'] ?? []),
+      isDeleted: data['isDeleted'] ?? false,
     );
   }
 

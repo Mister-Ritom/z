@@ -4,24 +4,20 @@ class ShortVideoActions extends StatelessWidget {
   final bool isLiked;
   final int? commentsCount;
   final int? sharesCount;
-  final bool isBookmarked;
-  final bool isBookmarking;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onShare;
-  final VoidCallback onBookmark;
+  final VoidCallback onMoreOptions;
 
   const ShortVideoActions({
     super.key,
     required this.isLiked,
     required this.commentsCount,
     required this.sharesCount,
-    required this.isBookmarked,
-    required this.isBookmarking,
     required this.onLike,
     required this.onComment,
     required this.onShare,
-    required this.onBookmark,
+    required this.onMoreOptions,
   });
 
   @override
@@ -48,13 +44,9 @@ class ShortVideoActions extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _ActionButton(
-          icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-          color:
-              isBookmarked
-                  ? Theme.of(context).colorScheme.inverseSurface
-                  : Colors.grey,
-          isLoading: isBookmarking,
-          onTap: onBookmark,
+          icon: Icons.more_vert,
+          color: Colors.white,
+          onTap: onMoreOptions,
         ),
       ],
     );

@@ -7,12 +7,14 @@ class ZapUserHeader extends StatelessWidget {
   final UserModel user;
   final DateTime createdAt;
   final VoidCallback onTap;
+  final VoidCallback? onMoreOptions;
 
   const ZapUserHeader({
     super.key,
     required this.user,
     required this.createdAt,
     required this.onTap,
+    this.onMoreOptions,
   });
 
   @override
@@ -60,6 +62,14 @@ class ZapUserHeader extends StatelessWidget {
       subtitleTextStyle: Theme.of(
         context,
       ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+      trailing: onMoreOptions != null
+          ? IconButton(
+              icon: const Icon(Icons.more_vert),
+              onPressed: onMoreOptions,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            )
+          : null,
     );
   }
 }

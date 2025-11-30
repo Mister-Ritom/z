@@ -8,7 +8,6 @@ import 'package:z/models/zap_model.dart';
 import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
-import 'package:z/providers/bookmarking_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/constants.dart';
@@ -16,6 +15,7 @@ import 'package:z/widgets/media/video_player_widget.dart';
 import 'package:z/widgets/media/short_video/comment_sheet.dart';
 import 'package:z/widgets/media/short_video/short_video_actions.dart';
 import 'package:z/widgets/media/short_video/short_video_overlay.dart';
+import 'package:z/widgets/media/short_video/short_video_options_sheet.dart';
 
 // manual play state per zap id
 final manualShouldPlayProvider = StateProvider.family<bool, String>(
@@ -61,7 +61,6 @@ class ShortVideoWidget extends ConsumerWidget {
     final isBookmarkedAsync = ref.watch(
       isBookmarkedProvider((zapId: zap.id, userId: currentUser.uid)),
     );
-    final isBookmarking = ref.watch(bookmarkingProvider(zap.id));
 
     return userAsync.when(
       data: (user) {
@@ -89,8 +88,6 @@ class ShortVideoWidget extends ConsumerWidget {
                   isLiked: isLikedStream.valueOrNull == true,
                   commentsCount: commentsStream.valueOrNull,
                   sharesCount: sharesStream.valueOrNull,
-                  isBookmarked: isBookmarked,
-                  isBookmarking: isBookmarking,
                   onLike: () async {
                     await analytics.toggleLike(
                       currentUser.uid,
@@ -128,29 +125,21 @@ class ShortVideoWidget extends ConsumerWidget {
                     ref.read(manualShouldPlayProvider(zap.id).notifier).state =
                         true;
                   },
-                  onBookmark: () async {
-                    if (isBookmarking) return;
-                    final zapService = ref.read(zapServiceProvider(true));
-                    ref.read(bookmarkingProvider(zap.id).notifier).state = true;
-                    try {
-                      if (isBookmarked) {
-                        await zapService.removeBookmark(
-                          zap.id,
-                          currentUser.uid,
-                        );
-                      } else {
-                        await zapService.bookmarkZap(zap.id, currentUser.uid);
-                      }
-                      ref.invalidate(
-                        isBookmarkedProvider((
-                          zapId: zap.id,
-                          userId: currentUser.uid,
-                        )),
-                      );
-                    } finally {
-                      ref.read(bookmarkingProvider(zap.id).notifier).state =
-                          false;
-                    }
+                  onMoreOptions: () async {
+                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                        false;
+                    await showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => ShortVideoOptionsSheet(
+                        zapId: zap.id,
+                        zapUserId: zap.userId,
+                        currentUserId: currentUser.uid,
+                        isBookmarked: isBookmarked,
+                      ),
+                    );
+                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                        true;
                   },
                 ),
               ),

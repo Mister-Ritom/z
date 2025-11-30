@@ -109,6 +109,83 @@ async function getViewedShortIds(userId: string): Promise<Set<string>> {
   }
 }
 
+/**
+ * Get blocked short IDs for a user
+ */
+async function getBlockedShortIds(userId: string): Promise<Set<string>> {
+  try {
+    const blockedSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("blocked_posts")
+      .where("isShort", "==", true)
+      .select()
+      .limit(1000)
+      .get();
+
+    return new Set(blockedSnapshot.docs.map((doc) => doc.id));
+  } catch (error) {
+    functions.logger.warn(`Error fetching blocked short IDs for ${userId}:`, error);
+    return new Set();
+  }
+}
+
+/**
+ * Get blocked user IDs for content (affects recommendations)
+ */
+async function getBlockedUserIdsForContent(userId: string): Promise<Set<string>> {
+  try {
+    const blockedSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("blocked_users_content")
+      .select()
+      .limit(1000)
+      .get();
+
+    return new Set(blockedSnapshot.docs.map((doc) => doc.id));
+  } catch (error) {
+    functions.logger.warn(`Error fetching blocked user IDs for content for ${userId}:`, error);
+    return new Set();
+  }
+}
+
+/**
+ * Get user IDs whose shorts have been blocked (for ranking penalty)
+ */
+async function getUsersWithBlockedShorts(userId: string): Promise<Set<string>> {
+  try {
+    const blockedShortsSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("blocked_posts")
+      .where("isShort", "==", true)
+      .get();
+
+    // Get the userIds from the blocked shorts
+    const userIds = new Set<string>();
+    for (const doc of blockedShortsSnapshot.docs) {
+      const shortId = doc.id;
+      try {
+        const shortDoc = await db.collection(SHORTS_COLLECTION).doc(shortId).get();
+        if (shortDoc.exists) {
+          const data = shortDoc.data();
+          if (data?.userId) {
+            userIds.add(data.userId);
+          }
+        }
+      } catch (error) {
+        functions.logger.warn(`Error getting userId for blocked short ${shortId}:`, error);
+      }
+    }
+
+    return userIds;
+  } catch (error) {
+    functions.logger.warn(`Error fetching users with blocked shorts for ${userId}:`, error);
+    return new Set();
+  }
+}
+
 async function getShortInteractionCount(userId: string): Promise<number> {
   try {
     const likedSnapshot = await db
@@ -522,11 +599,22 @@ async function generateShortRecommendationsList(
   userId: string,
   interactionCount: number
 ): Promise<{ shortIds: string[]; isFallback: boolean }> {
-  const [tagsLiked, usersLiked, followedUserIds, viewedShortIds] = await Promise.all([
+  const [
+    tagsLiked,
+    usersLiked,
+    followedUserIds,
+    viewedShortIds,
+    blockedShortIds,
+    blockedUserIds,
+    usersWithBlockedShorts,
+  ] = await Promise.all([
     getUserTagPreferences(userId),
     getUserLikingPreferences(userId),
     getFollowedUserIds(userId),
     getViewedShortIds(userId),
+    getBlockedShortIds(userId),
+    getBlockedUserIdsForContent(userId),
+    getUsersWithBlockedShorts(userId),
   ]);
 
   const userProfile: UserProfile = {
@@ -535,6 +623,7 @@ async function generateShortRecommendationsList(
     followedUserIds,
     viewedZapIds: viewedShortIds,
     interactionCount,
+    usersWithBlockedPosts: usersWithBlockedShorts,
   };
 
   const [recentShorts, followedShorts] = await Promise.all([
@@ -548,7 +637,12 @@ async function generateShortRecommendationsList(
 
   const candidateMap = new Map<string, ZapCandidate>();
   [...recentShorts, ...followedShorts].forEach((candidate) => {
-    if (!viewedShortIds.has(candidate.zapId)) {
+    // Skip if already viewed, blocked, or from blocked user
+    if (
+      !viewedShortIds.has(candidate.zapId) &&
+      !blockedShortIds.has(candidate.zapId) &&
+      !blockedUserIds.has(candidate.userId)
+    ) {
       candidateMap.set(candidate.zapId, candidate);
     }
   });

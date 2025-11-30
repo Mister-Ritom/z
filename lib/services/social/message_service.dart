@@ -65,6 +65,44 @@ class MessageService {
     }
   }
 
+  /// Check if messaging is blocked between two users
+  Future<bool> isMessagingBlocked({
+    required String senderId,
+    required List<String> recipients,
+  }) async {
+    try {
+      // Check if sender has blocked any recipient for messaging
+      for (final recipientId in recipients) {
+        final senderBlockedDoc = await _firestore
+            .collection('users')
+            .doc(senderId)
+            .collection('blocked_users_messaging')
+            .doc(recipientId)
+            .get();
+        
+        if (senderBlockedDoc.exists) {
+          return true;
+        }
+
+        // Check if recipient has blocked sender for messaging
+        final recipientBlockedDoc = await _firestore
+            .collection('users')
+            .doc(recipientId)
+            .collection('blocked_users_messaging')
+            .doc(senderId)
+            .get();
+        
+        if (recipientBlockedDoc.exists) {
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      // If error, allow messaging (fail open)
+      return false;
+    }
+  }
+
   // ✅ Existing sendMessage (unchanged)
   Future<MessageModel> sendMessage({
     required String senderId,
@@ -75,6 +113,16 @@ class MessageService {
     String? videoUrl,
   }) async {
     try {
+      // Check if messaging is blocked
+      final isBlocked = await isMessagingBlocked(
+        senderId: senderId,
+        recipients: recipients,
+      );
+      
+      if (isBlocked) {
+        throw Exception('Messaging is blocked between these users');
+      }
+
       final conversationId = referenceId ?? _getConversationId(recipients);
 
       final message = MessageModel(
@@ -250,6 +298,40 @@ class MessageService {
       await batch.commit();
     } catch (e) {
       throw Exception('❌ Failed to mark message notifications as read: $e');
+    }
+  }
+
+  /// Delete a sent message (only by sender)
+  Future<void> deleteMessage({
+    required String messageId,
+    required String userId,
+  }) async {
+    try {
+      final messageDoc = await _firestore
+          .collection(AppConstants.messagesCollection)
+          .doc(messageId)
+          .get();
+
+      if (!messageDoc.exists) {
+        throw Exception('Message not found');
+      }
+
+      final messageData = messageDoc.data();
+      if (messageData == null) {
+        throw Exception('Message data not found');
+      }
+
+      final senderId = messageData['senderId'] as String?;
+      if (senderId != userId) {
+        throw Exception('Only the sender can delete this message');
+      }
+
+      await _firestore
+          .collection(AppConstants.messagesCollection)
+          .doc(messageId)
+          .update({'isDeleted': true});
+    } catch (e) {
+      throw Exception('Failed to delete message: $e');
     }
   }
 }

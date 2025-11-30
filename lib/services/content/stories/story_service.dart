@@ -15,6 +15,7 @@ class StoryService {
 
     return _stories
         .where('visibleTo', arrayContains: currentUserId)
+        .where('isDeleted', isEqualTo: false)
         .where('createdAt', isGreaterThanOrEqualTo: cutoff)
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -31,6 +32,7 @@ class StoryService {
 
     return _stories
         .where('visibility', isEqualTo: StoryVisibility.public.name)
+        .where('isDeleted', isEqualTo: false)
         .where('createdAt', isGreaterThanOrEqualTo: cutoff)
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -48,6 +50,7 @@ class StoryService {
     final snapshot =
         await _stories
             .where('visibility', isEqualTo: StoryVisibility.public.name)
+            .where('isDeleted', isEqualTo: false)
             .where('createdAt', isGreaterThanOrEqualTo: cutoff)
             .orderBy('createdAt', descending: true)
             .limit(limit)
@@ -63,6 +66,7 @@ class StoryService {
 
     return _stories
         .where('userId', isEqualTo: uid)
+        .where('isDeleted', isEqualTo: false)
         .where('createdAt', isGreaterThanOrEqualTo: cutoff)
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -87,6 +91,7 @@ class StoryService {
 
     return _stories
         .where('userId', isEqualTo: uid)
+        .where('isDeleted', isEqualTo: false)
         .where('createdAt', isGreaterThanOrEqualTo: cutoff)
         .limit(1)
         .snapshots()
@@ -107,6 +112,35 @@ class StoryService {
       'visibility': visibility.name,
       'createdAt': FieldValue.serverTimestamp(),
       'visibleTo': visibleTo,
+      'isDeleted': false,
     });
+  }
+
+  /// Delete a story (only by owner)
+  Future<void> deleteStory({
+    required String storyId,
+    required String userId,
+  }) async {
+    try {
+      final storyDoc = await _stories.doc(storyId).get();
+      
+      if (!storyDoc.exists) {
+        throw Exception('Story not found');
+      }
+
+      final storyData = storyDoc.data() as Map<String, dynamic>?;
+      if (storyData == null) {
+        throw Exception('Story data not found');
+      }
+
+      final storyUserId = storyData['userId'] as String?;
+      if (storyUserId != userId) {
+        throw Exception('Only the owner can delete this story');
+      }
+
+      await _stories.doc(storyId).update({'isDeleted': true});
+    } catch (e) {
+      throw Exception('Failed to delete story: $e');
+    }
   }
 }

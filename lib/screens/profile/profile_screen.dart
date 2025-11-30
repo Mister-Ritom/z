@@ -13,6 +13,10 @@ import 'package:z/screens/profile/widgets/tabs/replies_tab.dart';
 import 'package:z/screens/profile/widgets/tabs/zaps_tab.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/moderation_provider.dart';
+import '../../models/report_model.dart';
+import '../../widgets/moderation/block_confirmation_dialog.dart';
+import '../../widgets/moderation/report_dialog.dart';
 import 'edit_profile_screen.dart';
 import 'followers_screen.dart';
 import 'following_screen.dart';
@@ -155,54 +159,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _showReportDialog(BuildContext context) {
+    final currentUser = ref.read(currentUserModelProvider).valueOrNull;
+    if (currentUser == null) return;
+
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Report User'),
-            content: const Text('Are you sure you want to report this user?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('User reported successfully')),
-                  );
-                },
-                child: const Text('Report'),
-              ),
-            ],
-          ),
+      builder: (ctx) => ReportDialog(
+        reportType: ReportType.user,
+        userId: widget.userId,
+        reporterId: currentUser.id,
+      ),
     );
   }
 
-  void _showBlockDialog(BuildContext context) {
-    showDialog(
+  void _showBlockDialog(BuildContext context) async {
+    final currentUser = ref.read(currentUserModelProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final userAsync = ref.read(userProfileProvider(widget.userId));
+    final user = userAsync.valueOrNull;
+    final username = user?.username ?? widget.userId;
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Block User'),
-            content: const Text('Are you sure you want to block this user?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('User blocked successfully')),
-                  );
-                },
-                child: const Text('Block'),
-              ),
-            ],
-          ),
+      builder: (ctx) => BlockConfirmationDialog(
+        title: 'Block User',
+        message: 'Block @$username? You won\'t see their posts in your feed.',
+        onConfirm: () {},
+      ),
     );
+
+    if (confirmed != true) return;
+
+    final blockService = ref.read(blockServiceProvider);
+
+    try {
+      await blockService.blockUserForContent(
+        blockerId: currentUser.id,
+        blockedUserId: widget.userId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User blocked successfully')),
+        );
+        Navigator.of(context).pop(); // Go back after blocking
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to block user: $e')),
+        );
+      }
+    }
   }
 }

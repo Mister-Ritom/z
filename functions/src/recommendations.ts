@@ -126,6 +126,90 @@ async function getViewedZapIds(userId: string): Promise<Set<string>> {
 }
 
 /**
+ * Get blocked post IDs for a user
+ */
+async function getBlockedPostIds(userId: string): Promise<Set<string>> {
+  try {
+    const blockedSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("blocked_posts")
+      .select()
+      .limit(1000)
+      .get();
+
+    return new Set(blockedSnapshot.docs.map((doc) => doc.id));
+  } catch (error) {
+    functions.logger.warn(`Error fetching blocked post IDs for ${userId}:`, error);
+    return new Set();
+  }
+}
+
+/**
+ * Get blocked user IDs for content (affects recommendations)
+ */
+async function getBlockedUserIdsForContent(userId: string): Promise<Set<string>> {
+  try {
+    const blockedSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("blocked_users_content")
+      .select()
+      .limit(1000)
+      .get();
+
+    return new Set(blockedSnapshot.docs.map((doc) => doc.id));
+  } catch (error) {
+    functions.logger.warn(`Error fetching blocked user IDs for content for ${userId}:`, error);
+    return new Set();
+  }
+}
+
+/**
+ * Get user IDs whose posts have been blocked (for ranking penalty)
+ */
+async function getUsersWithBlockedPosts(userId: string): Promise<Set<string>> {
+  try {
+    const blockedPostsSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("blocked_posts")
+      .get();
+
+    // Get the userIds from the blocked posts
+    const userIds = new Set<string>();
+    for (const doc of blockedPostsSnapshot.docs) {
+      const postId = doc.id;
+      try {
+        // Check both zaps and shorts collections
+        const zapDoc = await db.collection(ZAPS_COLLECTION).doc(postId).get();
+        if (zapDoc.exists) {
+          const data = zapDoc.data();
+          if (data?.userId) {
+            userIds.add(data.userId);
+          }
+        } else {
+          const shortDoc = await db.collection("shorts").doc(postId).get();
+          if (shortDoc.exists) {
+            const data = shortDoc.data();
+            if (data?.userId) {
+              userIds.add(data.userId);
+            }
+          }
+        }
+      } catch (error) {
+        functions.logger.warn(`Error getting userId for blocked post ${postId}:`, error);
+      }
+    }
+
+    return userIds;
+  } catch (error) {
+    functions.logger.warn(`Error fetching users with blocked posts for ${userId}:`, error);
+    return new Set();
+  }
+}
+
+/**
  * Count user's meaningful interactions (likes, views, reposts)
  */
 async function getUserInteractionCount(userId: string): Promise<number> {
@@ -787,11 +871,22 @@ async function generatePersonalizedRecommendations(
   interactionCount: number = 0
 ): Promise<{ zapIds: string[]; isFallback: boolean }> {
   // Fetch user profile data in parallel
-  const [tagsLiked, usersLiked, followedUserIds, viewedZapIds] = await Promise.all([
+  const [
+    tagsLiked,
+    usersLiked,
+    followedUserIds,
+    viewedZapIds,
+    blockedPostIds,
+    blockedUserIds,
+    usersWithBlockedPosts,
+  ] = await Promise.all([
     getUserTagPreferences(userId),
     getUserLikingPreferences(userId),
     getFollowedUserIds(userId),
     getViewedZapIds(userId),
+    getBlockedPostIds(userId),
+    getBlockedUserIdsForContent(userId),
+    getUsersWithBlockedPosts(userId),
   ]);
 
   const userProfile: UserProfile = {
@@ -800,6 +895,7 @@ async function generatePersonalizedRecommendations(
     followedUserIds,
     viewedZapIds,
     interactionCount,
+    usersWithBlockedPosts,
   };
 
   // New user or zero interactions: return curated + trending mix
@@ -814,9 +910,15 @@ async function generatePersonalizedRecommendations(
       MAX_TRENDING_CANDIDATES
     );
 
+    // Filter out blocked content from trending candidates
+    const filteredTrendingCandidates = trendingCandidates.filter(
+      (c) =>
+        !blockedPostIds.has(c.zapId) && !blockedUserIds.has(c.userId)
+    );
+
     // Mix: 70% curated, 30% trending
     const curatedCount = Math.floor(MAX_FINAL_RECOMMENDATIONS * 0.7);
-    const trendingZapIds = trendingCandidates
+    const trendingZapIds = filteredTrendingCandidates
       .slice(0, MAX_FINAL_RECOMMENDATIONS - curatedCount)
       .map((c) => c.zapId);
 
@@ -856,9 +958,15 @@ async function generatePersonalizedRecommendations(
       ),
     ]);
 
+    // Combine and deduplicate candidates, filtering blocked content
     const candidateMap = new Map<string, ZapCandidate>();
     [...trendingCandidates, ...followedCandidates].forEach((candidate) => {
-      if (!viewedZapIds.has(candidate.zapId)) {
+      // Skip if already viewed, blocked, or from blocked user
+      if (
+        !viewedZapIds.has(candidate.zapId) &&
+        !blockedPostIds.has(candidate.zapId) &&
+        !blockedUserIds.has(candidate.userId)
+      ) {
         candidateMap.set(candidate.zapId, candidate);
       }
     });
@@ -903,7 +1011,7 @@ async function generatePersonalizedRecommendations(
       fetchOlderPosts(viewedZapIds, MAX_OLDER_POSTS), // Older posts with lower probability
     ]);
 
-  // Combine and deduplicate candidates
+  // Combine and deduplicate candidates, filtering blocked content
   const candidateMap = new Map<string, ZapCandidate>();
   [
     ...trendingCandidates,
@@ -911,7 +1019,12 @@ async function generatePersonalizedRecommendations(
     ...newPosts,
     ...olderPosts,
   ].forEach((candidate) => {
-    if (!viewedZapIds.has(candidate.zapId)) {
+    // Skip if already viewed, blocked, or from blocked user
+    if (
+      !viewedZapIds.has(candidate.zapId) &&
+      !blockedPostIds.has(candidate.zapId) &&
+      !blockedUserIds.has(candidate.userId)
+    ) {
       candidateMap.set(candidate.zapId, candidate);
     }
   });

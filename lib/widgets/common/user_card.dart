@@ -87,44 +87,90 @@ class UserCard extends ConsumerWidget {
   }
 
   Widget _followButton(String currentUserId, String userId, WidgetRef ref) {
+    return _FollowButtonWidget(currentUserId: currentUserId, userId: userId);
+  }
+}
+
+class _FollowButtonWidget extends ConsumerStatefulWidget {
+  final String currentUserId;
+  final String userId;
+
+  const _FollowButtonWidget({
+    required this.currentUserId,
+    required this.userId,
+  });
+
+  @override
+  ConsumerState<_FollowButtonWidget> createState() =>
+      _FollowButtonWidgetState();
+}
+
+class _FollowButtonWidgetState extends ConsumerState<_FollowButtonWidget> {
+  bool? _isFollowing;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowingStatus();
+  }
+
+  Future<void> _loadFollowingStatus() async {
     final profileService = ref.read(profileServiceProvider);
+    final isFollowing = await profileService.isFollowing(
+      widget.currentUserId,
+      widget.userId,
+    );
+    if (mounted) {
+      setState(() {
+        _isFollowing = isFollowing;
+        _isLoading = false;
+      });
+    }
+  }
 
-    return FutureBuilder<bool>(
-      future: profileService.isFollowing(currentUserId, userId),
-      builder: (context, snapshot) {
-        final isFollowing = snapshot.data ?? false;
-        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed:
+            _isLoading
+                ? null
+                : () async {
+                  setState(() {
+                    _isLoading = true;
+                  });
 
-        return SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed:
-                isLoading
-                    ? null
-                    : () async {
-                      if (isFollowing) {
-                        await profileService.unfollowUser(
-                          currentUserId,
-                          userId,
-                        );
-                      } else {
-                        await profileService.followUser(currentUserId, userId);
-                      }
+                  final profileService = ref.read(profileServiceProvider);
+                  if (_isFollowing == true) {
+                    await profileService.unfollowUser(
+                      widget.currentUserId,
+                      widget.userId,
+                    );
+                  } else {
+                    await profileService.followUser(
+                      widget.currentUserId,
+                      widget.userId,
+                    );
+                  }
 
-                      // Trigger rebuild after following/unfollowing
-                      (context as Element).markNeedsBuild();
-                    },
-            child:
-                isLoading
-                    ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : Text(isFollowing ? 'Following' : 'Follow'),
-          ),
-        );
-      },
+                  if (mounted) {
+                    setState(() {
+                      _isFollowing = !(_isFollowing ?? false);
+                      _isLoading = false;
+                    });
+                  }
+                },
+        child:
+            _isLoading
+                ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                : Text(_isFollowing == true ? 'Following' : 'Follow'),
+      ),
     );
   }
 }

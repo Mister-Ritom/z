@@ -187,13 +187,33 @@ mixin _ZapServiceCrud on _ZapServiceBase {
     }
   }
 
-  Future<void> deleteZap(String zapId) async {
+  Future<void> deleteZap(String zapId, String userId) async {
     try {
+      // Check if user is the owner
+      final zap = await getZapById(zapId);
+      if (zap == null) {
+        throw Exception('Zap not found');
+      }
+      
+      // Check if user is the owner (check both userId and originalUserId for rezaps)
+      if (zap.userId != userId && zap.originalUserId != userId) {
+        throw Exception('Only the owner can delete this zap');
+      }
+
       await _collection.doc(zapId).update({'isDeleted': true});
+      
+      // Decrement zaps count if this is the original creator
+      if (zap.userId == userId) {
+        await _firestore
+            .collection(AppConstants.usersCollection)
+            .doc(userId)
+            .update({'zapsCount': FieldValue.increment(-1)});
+      }
+      
       AppLogger.info(
         'ZapService',
         'Zap deleted successfully',
-        data: {'zapId': zapId, 'isShort': isShort},
+        data: {'zapId': zapId, 'userId': userId, 'isShort': isShort},
       );
     } catch (e, st) {
       AppLogger.error(
@@ -201,7 +221,7 @@ mixin _ZapServiceCrud on _ZapServiceBase {
         'Error deleting zap',
         error: e,
         stackTrace: st,
-        data: {'zapId': zapId, 'isShort': isShort},
+        data: {'zapId': zapId, 'userId': userId, 'isShort': isShort},
       );
       throw Exception('Failed to delete zap: $e');
     }
