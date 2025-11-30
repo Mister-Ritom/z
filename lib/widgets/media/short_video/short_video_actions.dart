@@ -57,14 +57,13 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final int? count;
   final Color color;
-  final bool isLoading;
+  final bool isLoading = false;
   final VoidCallback onTap;
 
   const _ActionButton({
     required this.icon,
     this.count,
     this.color = Colors.white,
-    this.isLoading = false,
     required this.onTap,
   });
 

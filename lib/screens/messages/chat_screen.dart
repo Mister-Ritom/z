@@ -198,7 +198,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         reason: 'Failed to send message in chat screen',
         fatal: false,
       );
-      if (mounted) {
+      if (mounted && context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
@@ -252,14 +252,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         blockerId: currentUserId,
         blockedUserId: widget.otherUserId,
       );
-      if (mounted) {
+      if (mounted && context.mounted && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User blocked for messaging')),
         );
         Navigator.of(context).pop(); // Go back after blocking
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to block: $e')));

@@ -197,14 +197,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         blockerId: currentUser.id,
         blockedUserId: widget.userId,
       );
-      if (mounted) {
+      if (mounted && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User blocked successfully')),
         );
         Navigator.of(context).pop(); // Go back after blocking
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to block user: $e')));
