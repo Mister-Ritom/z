@@ -41,14 +41,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     // Convert initial media paths to XFile if provided
-    if (widget.initialMediaPaths != null && widget.initialMediaPaths!.isNotEmpty) {
+    if (widget.initialMediaPaths != null &&
+        widget.initialMediaPaths!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final files = widget.initialMediaPaths!.map((path) {
-          final cleanPath = path.startsWith('file://') 
-              ? path.substring(7) 
-              : path;
-          return XFile(cleanPath);
-        }).toList();
+        final files =
+            widget.initialMediaPaths!.map((path) {
+              final cleanPath =
+                  path.startsWith('file://') ? path.substring(7) : path;
+              return XFile(cleanPath);
+            }).toList();
         setState(() {
           _selectedFiles = files;
         });
@@ -234,11 +235,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => BlockConfirmationDialog(
-        title: 'Block for Messaging',
-        message: 'Block this user from messaging you?',
-        onConfirm: () {},
-      ),
+      builder:
+          (ctx) => BlockConfirmationDialog(
+            title: 'Block for Messaging',
+            message: 'Block this user from messaging you?',
+            onConfirm: () {},
+          ),
     );
 
     if (confirmed != true) return;
@@ -258,9 +260,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to block: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to block: $e')));
       }
     }
   }
@@ -361,18 +363,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 await _handleBlockMessaging(context, currentUserId);
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'block',
-                child: Row(
-                  children: [
-                    Icon(Icons.block),
-                    SizedBox(width: 8),
-                    Text('Block for messaging'),
-                  ],
-                ),
-              ),
-            ],
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(
+                    value: 'block',
+                    child: Row(
+                      children: [
+                        Icon(Icons.block),
+                        SizedBox(width: 8),
+                        Text('Block for messaging'),
+                      ],
+                    ),
+                  ),
+                ],
           ),
         ],
       ),

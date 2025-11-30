@@ -150,11 +150,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _openChat(String currentUserId, UserModel user) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          otherUserId: user.id,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => ChatScreen(otherUserId: user.id)),
     );
   }
 
@@ -164,11 +160,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     showDialog(
       context: context,
-      builder: (ctx) => ReportDialog(
-        reportType: ReportType.user,
-        userId: widget.userId,
-        reporterId: currentUser.id,
-      ),
+      builder:
+          (ctx) => ReportDialog(
+            reportType: ReportType.user,
+            userId: widget.userId,
+            reporterId: currentUser.id,
+          ),
     );
   }
 
@@ -182,11 +179,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => BlockConfirmationDialog(
-        title: 'Block User',
-        message: 'Block @$username? You won\'t see their posts in your feed.',
-        onConfirm: () {},
-      ),
+      builder:
+          (ctx) => BlockConfirmationDialog(
+            title: 'Block User',
+            message:
+                'Block @$username? You won\'t see their posts in your feed.',
+            onConfirm: () {},
+          ),
     );
 
     if (confirmed != true) return;
@@ -206,9 +205,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to block user: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to block user: $e')));
       }
     }
   }

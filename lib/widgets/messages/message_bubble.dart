@@ -24,12 +24,13 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => BlockConfirmationDialog(
-        title: 'Delete Message',
-        message: 'Are you sure you want to delete this message?',
-        confirmText: 'Delete',
-        onConfirm: () {},
-      ),
+      builder:
+          (context) => BlockConfirmationDialog(
+            title: 'Delete Message',
+            message: 'Are you sure you want to delete this message?',
+            confirmText: 'Delete',
+            onConfirm: () {},
+          ),
     );
 
     if (confirmed != true) return;
@@ -43,15 +44,15 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         userId: widget.message.senderId,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Message deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Message deleted')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
       }
     } finally {
       if (mounted) {
@@ -77,106 +78,119 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         child: Stack(
           children: [
             Container(
-            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            decoration: BoxDecoration(
-              color: bubbleColor,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft:
-                    widget.isMe ? const Radius.circular(16) : const Radius.circular(0),
-                bottomRight:
-                    widget.isMe ? const Radius.circular(0) : const Radius.circular(16),
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+              decoration: BoxDecoration(
+                color: bubbleColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft:
+                      widget.isMe
+                          ? const Radius.circular(16)
+                          : const Radius.circular(0),
+                  bottomRight:
+                      widget.isMe
+                          ? const Radius.circular(0)
+                          : const Radius.circular(16),
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.message.text.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      widget.message.text,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 15,
-                        height: 1.4,
-                      ),
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-
-                if (widget.message.mediaUrls != null && widget.message.mediaUrls!.isNotEmpty)
-                  MediaCarousel(mediaUrls: widget.message.mediaUrls!, maxHeight: 450),
-
-                const SizedBox(height: 4),
-
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment:
-                      widget.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                  children: [
-                    Text(
-                      timeago.format(widget.message.createdAt),
-                      style: TextStyle(
-                        color: widget.isMe ? Colors.white70 : Colors.grey[600],
-                        fontSize: 10,
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.message.text.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        widget.message.text,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 15,
+                          height: 1.4,
+                        ),
                       ),
                     ),
-                    if (widget.isMe) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        widget.message.isRead
-                            ? Icons.done_all_rounded
-                            : Icons.done_rounded,
-                        size: 16,
-                        color:
-                            widget.message.isRead
-                                ? Colors.lightBlueAccent
-                                : (widget.isMe ? Colors.white70 : Colors.grey),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
 
-          if (widget.message.isPending)
-            Positioned(
-              bottom: 6,
-              right: widget.isMe ? 14 : null,
-              left: widget.isMe ? null : 14,
-              child: SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.6,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
-                ),
+                  if (widget.message.mediaUrls != null &&
+                      widget.message.mediaUrls!.isNotEmpty)
+                    MediaCarousel(
+                      mediaUrls: widget.message.mediaUrls!,
+                      maxHeight: 450,
+                    ),
+
+                  const SizedBox(height: 4),
+
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment:
+                        widget.isMe
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                    children: [
+                      Text(
+                        timeago.format(widget.message.createdAt),
+                        style: TextStyle(
+                          color:
+                              widget.isMe ? Colors.white70 : Colors.grey[600],
+                          fontSize: 10,
+                        ),
+                      ),
+                      if (widget.isMe) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          widget.message.isRead
+                              ? Icons.done_all_rounded
+                              : Icons.done_rounded,
+                          size: 16,
+                          color:
+                              widget.message.isRead
+                                  ? Colors.lightBlueAccent
+                                  : (widget.isMe
+                                      ? Colors.white70
+                                      : Colors.grey),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
             ),
-          if (_isDeleting)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black54,
-                child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
+
+            if (widget.message.isPending)
+              Positioned(
+                bottom: 6,
+                right: widget.isMe ? 14 : null,
+                left: widget.isMe ? null : 14,
+                child: SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.6,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
+            if (_isDeleting)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
