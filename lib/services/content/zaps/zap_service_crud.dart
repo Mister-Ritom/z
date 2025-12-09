@@ -69,6 +69,7 @@ mixin _ZapServiceCrud on _ZapServiceBase {
     List<String> mediaUrls = const [],
     String? parentZapId,
     String? quotedZapId,
+    String? songId,
   }) async {
     try {
       final effectiveParentId = isShort ? null : parentZapId;
@@ -88,6 +89,7 @@ mixin _ZapServiceCrud on _ZapServiceBase {
         hashtags: hashtags,
         mentions: mentions,
         isShort: isShort,
+        songId: songId,
       );
 
       await _collection.doc(zap.id).set(zap.toMap());
@@ -194,14 +196,14 @@ mixin _ZapServiceCrud on _ZapServiceBase {
       if (zap == null) {
         throw Exception('Zap not found');
       }
-      
+
       // Check if user is the owner (check both userId and originalUserId for rezaps)
       if (zap.userId != userId && zap.originalUserId != userId) {
         throw Exception('Only the owner can delete this zap');
       }
 
       await _collection.doc(zapId).update({'isDeleted': true});
-      
+
       // Decrement zaps count if this is the original creator
       if (zap.userId == userId) {
         await _firestore
@@ -209,7 +211,7 @@ mixin _ZapServiceCrud on _ZapServiceBase {
             .doc(userId)
             .update({'zapsCount': FieldValue.increment(-1)});
       }
-      
+
       AppLogger.info(
         'ZapService',
         'Zap deleted successfully',

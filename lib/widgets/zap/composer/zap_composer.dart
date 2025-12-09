@@ -1,16 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:z/models/song_model.dart';
+import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/storage_provider.dart';
+import 'package:z/providers/zap_provider.dart';
+import 'package:z/services/analytics/firebase_analytics_service.dart';
+import 'package:z/utils/constants.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/widgets/common/profile_picture.dart';
 import 'package:z/widgets/media/video_player_widget.dart';
-import 'package:z/providers/zap_provider.dart';
-import 'package:z/providers/auth_provider.dart';
-import 'package:z/providers/storage_provider.dart';
-import 'package:z/services/analytics/firebase_analytics_service.dart';
-import 'package:z/utils/constants.dart';
+import 'package:z/widgets/song/song_picker_dialog.dart';
 
 import 'media_preview.dart';
 
@@ -39,6 +42,7 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
     (ref) => AppConstants.maxZapLength,
   );
   final isShortProvider = StateProvider((ref) => false);
+  final selectedSongProvider = StateProvider<SongModel?>((ref) => null);
 
   @override
   void initState() {
@@ -51,8 +55,7 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
         ref.read(remainingCharsProvider.notifier).state = newRemaining;
       }
     });
-    
-    // Initialize with provided media if available
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.initialMedia != null && widget.initialMedia!.isNotEmpty) {
         ref.read(selectedMediaProvider.notifier).state = widget.initialMedia!;
@@ -104,13 +107,32 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
   }
 
   Future<void> _addSong() async {
-    // TODO: Implement song picker for shorts
+    final isShort = ref.read(isShortProvider);
+    if (!isShort) return;
+
+    final song = await showModalBottomSheet<SongModel>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const SongPickerDialog(),
+    );
+
+    if (song == null) return;
+
+    ref.read(selectedSongProvider.notifier).state = song;
+  }
+
+  Future<XFile> _makeVideoSilent(XFile original) async {
+    final editor = VideoEditorBuilder(videoPath: original.path).removeAudio();
+    final outputPath = await editor.export();
+    if (outputPath == null) throw Exception("couldn't edit");
+    return XFile(outputPath);
   }
 
   Future<void> _sendZap(String currentUserId) async {
     final text = _textController.text.trim();
     final media = ref.read(selectedMediaProvider);
     final isShort = ref.read(isShortProvider);
+    final selectedSong = ref.read(selectedSongProvider);
 
     if (text.isEmpty && media.isEmpty) {
       if (isShort && mounted) {
@@ -140,8 +162,15 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
 
     try {
       if (media.isNotEmpty) {
+        List<XFile> filesToUpload = media;
+
+        if (isShort && selectedSong != null && media.isNotEmpty) {
+          final silentVideo = await _makeVideoSilent(media.first);
+          filesToUpload = [silentVideo];
+        }
+
         uploadService.uploadFiles(
-          files: media,
+          files: filesToUpload,
           type: isShort ? UploadType.shorts : UploadType.zap,
           referenceId: id,
           onComplete: (urls) async {
@@ -151,8 +180,8 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
               text: text,
               mediaUrls: urls,
               parentZapId: widget.replyToZapId,
+              songId: selectedSong?.id,
             );
-            // Track post creation
             await FirebaseAnalyticsService.logPostCreated(
               contentType: 'media',
               isShort: isShort,
@@ -171,7 +200,6 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
           text: text,
           parentZapId: widget.replyToZapId,
         );
-        // Track post creation
         await FirebaseAnalyticsService.logPostCreated(
           contentType: 'text',
           isShort: isShort,
@@ -180,7 +208,12 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
       AppLogger.info(
         'ZapComposer',
         'Zap created successfully',
-        data: {'zapId': id, 'isShort': isShort, 'hasMedia': media.isNotEmpty},
+        data: {
+          'zapId': id,
+          'isShort': isShort,
+          'hasMedia': media.isNotEmpty,
+          'songId': selectedSong?.id,
+        },
       );
     } catch (e, st) {
       AppLogger.error(
@@ -190,7 +223,6 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
         stackTrace: st,
         data: {'isShort': isShort, 'hasMedia': media.isNotEmpty},
       );
-      // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,
         st,
@@ -209,10 +241,11 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
     final remainingChars = ref.watch(remainingCharsProvider);
     final isShort = ref.watch(isShortProvider);
     final media = ref.watch(selectedMediaProvider);
+    final selectedSong = ref.watch(selectedSongProvider);
 
     if (currentUser == null) {
       context.go("/login");
-      return Text("Sign in");
+      return const Text("Sign in");
     }
 
     return Scaffold(
@@ -235,6 +268,9 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
                 if (value == null) return;
                 ref.read(isShortProvider.notifier).state = value;
                 ref.read(selectedMediaProvider.notifier).state = [];
+                if (!value) {
+                  ref.read(selectedSongProvider.notifier).state = null;
+                }
               },
             ),
           ),
@@ -288,6 +324,23 @@ class _ZapComposerState extends ConsumerState<ZapComposer> {
                     media,
                   )..remove(file);
                 },
+              ),
+            if (isShort && selectedSong != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: NetworkImage(selectedSong.coverUrl),
+                  ),
+                  title: Text(selectedSong.title),
+                  subtitle: Text(selectedSong.artist),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      ref.read(selectedSongProvider.notifier).state = null;
+                    },
+                  ),
+                ),
               ),
             const SizedBox(height: 16),
             Row(

@@ -36,9 +36,9 @@ class _ReportDialogState extends State<ReportDialog> {
 
   Future<void> _submitReport() async {
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a category')));
       return;
     }
 
@@ -52,9 +52,10 @@ class _ReportDialogState extends State<ReportDialog> {
         userId: widget.userId,
         storyId: widget.storyId,
         category: _selectedCategory!,
-        additionalDetails: _detailsController.text.trim().isEmpty
-            ? null
-            : _detailsController.text.trim(),
+        additionalDetails:
+            _detailsController.text.trim().isEmpty
+                ? null
+                : _detailsController.text.trim(),
       );
 
       if (mounted) {
@@ -65,9 +66,9 @@ class _ReportDialogState extends State<ReportDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit report: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to submit report: $e')));
       }
     } finally {
       if (mounted) {
@@ -106,8 +107,8 @@ class _ReportDialogState extends State<ReportDialog> {
         widget.reportType == ReportType.user
             ? 'Report User'
             : widget.reportType == ReportType.story
-                ? 'Report Story'
-                : 'Report Post',
+            ? 'Report Story'
+            : 'Report Post',
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -119,16 +120,24 @@ class _ReportDialogState extends State<ReportDialog> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            ...ReportCategory.values.map((category) {
-              return RadioListTile<ReportCategory>(
-                title: Text(_getCategoryLabel(category)),
-                value: category,
-                groupValue: _selectedCategory,
-                onChanged: (value) {
-                  setState(() => _selectedCategory = value);
-                },
-              );
-            }),
+            RadioGroup<ReportCategory>(
+              groupValue: _selectedCategory,
+              onChanged: (value) {
+                setState(() => _selectedCategory = value);
+              },
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  ...ReportCategory.values.map((category) {
+                    return RadioListTile<ReportCategory>(
+                      title: Text(_getCategoryLabel(category)),
+                      value: category,
+                    );
+                  }),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 16),
             const Text(
               'Additional details (optional)',
@@ -153,16 +162,16 @@ class _ReportDialogState extends State<ReportDialog> {
         ),
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitReport,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Submit'),
+          child:
+              _isSubmitting
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Text('Submit'),
         ),
       ],
     );
   }
 }
-

@@ -4,8 +4,8 @@ class ZapModel {
   final String id;
   final String userId;
   final String? originalUserId;
-  final String? parentZapId; // For replies
-  final String? quotedZapId; // For quote zaps
+  final String? parentZapId;
+  final String? quotedZapId;
   final String text;
   final List<String> mediaUrls;
   final DateTime createdAt;
@@ -18,14 +18,13 @@ class ZapModel {
   final List<String> hashtags;
   final List<String> mentions;
   final bool isDeleted;
+  final String? songId; // 👈 NEW
   final DocumentSnapshot? docSnapshot;
 
   ZapModel({
     required this.id,
     required this.userId,
     this.originalUserId,
-    this.isShort = false,
-    this.docSnapshot,
     this.parentZapId,
     this.quotedZapId,
     required this.text,
@@ -39,56 +38,40 @@ class ZapModel {
     this.hashtags = const [],
     this.mentions = const [],
     this.isDeleted = false,
+    this.songId, // 👈 NEW
+    this.isShort = false,
+    this.docSnapshot,
   });
 
   factory ZapModel.fromMap(
     Map<String, dynamic> map, {
     DocumentSnapshot? snapshot,
   }) {
+    final urls = List<String>.from((map['mediaUrls'] ?? []));
+    if (map.containsKey("mediaUrl")) urls.add(map["mediaUrl"]);
     return ZapModel(
       id: map['id'] ?? '',
-      isShort: map['isShort'] ?? false,
-      originalUserId: map['originalUserId'],
-      docSnapshot: snapshot,
       userId: map['userId'] ?? '',
+      originalUserId: map['originalUserId'],
       parentZapId: map['parentZapId'],
       quotedZapId: map['quotedZapId'],
       text: map['text'] ?? '',
-      mediaUrls: List<String>.from(
-        (map['mediaUrls'] != null && (map['mediaUrls'] as List).isNotEmpty)
-            ? map['mediaUrls']
-            : (map['mediaUrl'] != null ? [map['mediaUrl']] : []),
-      ),
-
-      createdAt: () {
-        final value = map['createdAt'];
-
-        if (value == null) return DateTime.now();
-
-        // Firestore Timestamp
-        if (value is Timestamp) return value.toDate();
-
-        // int milliseconds (or seconds)
-        if (value is int) {
-          // If it's too small (e.g., 10-digit seconds), convert to ms
-          if (value < 1000000000000) {
-            return DateTime.fromMillisecondsSinceEpoch(value * 1000);
-          }
-          return DateTime.fromMillisecondsSinceEpoch(value);
-        }
-
-        // Fallback
-        return DateTime.now();
-      }(),
-
+      mediaUrls: urls,
+      createdAt:
+          map['createdAt'] is Timestamp
+              ? (map['createdAt'] as Timestamp).toDate()
+              : DateTime.now(),
       likesCount: map['likesCount'] ?? 0,
       rezapsCount: map['rezapsCount'] ?? 0,
       repliesCount: map['repliesCount'] ?? 0,
       isThread: map['isThread'] ?? false,
+      isShort: map['isShort'] ?? false,
       threadParentId: map['threadParentId'],
       hashtags: List<String>.from(map['hashtags'] ?? []),
       mentions: List<String>.from(map['mentions'] ?? []),
       isDeleted: map['isDeleted'] ?? false,
+      songId: map['songId'], // 👈 NEW
+      docSnapshot: snapshot,
     );
   }
 
@@ -96,7 +79,7 @@ class ZapModel {
     return {
       'id': id,
       'userId': userId,
-      'isShort': isShort,
+      'originalUserId': originalUserId,
       'parentZapId': parentZapId,
       'quotedZapId': quotedZapId,
       'text': text,
@@ -109,7 +92,9 @@ class ZapModel {
       'threadParentId': threadParentId,
       'hashtags': hashtags,
       'mentions': mentions,
+      'isShort': isShort,
       'isDeleted': isDeleted,
+      'songId': songId, // 👈 NEW
     };
   }
 
@@ -130,6 +115,7 @@ class ZapModel {
     List<String>? hashtags,
     List<String>? mentions,
     bool? isDeleted,
+    String? songId, // 👈 NEW
   }) {
     return ZapModel(
       id: id ?? this.id,
@@ -149,6 +135,7 @@ class ZapModel {
       hashtags: hashtags ?? this.hashtags,
       mentions: mentions ?? this.mentions,
       isDeleted: isDeleted ?? this.isDeleted,
+      songId: songId ?? this.songId, // 👈 NEW
     );
   }
 }
