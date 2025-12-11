@@ -133,6 +133,4 @@ class Helpers {
         path.startsWith('file://') ||
         !(path.startsWith('http://') || path.startsWith('https://'));
   }
-
-  static bool get isGlassSupported => !kIsWeb && (Platform.isIOS);
 }

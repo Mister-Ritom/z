@@ -18,7 +18,7 @@ class ZapModel {
   final List<String> hashtags;
   final List<String> mentions;
   final bool isDeleted;
-  final String? songId; // 👈 NEW
+  final String? songId;
   final DocumentSnapshot? docSnapshot;
 
   ZapModel({
@@ -94,7 +94,7 @@ class ZapModel {
       'mentions': mentions,
       'isShort': isShort,
       'isDeleted': isDeleted,
-      'songId': songId, // 👈 NEW
+      'songId': songId,
     };
   }
 

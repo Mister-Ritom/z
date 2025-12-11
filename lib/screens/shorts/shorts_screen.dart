@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:video_player/video_player.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/services/content/recommendations/recommendation_cache_service.dart';
@@ -9,17 +8,14 @@ import 'package:z/widgets/ads/ad_widgets.dart';
 import 'package:z/widgets/media/short_video/short_video_widget.dart';
 
 class ShortsScreen extends ConsumerStatefulWidget {
-  final bool isActive; // parent tells if this page is active
-  const ShortsScreen({super.key, required this.isActive});
+  const ShortsScreen({super.key});
 
   @override
   ConsumerState<ShortsScreen> createState() => _ShortsScreenState();
 }
 
-class _ShortsScreenState extends ConsumerState<ShortsScreen>
-    with AutomaticKeepAliveClientMixin {
+class _ShortsScreenState extends ConsumerState<ShortsScreen> {
   final PageController _pageController = PageController(viewportFraction: 0.99);
-  VideoPlayerController? _currentController;
   final AdManager _adManager = AdManager();
   bool _showingAd = false;
   bool _hasInitialized = false;
@@ -33,14 +29,15 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       _hasInitialized = true;
-      
-      // Load lastViewedZapId from cache
+
       final cacheService = RecommendationCacheService();
-      final lastViewedZapId = await cacheService.getLastViewedZapId(isShort: true);
-      
-      await ref.read(_forYouFeed.notifier).loadInitial(
-        lastViewedZapId: lastViewedZapId,
+      final lastViewedZapId = await cacheService.getLastViewedZapId(
+        isShort: true,
       );
+
+      await ref
+          .read(_forYouFeed.notifier)
+          .loadInitial(lastViewedZapId: lastViewedZapId);
     });
   }
 
@@ -49,24 +46,6 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
     _pageController.dispose();
     super.dispose();
   }
-
-  @override
-  void didUpdateWidget(covariant ShortsScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Page became inactive → pause
-    if (!widget.isActive && oldWidget.isActive) {
-      _currentController?.pause();
-    }
-
-    // Page became active → play current video
-    if (widget.isActive && !oldWidget.isActive) {
-      _currentController?.play();
-    }
-  }
-
-  @override
-  bool get wantKeepAlive => true; // keeps state in IndexedStack
 
   Future<void> _onRefresh() async {
     await ref.read(_forYouFeed.notifier).refreshFeed();
@@ -79,7 +58,6 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
       _showingAd = true;
     });
 
-    // Show ad as overlay
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -120,19 +98,17 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
     final remainingPages = notification.metrics.extentAfter / viewport;
 
     if (remainingPages <= thresholdPages) {
-      ref.read(_forYouFeed.notifier).loadMore(
-        lastViewedZapId: feedState.lastViewedZapId,
-      );
+      ref
+          .read(_forYouFeed.notifier)
+          .loadMore(lastViewedZapId: feedState.lastViewedZapId);
     }
     return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
     final feedState = ref.watch(_forYouFeed);
-    final zaps = feedState.zaps.reversed.toList();
+    final zaps = (feedState.zaps).reversed.toList();
     final isLoading = feedState.isLoading;
 
     if (zaps.isEmpty) {
@@ -167,7 +143,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
       body: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light, // ensures white icons on top
+        value: SystemUiOverlayStyle.light,
         child: MediaQuery.removePadding(
           context: context,
           removeTop: true,
@@ -189,18 +165,17 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
                     _showingAd = false;
                   });
 
-                  // Track last viewed zap ID
                   if (index < zaps.length) {
                     final currentZap = zaps[index];
-                    ref.read(_forYouFeed.notifier).updateLastViewedZapId(currentZap.id);
+                    ref
+                        .read(_forYouFeed.notifier)
+                        .updateLastViewedZapId(currentZap.id);
                   }
 
-                  // Check if we should show an ad after this video
                   if (_adManager.shouldShowShortsAd() &&
                       index > 0 &&
                       index < zaps.length - 1 &&
                       !_showingAd) {
-                    // Show ad on next swipe
                     Future.delayed(const Duration(milliseconds: 500), () {
                       if (mounted && _currentIndex == index) {
                         _showShortsAd();
@@ -209,7 +184,6 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
                   }
                 },
                 itemBuilder: (context, index) {
-                  // Check if this position should show an ad
                   if (_showingAd && index == _currentIndex) {
                     return VideoAdWidget(
                       showSkipButton: true,
@@ -225,15 +199,7 @@ class _ShortsScreenState extends ConsumerState<ShortsScreen>
                   final zap = zaps[index];
                   return ShortVideoWidget(
                     zap: zap,
-                    shouldPlay:
-                        widget.isActive &&
-                        index == _currentIndex &&
-                        !_showingAd,
-                    onControllerChange: (controller) {
-                      setState(() {
-                        _currentController = controller;
-                      });
-                    },
+                    shouldPlay: index == _currentIndex && !_showingAd,
                   );
                 },
               ),

@@ -45,17 +45,6 @@ class RecommendationService {
         isShort: isShort,
       );
 
-      AppLogger.info(
-        'RecommendationService',
-        'Recommendations received',
-        data: {
-          'zapCount': data['zapIds']?.length ?? 0,
-          'source': data['source'] ?? 'unknown',
-          'perPage': perPage,
-          'isShort': isShort,
-        },
-      );
-
       return {
         'zapIds': List<String>.from(data['zapIds'] ?? []),
         'hasMore': data['hasMore'] ?? false,
@@ -95,17 +84,6 @@ class RecommendationService {
       });
 
       final data = result.data as Map<String, dynamic>;
-      final zapIds = (data['zapIds'] as List?) ?? [];
-      
-      AppLogger.info(
-        'RecommendationService',
-        'Recommendation function called successfully',
-        data: {
-          'functionName': functionName,
-          'zapIdsCount': zapIds.length,
-          'isShort': isShort,
-        },
-      );
 
       return data;
     } on FirebaseFunctionsException catch (e) {
@@ -149,22 +127,9 @@ class RecommendationService {
         ids: zapIds,
         parser: (doc) {
           final data = doc.data() as Map<String, dynamic>;
-          return ZapModel.fromMap({
-            'id': doc.id,
-            ...data,
-          }, snapshot: doc);
+          return ZapModel.fromMap({'id': doc.id, ...data}, snapshot: doc);
         },
         filter: (data) => data['isDeleted'] != true,
-      );
-
-      AppLogger.info(
-        'RecommendationService',
-        'Fetched zap models from IDs',
-        data: {
-          'requestedCount': zapIds.length,
-          'fetchedCount': zaps.length,
-          'isShort': isShort,
-        },
       );
 
       return zaps;
@@ -212,26 +177,12 @@ class RecommendationService {
       final zapIds = recommendations['zapIds'] as List<String>;
       final source = recommendations['source'] as String? ?? 'unknown';
 
-      AppLogger.info(
-        'RecommendationService',
-        'Got recommendation IDs, fetching zap models',
-        data: {
-          'zapIdsCount': zapIds.length,
-          'isShort': isShort,
-          'source': source,
-        },
-      );
-
       // If we got no zap IDs, return empty result
       if (zapIds.isEmpty) {
         AppLogger.warn(
           'RecommendationService',
           'Received empty zapIds from recommendation function',
-          data: {
-            'isShort': isShort,
-            'source': source,
-            'perPage': perPage,
-          },
+          data: {'isShort': isShort, 'source': source, 'perPage': perPage},
         );
         return {
           'zaps': <ZapModel>[],
@@ -244,17 +195,6 @@ class RecommendationService {
 
       // Fetch full zap models
       final zaps = await getZapModelsFromIds(zapIds, isShort: isShort);
-
-      AppLogger.info(
-        'RecommendationService',
-        'Fetched zap models from IDs',
-        data: {
-          'requestedCount': zapIds.length,
-          'fetchedCount': zaps.length,
-          'isShort': isShort,
-          'source': source,
-        },
-      );
 
       // If we got fewer zaps than requested IDs, some might not exist
       if (zaps.length < zapIds.length) {
@@ -300,14 +240,6 @@ class RecommendationService {
       });
 
       final data = result.data as Map<String, dynamic>? ?? {};
-      AppLogger.info(
-        'RecommendationService',
-        'Story recommendations received',
-        data: {
-          'count': (data['storyIds'] as List?)?.length ?? 0,
-          'limit': limit,
-        },
-      );
 
       return List<String>.from(data['storyIds'] ?? const <String>[]);
     } on FirebaseFunctionsException catch (e, st) {

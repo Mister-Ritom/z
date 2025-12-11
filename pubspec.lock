@@ -9,6 +9,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.64"
+  adaptive_platform_ui:
+    dependency: "direct main"
+    description:
+      name: adaptive_platform_ui
+      sha256: "864c19ecfca6eff6268e32d34e7f426fd83b5a2ee19c8108ae2bad71e54a7677"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.100"
   app_tracking_transparency:
     dependency: "direct main"
     description:
@@ -791,14 +799,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
-  oc_liquid_glass:
-    dependency: "direct main"
-    description:
-      name: oc_liquid_glass
-      sha256: ca255faaf7c070d611e2b91c237f9a8f4f4627554c29f4f075c34a61ce0c64c4
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.1"
   octo_image:
     dependency: transitive
     description:
@@ -1381,5 +1381,5 @@ packages:
     source: hosted
     version: "3.1.3"
 sdks:
-  dart: ">=3.9.0 <4.0.0"
+  dart: ">=3.9.2 <4.0.0"
   flutter: ">=3.35.0"
