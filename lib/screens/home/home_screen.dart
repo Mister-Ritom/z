@@ -24,20 +24,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late TabController _tabController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  Future<void> _logout(WidgetRef ref) async {
-    try {
-      final authService = ref.read(authServiceProvider);
-      await authService.signOut();
-      if (mounted) context.go('/login');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
-      }
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -76,7 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: HomeDrawer(currentUser: currentUser, onLogout: _logout),
+      drawer: HomeDrawer(),
       appBar: AppBar(
         leading: GestureDetector(
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
