@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:video_player/video_player.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
@@ -25,13 +24,11 @@ final manualShouldPlayProvider = StateProvider.family<bool, String>(
 class ShortVideoWidget extends ConsumerWidget {
   final ZapModel zap;
   final bool shouldPlay;
-  final void Function(VideoPlayerController controller)? onControllerChange;
 
   const ShortVideoWidget({
     super.key,
     required this.zap,
     required this.shouldPlay,
-    this.onControllerChange,
   });
 
   @override
@@ -77,7 +74,6 @@ class ShortVideoWidget extends ConsumerWidget {
                   isFile: false,
                   url: zap.mediaUrls.first,
                   isPlaying: effectiveShouldPlay,
-                  onControllerChange: onControllerChange,
                   disableFullscreen: true,
                 ),
               ),
@@ -131,12 +127,13 @@ class ShortVideoWidget extends ConsumerWidget {
                     await showModalBottomSheet(
                       context: context,
                       backgroundColor: Colors.transparent,
-                      builder: (_) => ShortVideoOptionsSheet(
-                        zapId: zap.id,
-                        zapUserId: zap.userId,
-                        currentUserId: currentUser.uid,
-                        isBookmarked: isBookmarked,
-                      ),
+                      builder:
+                          (_) => ShortVideoOptionsSheet(
+                            zapId: zap.id,
+                            zapUserId: zap.userId,
+                            currentUserId: currentUser.uid,
+                            isBookmarked: isBookmarked,
+                          ),
                     );
                     ref.read(manualShouldPlayProvider(zap.id).notifier).state =
                         true;

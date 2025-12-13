@@ -66,64 +66,68 @@ class ZapCard extends ConsumerWidget {
     final shouldShowRepost =
         originalUserAsync.valueOrNull?.id != userAsync.valueOrNull?.id;
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (shouldShowRepost && userAsync.valueOrNull != null)
-              ZapRepostBanner(
-                username: userAsync.valueOrNull!.username,
-                onTap: () {
-                  final user = userAsync.valueOrNull;
-                  if (user != null) {
-                    onUserTap(context, user);
-                  }
-                },
-              ),
-            originalUserAsync.when(
-              data:
-                  (user) =>
-                      user == null
-                          ? const SizedBox.shrink()
-                          : ZapUserHeader(
-                            user: user,
-                            createdAt: zap.createdAt,
-                            onTap: () => onUserTap(context, user),
-                            onMoreOptions: () {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => ZapOptionsSheet(
-                                  zap: zap,
-                                  currentUserId: currentUser.uid,
-                                  isBookmarked: isBookmarked.value ?? false,
-                                ),
-                              );
-                            },
-                          ),
-              loading: () => const ZapCardShimmer(),
-              error: (_, __) => const SizedBox.shrink(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (shouldShowRepost && userAsync.valueOrNull != null)
+            ZapRepostBanner(
+              username: userAsync.valueOrNull!.username,
+              onTap: () {
+                final user = userAsync.valueOrNull;
+                if (user != null) {
+                  onUserTap(context, user);
+                }
+              },
             ),
-            Padding(
+          originalUserAsync.when(
+            data:
+                (user) =>
+                    user == null
+                        ? const SizedBox.shrink()
+                        : ZapUserHeader(
+                          user: user,
+                          createdAt: zap.createdAt,
+                          onTap: () => onUserTap(context, user),
+                          onMoreOptions: () {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              builder:
+                                  (_) => ZapOptionsSheet(
+                                    zap: zap,
+                                    currentUserId: currentUser.uid,
+                                    isBookmarked: isBookmarked.value ?? false,
+                                  ),
+                            );
+                          },
+                        ),
+            loading: () => const ZapCardShimmer(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+          InkWell(
+            onTap: onTap,
+            child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Text(
                 zap.text,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
-            MediaCarousel(mediaUrls: mediaUrls),
-            const SizedBox(height: 12),
-            ZapActionsRow(
-              zap: zap,
-              isLikedStream: isLikedStream,
-              isBookmarked: isBookmarked,
-              currentUserId: currentUser.uid,
-            ),
-          ],
-        ),
+          ),
+          GestureDetector(
+            onTap: onTap,
+            child: MediaCarousel(mediaUrls: mediaUrls, thumbnailOnly: true),
+          ),
+          const SizedBox(height: 12),
+          ZapActionsRow(
+            zap: zap,
+            isLikedStream: isLikedStream,
+            isBookmarked: isBookmarked,
+            currentUserId: currentUser.uid,
+          ),
+        ],
       ),
     );
   }

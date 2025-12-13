@@ -9,11 +9,13 @@ import 'package:z/widgets/media/video_player_widget.dart';
 class MediaCarousel extends StatefulWidget {
   final List<String> mediaUrls;
   final double maxHeight;
+  final bool thumbnailOnly;
 
   const MediaCarousel({
     super.key,
     required this.mediaUrls,
     this.maxHeight = 700,
+    this.thumbnailOnly = false,
   });
 
   @override
@@ -114,6 +116,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                   url: url,
                   width: itemWidth,
                   height: itemHeight.toDouble(),
+                  thumbnailOnly: widget.thumbnailOnly,
                   onAspectRatioCalculated: (ratio) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {

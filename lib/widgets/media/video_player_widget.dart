@@ -12,7 +12,6 @@ class VideoPlayerWidget extends StatefulWidget {
   final double? width;
   final double? height;
   final void Function(double aspectRatio)? onAspectRatioCalculated;
-  final void Function(VideoPlayerController controller)? onControllerChange;
   final bool? isPlaying;
   final bool disableFullscreen;
   final bool thumbnailOnly;
@@ -21,7 +20,6 @@ class VideoPlayerWidget extends StatefulWidget {
     super.key,
     required this.isFile,
     required this.url,
-    this.onControllerChange,
     this.width,
     this.height,
     this.onAspectRatioCalculated,
@@ -85,7 +83,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
     if (_controller == null) throw Exception("Controller not initialized");
     try {
-      widget.onControllerChange?.call(_controller!);
       await _controller!.initialize();
       _controller!.addListener(() {
         if (!mounted) return;
