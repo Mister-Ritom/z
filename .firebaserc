@@ -1,6 +1,7 @@
 {
   "projects": {
-    "flutter": "zdotcom"
+    "flutter": "zdotcom",
+    "default": "zdotcom"
   },
   "targets": {},
   "etags": {}

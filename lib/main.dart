@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -13,10 +16,37 @@ import 'package:z/services/analytics/firebase_analytics_service.dart';
 import 'package:z/utils/logger.dart';
 import 'utils/router.dart';
 
+Future<void> configureFirebaseEmulators() async {
+  if (kReleaseMode) return;
+
+  final host =
+      defaultTargetPlatform == TargetPlatform.android
+          ? '10.0.2.2'
+          : 'localhost';
+
+  try {
+    FirebaseAuth.instance.useAuthEmulator(host, 9099);
+    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+    FirebaseStorage.instance.useStorageEmulator(host, 9199);
+    FirebaseFunctions.instance.useFunctionsEmulator(host, 5001);
+
+    AppLogger.info("Main", 'Firebase emulators connected on $host');
+  } catch (e, st) {
+    AppLogger.error(
+      "Main",
+      'Failed to connect Firebase emulators',
+      error: e,
+      stackTrace: st,
+    );
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await configureFirebaseEmulators();
 
   // Initialize Crashlytics
   FlutterError.onError = (errorDetails) {

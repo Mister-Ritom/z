@@ -1,0 +1,109 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Profile Pictures
+    match /profile-pictures/{allPaths=**} {
+      // Anyone authenticated can read profile pictures
+      allow read: if isAuthenticated();
+
+      // Users can upload their own profile picture
+      // Path format: profile-pictures/image/profile_{userId}_{timestamp}.jpg
+      allow write: if isAuthenticated() &&
+                      request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+                      request.resource.contentType.matches('image/.*');
+
+      // Users can delete their own profile pictures
+      allow delete: if isAuthenticated();
+    }
+
+    // Cover Photos
+    match /cover-photos/{allPaths=**} {
+      // Anyone authenticated can read cover photos
+      allow read: if isAuthenticated();
+
+      // Users can upload their own cover photo
+      // Path format: cover-photos/image/cover_{userId}_{timestamp}.jpg
+      allow write: if isAuthenticated() &&
+                      request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+                      request.resource.contentType.matches('image/.*');
+
+      // Users can delete their own cover photos
+      allow delete: if isAuthenticated();
+    }
+
+    // Zap Media (Images and Videos)
+    match /zap-media/{allPaths=**} {
+      // Anyone authenticated can read zap media
+      allow read: if isAuthenticated();
+
+      // Users can upload zap media
+      // Path format: zap-media/image/zap_{zapId}_{timestamp}.jpg
+      //              zap-media/video/zap_{zapId}_{timestamp}.mp4
+      allow write: if isAuthenticated() &&
+                      ((request.resource.contentType.matches('image/.*') &&
+                        request.resource.size < 10 * 1024 * 1024) || // 10MB for images
+                       (request.resource.contentType.matches('video/.*') &&
+                        request.resource.size < 100 * 1024 * 1024)); // 100MB for videos
+
+      // Users can delete their own zap media
+      allow delete: if isAuthenticated();
+    }
+
+    // Story Media
+    match /stories/{allPaths=**} {
+      // Anyone authenticated can read story media
+      allow read: if isAuthenticated();
+
+      // Users can upload their own story media
+      // Path format: stories/image/story_{userId}_{timestamp}.jpg
+      //              stories/video/story_{userId}_{timestamp}.mp4
+      allow write: if isAuthenticated() &&
+                      ((request.resource.contentType.matches('image/.*') &&
+                        request.resource.size < 10 * 1024 * 1024) || // 10MB for images
+                       (request.resource.contentType.matches('video/.*') &&
+                        request.resource.size < 100 * 1024 * 1024)); // 100MB for videos
+
+      // Users can delete their own story media
+      allow delete: if isAuthenticated();
+    }
+
+    // Shorts Videos
+    match /shorts/{allPaths=**} {
+      // Anyone authenticated can read shorts
+      allow read: if isAuthenticated();
+
+      // Users can upload shorts
+      // Path format: shorts/video/short_{shortId}_{timestamp}.mp4
+      allow write: if isAuthenticated() &&
+                      request.resource.contentType.matches('video/.*') &&
+                      request.resource.size < 100 * 1024 * 1024; // 100MB limit
+
+      // Users can delete their own shorts
+      allow delete: if isAuthenticated();
+    }
+
+    // Documents
+    match /documents/{allPaths=**} {
+      // Users can read documents they have access to
+      // Path format: documents/{subFolder}/{userId}/doc_{timestamp}.{ext}
+      allow read: if isAuthenticated();
+
+      // Users can upload documents
+      allow write: if isAuthenticated() &&
+                      request.resource.size < 50 * 1024 * 1024; // 50MB limit
+
+      // Users can delete their own documents
+      allow delete: if isAuthenticated();
+    }
+  }
+}
