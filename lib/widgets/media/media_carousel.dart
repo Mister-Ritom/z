@@ -14,7 +14,7 @@ class MediaCarousel extends StatefulWidget {
   const MediaCarousel({
     super.key,
     required this.mediaUrls,
-    this.maxHeight = 700,
+    this.maxHeight = 300,
     this.thumbnailOnly = false,
   });
 
@@ -31,7 +31,6 @@ class _MediaCarouselState extends State<MediaCarousel> {
   void initState() {
     super.initState();
     _pageController = PageController();
-
     _pageController.addListener(() {
       if (_pageController.hasClients) {
         setState(() {
@@ -47,17 +46,19 @@ class _MediaCarouselState extends State<MediaCarousel> {
     super.dispose();
   }
 
-  double _getItemWidth(double screenWidth) {
-    final showMultiple = screenWidth > 700;
-    final visiblePages = showMultiple ? (screenWidth ~/ 300).clamp(1, 4) : 1;
-    return screenWidth / visiblePages;
+  double _itemHeightForIndex(int index, double screenWidth) {
+    final ratio = _aspectRatios[index] ?? 16 / 9;
+    final naturalHeight = screenWidth / ratio;
+    return naturalHeight.clamp(120, widget.maxHeight);
+  }
+
+  double _itemWidthForIndex(int index, double height) {
+    final ratio = _aspectRatios[index] ?? 16 / 9;
+    return height * ratio;
   }
 
   double _currentHeight(double screenWidth) {
-    final index = _currentPage.round();
-    final itemWidth = _getItemWidth(screenWidth);
-    final ratio = _aspectRatios[index] ?? 16 / 9;
-    return (itemWidth / ratio).clamp(100, widget.maxHeight);
+    return _itemHeightForIndex(_currentPage.round(), screenWidth);
   }
 
   @override
@@ -66,11 +67,11 @@ class _MediaCarouselState extends State<MediaCarousel> {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final height = _currentHeight(screenWidth);
-    final itemWidth = _getItemWidth(screenWidth);
 
-    return SizedBox(
-      height: height,
-      child: _buildPageview(screenWidth, itemWidth),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      child: SizedBox(height: height, child: _buildPageview(screenWidth)),
     );
   }
 
@@ -86,27 +87,21 @@ class _MediaCarouselState extends State<MediaCarousel> {
     );
   }
 
-  Widget _buildPageview(double screenWidth, double itemWidth) {
-    final showMultiple = screenWidth > 700;
-    final visiblePages = showMultiple ? (screenWidth ~/ 300).clamp(1, 4) : 1;
-    final viewportFraction = 1 / visiblePages;
-
+  Widget _buildPageview(double screenWidth) {
     return Stack(
       alignment: Alignment.center,
       children: [
         PageView.builder(
-          controller:
-              viewportFraction == 1
-                  ? _pageController
-                  : PageController(viewportFraction: viewportFraction),
+          controller: _pageController,
           itemCount: widget.mediaUrls.length,
           onPageChanged:
               (index) => setState(() => _currentPage = index.toDouble()),
           itemBuilder: (context, index) {
             final url = widget.mediaUrls[index];
             final isLocal = Helpers.isLocalMedia(url);
-            final ratio = _aspectRatios[index] ?? 16 / 9;
-            final itemHeight = (itemWidth / ratio).clamp(100, widget.maxHeight);
+
+            final height = _itemHeightForIndex(index, screenWidth);
+            final width = _itemWidthForIndex(index, height);
 
             Widget child;
             try {
@@ -114,8 +109,8 @@ class _MediaCarouselState extends State<MediaCarousel> {
                 child = VideoPlayerWidget(
                   isFile: isLocal,
                   url: url,
-                  width: itemWidth,
-                  height: itemHeight.toDouble(),
+                  width: width,
+                  height: height,
                   thumbnailOnly: widget.thumbnailOnly,
                   onAspectRatioCalculated: (ratio) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -130,8 +125,8 @@ class _MediaCarouselState extends State<MediaCarousel> {
                 if (!file.existsSync()) throw Exception('Local file missing');
                 child = AppImage.file(
                   file,
-                  width: itemWidth,
-                  height: itemHeight.toDouble(),
+                  width: width,
+                  height: height,
                   onAspectRatioCalculated: (ratio) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {
@@ -158,8 +153,8 @@ class _MediaCarouselState extends State<MediaCarousel> {
               } else {
                 child = AppImage.network(
                   url,
-                  width: itemWidth,
-                  height: itemHeight.toDouble(),
+                  width: width,
+                  height: height,
                   onAspectRatioCalculated: (ratio) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {
@@ -189,26 +184,28 @@ class _MediaCarouselState extends State<MediaCarousel> {
               child = _errorPlaceholder();
             }
 
-            return AnimatedScale(
-              scale: index == _currentPage.round() ? 1.0 : 0.95,
-              duration: const Duration(milliseconds: 200),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: child,
+            return Center(
+              child: AnimatedScale(
+                scale: index == _currentPage.round() ? 1.0 : 0.95,
+                duration: const Duration(milliseconds: 200),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(width: width, height: height, child: child),
+                  ),
                 ),
               ),
             );
           },
         ),
-        if (viewportFraction == 1 && widget.mediaUrls.length > 1)
+        if (widget.mediaUrls.length > 1)
           Positioned(
             bottom: 8,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(widget.mediaUrls.length, (index) {
-                final isActive = (_currentPage.round() == index);
+                final isActive = _currentPage.round() == index;
                 return InkWell(
                   onTap: () {
                     _pageController.animateToPage(
