@@ -6,11 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:listen_sharing_intent/listen_sharing_intent.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/screens/creation/creation_screen.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/widgets/media/media_carousel.dart';
 import 'package:z/widgets/sharing/share_action_button.dart';
-import 'package:z/widgets/zap/composer/zap_composer.dart';
 import 'package:z/screens/stories/story_creation_screen.dart';
 import 'package:z/screens/messages/messages_screen.dart';
 
@@ -108,7 +108,9 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
   void _navigateToZap() {
     final files = _convertPathsToXFiles(_mediaPaths);
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => ZapComposer(initialMedia: files)),
+      MaterialPageRoute(
+        builder: (context) => CreationScreen(initialMedia: files),
+      ),
     );
   }
 
@@ -120,8 +122,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
     final files = _convertPathsToXFiles(_mediaPaths);
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (context) => ZapComposer(initialMedia: files, initialIsShort: true),
+        builder: (context) => CreationScreen(initialMedia: files),
       ),
     );
   }

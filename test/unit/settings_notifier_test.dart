@@ -23,7 +23,6 @@ void main() {
     test('loads default settings when no preferences stored', () async {
       expect(notifier.state.enablePushNotifications, isTrue);
       expect(notifier.state.autoplayVideos, isTrue);
-      expect(notifier.state.glassMorphismEnabled, isFalse);
       expect(notifier.state.theme, AppTheme.system);
     });
 

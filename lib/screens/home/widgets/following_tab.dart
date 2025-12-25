@@ -1,8 +1,8 @@
+import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/widgets/zap/card/zap_card.dart';
-import 'package:z/widgets/common/loading_shimmer.dart';
 
 class FollowingTab extends ConsumerWidget {
   final String userId;
@@ -29,14 +29,21 @@ class FollowingTab extends ConsumerWidget {
               );
             }
             final zap = zaps[index];
-            return ZapCard(zap: zap);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: ZapCard(zap: zap),
+            );
           },
         );
       },
       loading:
           () => ListView.builder(
             itemCount: 10,
-            itemBuilder: (context, index) => const ZapCardShimmer(),
+            itemBuilder:
+                (context, index) => const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: CoolSkeleton.card(),
+                ),
           ),
       error: (error, stack) {
         return Center(child: Text('Error: $error'));

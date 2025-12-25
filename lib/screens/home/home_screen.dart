@@ -70,7 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: const EdgeInsets.all(8.0),
             child: ProfilePicture(
               pfp: currentUser.photoURL,
-              name: currentUser.displayName,
+              name: currentUser.displayName ?? currentUser.email!,
             ),
           ),
         ),

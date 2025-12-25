@@ -1,5 +1,36 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum Privacy {
+  eveyrone,
+  followers,
+  unlisted;
+
+  @override
+  String toString() {
+    switch (this) {
+      case Privacy.eveyrone:
+        return 'Everyone';
+      case Privacy.followers:
+        return 'Followers';
+      case Privacy.unlisted:
+        return 'Unlisted';
+    }
+  }
+
+  static Privacy parse(String value) {
+    switch (value.toLowerCase()) {
+      case 'everyone':
+        return Privacy.eveyrone;
+      case 'followers':
+        return Privacy.followers;
+      case 'unlisted':
+        return Privacy.unlisted;
+      default:
+        return Privacy.eveyrone;
+    }
+  }
+}
+
 class ZapModel {
   final String id;
   final String userId;
@@ -19,7 +50,7 @@ class ZapModel {
   final List<String> mentions;
   final bool isDeleted;
   final String? songId;
-  final DocumentSnapshot? docSnapshot;
+  final Privacy privacy;
 
   ZapModel({
     required this.id,
@@ -40,13 +71,10 @@ class ZapModel {
     this.isDeleted = false,
     this.songId, // 👈 NEW
     this.isShort = false,
-    this.docSnapshot,
+    this.privacy = Privacy.eveyrone,
   });
 
-  factory ZapModel.fromMap(
-    Map<String, dynamic> map, {
-    DocumentSnapshot? snapshot,
-  }) {
+  factory ZapModel.fromMap(Map<String, dynamic> map) {
     final urls = List<String>.from((map['mediaUrls'] ?? []));
     if (map.containsKey("mediaUrl")) urls.add(map["mediaUrl"]);
     return ZapModel(
@@ -71,7 +99,10 @@ class ZapModel {
       mentions: List<String>.from(map['mentions'] ?? []),
       isDeleted: map['isDeleted'] ?? false,
       songId: map['songId'], // 👈 NEW
-      docSnapshot: snapshot,
+      privacy:
+          map.containsKey('privacy')
+              ? Privacy.parse(map['privacy'])
+              : Privacy.eveyrone,
     );
   }
 
@@ -95,6 +126,7 @@ class ZapModel {
       'isShort': isShort,
       'isDeleted': isDeleted,
       'songId': songId,
+      'privacy': privacy.toString(),
     };
   }
 
@@ -115,11 +147,11 @@ class ZapModel {
     List<String>? hashtags,
     List<String>? mentions,
     bool? isDeleted,
-    String? songId, // 👈 NEW
+    String? songId,
+    Privacy? privacy,
   }) {
     return ZapModel(
       id: id ?? this.id,
-      docSnapshot: docSnapshot,
       userId: userId ?? this.userId,
       parentZapId: parentZapId ?? this.parentZapId,
       quotedZapId: quotedZapId ?? this.quotedZapId,
@@ -135,7 +167,8 @@ class ZapModel {
       hashtags: hashtags ?? this.hashtags,
       mentions: mentions ?? this.mentions,
       isDeleted: isDeleted ?? this.isDeleted,
-      songId: songId ?? this.songId, // 👈 NEW
+      songId: songId ?? this.songId,
+      privacy: privacy ?? this.privacy,
     );
   }
 }

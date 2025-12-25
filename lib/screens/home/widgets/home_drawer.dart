@@ -15,6 +15,9 @@ class HomeDrawer extends ConsumerWidget {
     final currentUserModel = ref.watch(currentUserModelProvider).valueOrNull;
     final theme = ref.watch(settingsProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    if (currentUser == null) {
+      return const Drawer();
+    }
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -53,8 +56,8 @@ class HomeDrawer extends ConsumerWidget {
                 context.push('/profile/${currentUser?.uid}');
               },
               child: ProfilePicture(
-                pfp: currentUser?.photoURL,
-                name: currentUser?.displayName,
+                pfp: currentUser.photoURL,
+                name: currentUser.displayName ?? currentUser.email!,
               ),
             ),
           ),

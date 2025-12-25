@@ -127,7 +127,7 @@ class RecommendationService {
         ids: zapIds,
         parser: (doc) {
           final data = doc.data() as Map<String, dynamic>;
-          return ZapModel.fromMap({'id': doc.id, ...data}, snapshot: doc);
+          return ZapModel.fromMap({'id': doc.id, ...data});
         },
         filter: (data) => data['isDeleted'] != true,
       );

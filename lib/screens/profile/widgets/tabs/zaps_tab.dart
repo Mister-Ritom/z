@@ -6,8 +6,8 @@ import 'package:z/models/user_model.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/zap_provider.dart';
-import 'package:z/widgets/zap/card/zap_card.dart';
 import 'package:z/widgets/common/loading_shimmer.dart';
+import 'package:z/widgets/zap/card/zap_card.dart';
 
 class ZapsTab extends ConsumerWidget {
   final String userId;
@@ -35,16 +35,9 @@ class ZapsTab extends ConsumerWidget {
               itemCount: allZaps.length,
               itemBuilder: (context, index) {
                 final zap = allZaps[index];
-                final isRezap = rezapedZaps.any((item) => item.id == zap.id);
-                final zapUserAsync =
-                    isRezap
-                        ? ref.watch(userProfileProvider(zap.userId))
-                        : AsyncValue.data(profileUser);
-
-                return zapUserAsync.when(
-                  data: (_) => ZapCard(zap: zap),
-                  loading: () => const ZapCardShimmer(),
-                  error: (_, __) => const SizedBox.shrink(),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: ZapCard(zap: zap),
                 );
               },
             );

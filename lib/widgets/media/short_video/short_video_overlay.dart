@@ -5,7 +5,7 @@ import 'package:z/widgets/media/short_video/expandable_zap_text.dart';
 import 'package:z/widgets/media/short_video/short_video_follow_button.dart';
 
 class ShortVideoOverlay extends StatelessWidget {
-  final UserModel? user;
+  final UserModel user;
   final String currentUserId;
   final String zapUserId;
   final String zapText;
@@ -33,7 +33,7 @@ class ShortVideoOverlay extends StatelessWidget {
               onTap: onProfileTap,
               child: ProfilePicture(
                 pfp: user?.profilePictureUrl,
-                name: user?.displayName,
+                name: user.displayName,
               ),
             ),
             const SizedBox(width: 8),

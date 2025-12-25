@@ -10,6 +10,7 @@ import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/constants.dart';
+import 'package:z/utils/logger.dart';
 import 'package:z/widgets/media/video_player_widget.dart';
 import 'package:z/widgets/media/short_video/comment_sheet.dart';
 import 'package:z/widgets/media/short_video/short_video_actions.dart';
@@ -61,116 +62,116 @@ class ShortVideoWidget extends ConsumerWidget {
 
     return userAsync.when(
       data: (user) {
+        if (user == null) {
+          AppLogger.error("UserFounder", "User not found for zap ${zap.id}");
+          return const SizedBox.shrink();
+        }
         final isBookmarked = isBookmarkedAsync.valueOrNull ?? false;
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 72),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned.fill(
-                top: -72,
-                child: VideoPlayerWidget(
-                  isFile: false,
-                  url: zap.mediaUrls.first,
-                  isPlaying: effectiveShouldPlay,
-                  disableFullscreen: true,
-                ),
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: VideoPlayerWidget(
+                isFile: false,
+                url: zap.mediaUrls.first,
+                isPlaying: effectiveShouldPlay,
+                disableFullscreen: true,
               ),
-              Positioned(
-                right: 12,
-                bottom: 80,
-                child: ShortVideoActions(
-                  isLiked: isLikedStream.valueOrNull == true,
-                  commentsCount: commentsStream.valueOrNull,
-                  sharesCount: sharesStream.valueOrNull,
-                  onLike: () async {
-                    await analytics.toggleLike(
-                      currentUser.uid,
-                      zap.id,
-                      zap.hashtags,
-                      creatorUserId: zap.userId,
-                    );
-                  },
-                  onComment: () async {
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        false;
-                    await showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder:
-                          (_) => CommentSheet(
-                            zapId: zap.id,
-                            currentUserId: currentUser.uid,
-                          ),
-                    );
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        true;
-                  },
-                  onShare: () async {
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        false;
-                    await analytics.share(zap.id);
-                    await SharePlus.instance.share(
-                      ShareParams(
-                        text:
-                            "Check out ${user?.displayName}'s short: ${AppConstants.appUrl}/short/${zap.id}",
-                      ),
-                    );
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        true;
-                  },
-                  onMoreOptions: () async {
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        false;
-                    await showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      builder:
-                          (_) => ShortVideoOptionsSheet(
-                            zapId: zap.id,
-                            zapUserId: zap.userId,
-                            currentUserId: currentUser.uid,
-                            isBookmarked: isBookmarked,
-                          ),
-                    );
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        true;
-                  },
-                ),
+            ),
+            Positioned(
+              right: 12,
+              bottom: 80,
+              child: ShortVideoActions(
+                isLiked: isLikedStream.valueOrNull == true,
+                commentsCount: commentsStream.valueOrNull,
+                sharesCount: sharesStream.valueOrNull,
+                onLike: () async {
+                  await analytics.toggleLike(
+                    currentUser.uid,
+                    zap.id,
+                    zap.hashtags,
+                    creatorUserId: zap.userId,
+                  );
+                },
+                onComment: () async {
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      false;
+                  await showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder:
+                        (_) => CommentSheet(
+                          zapId: zap.id,
+                          currentUserId: currentUser.uid,
+                        ),
+                  );
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      true;
+                },
+                onShare: () async {
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      false;
+                  await analytics.share(zap.id);
+                  await SharePlus.instance.share(
+                    ShareParams(
+                      text:
+                          "Check out ${user.displayName}'s short: ${AppConstants.appUrl}/short/${zap.id}",
+                    ),
+                  );
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      true;
+                },
+                onMoreOptions: () async {
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      false;
+                  await showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    builder:
+                        (_) => ShortVideoOptionsSheet(
+                          zapId: zap.id,
+                          zapUserId: zap.userId,
+                          currentUserId: currentUser.uid,
+                          isBookmarked: isBookmarked,
+                        ),
+                  );
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      true;
+                },
               ),
-              Positioned(
-                left: 16,
-                bottom: 16,
-                right: 72,
-                child: ShortVideoOverlay(
-                  user: user,
-                  currentUserId: currentUser.uid,
-                  zapUserId: zap.userId,
-                  zapText: zap.text,
-                  createdAt: zap.createdAt,
-                  onProfileTap: () async {
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        false;
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProfileScreen(userId: zap.userId),
-                      ),
-                    );
-                    ref.read(manualShouldPlayProvider(zap.id).notifier).state =
-                        true;
-                  },
-                ),
+            ),
+            Positioned(
+              left: 16,
+              bottom: 0,
+              right: 72,
+              child: ShortVideoOverlay(
+                user: user,
+                currentUserId: currentUser.uid,
+                zapUserId: zap.userId,
+                zapText: zap.text,
+                createdAt: zap.createdAt,
+                onProfileTap: () async {
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      false;
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProfileScreen(userId: zap.userId),
+                    ),
+                  );
+                  ref.read(manualShouldPlayProvider(zap.id).notifier).state =
+                      true;
+                },
               ),
-              const Positioned(
-                right: 16,
-                bottom: 16,
-                child: Icon(Icons.music_note, color: Colors.white, size: 30),
-              ),
-            ],
-          ),
+            ),
+            const Positioned(
+              right: 16,
+              bottom: 0,
+              child: Icon(Icons.music_note, color: Colors.white, size: 30),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

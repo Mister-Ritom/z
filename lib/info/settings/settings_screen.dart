@@ -24,11 +24,6 @@ class SettingsScreen extends ConsumerWidget {
             value: settings.autoplayVideos,
             onChanged: notifier.setAutoplayVideos,
           ),
-          SwitchListTile(
-            title: const Text('Enable glass morphism'),
-            value: settings.glassMorphismEnabled,
-            onChanged: notifier.setGlassMorphismEnabled,
-          ),
           ListTile(
             title: const Text('Theme'),
             trailing: DropdownButton<AppTheme>(

@@ -12,10 +12,8 @@ mixin _ZapServiceStreams on _ZapServiceBase {
       return query.snapshots().map(
         (snapshot) => FirestoreUtils.parseDocumentsSafely<ZapModel>(
           docs: snapshot.docs,
-          parser: (doc) => ZapModel.fromMap({
-            'id': doc.id,
-            ...doc.data() as Map,
-          }, snapshot: doc),
+          parser:
+              (doc) => ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
           serviceName: 'ZapService',
         ),
       );
@@ -46,27 +44,31 @@ mixin _ZapServiceStreams on _ZapServiceBase {
           final List<ZapModel> allZaps = [];
 
           // Fetch in batches (whereIn supports max 10)
-          for (int i = 0; i < followingIds.length; i += FirestoreUtils.maxBatchSize) {
+          for (
+            int i = 0;
+            i < followingIds.length;
+            i += FirestoreUtils.maxBatchSize
+          ) {
             final batch = followingIds.sublist(
               i,
-              i + FirestoreUtils.maxBatchSize > followingIds.length 
-                  ? followingIds.length 
+              i + FirestoreUtils.maxBatchSize > followingIds.length
+                  ? followingIds.length
                   : i + FirestoreUtils.maxBatchSize,
             );
-            
-            final zapsQuery = await _zapQuery()
-                .where('userId', whereIn: batch)
-                .orderBy('createdAt', descending: true)
-                .limit(AppConstants.zapsPerPage)
-                .get();
+
+            final zapsQuery =
+                await _zapQuery()
+                    .where('userId', whereIn: batch)
+                    .orderBy('createdAt', descending: true)
+                    .limit(AppConstants.zapsPerPage)
+                    .get();
 
             allZaps.addAll(
               FirestoreUtils.parseDocumentsSafely<ZapModel>(
                 docs: zapsQuery.docs,
-                parser: (doc) => ZapModel.fromMap({
-                  'id': doc.id,
-                  ...doc.data() as Map,
-                }),
+                parser:
+                    (doc) =>
+                        ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
                 serviceName: 'ZapService',
               ),
             );
@@ -85,10 +87,8 @@ mixin _ZapServiceStreams on _ZapServiceBase {
         .map(
           (snapshot) => FirestoreUtils.parseDocumentsSafely<ZapModel>(
             docs: snapshot.docs,
-            parser: (doc) => ZapModel.fromMap({
-              'id': doc.id,
-              ...doc.data() as Map,
-            }),
+            parser:
+                (doc) => ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
             serviceName: 'ZapService',
           ),
         );
@@ -103,10 +103,8 @@ mixin _ZapServiceStreams on _ZapServiceBase {
         .map(
           (snapshot) => FirestoreUtils.parseDocumentsSafely<ZapModel>(
             docs: snapshot.docs,
-            parser: (doc) => ZapModel.fromMap({
-              'id': doc.id,
-              ...doc.data() as Map,
-            }),
+            parser:
+                (doc) => ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
             serviceName: 'ZapService',
           ),
         );
@@ -120,10 +118,8 @@ mixin _ZapServiceStreams on _ZapServiceBase {
         .map((snapshot) {
           final zaps = FirestoreUtils.parseDocumentsSafely<ZapModel>(
             docs: snapshot.docs,
-            parser: (doc) => ZapModel.fromMap({
-              'id': doc.id,
-              ...doc.data() as Map,
-            }),
+            parser:
+                (doc) => ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
             serviceName: 'ZapService',
           );
           zaps.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -139,10 +135,8 @@ mixin _ZapServiceStreams on _ZapServiceBase {
         .map((snapshot) {
           final zaps = FirestoreUtils.parseDocumentsSafely<ZapModel>(
             docs: snapshot.docs,
-            parser: (doc) => ZapModel.fromMap({
-              'id': doc.id,
-              ...doc.data() as Map,
-            }),
+            parser:
+                (doc) => ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
             serviceName: 'ZapService',
           );
           zaps.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -167,10 +161,8 @@ mixin _ZapServiceStreams on _ZapServiceBase {
           final allZaps = await FirestoreUtils.fetchDocumentsByIds<ZapModel>(
             collection: _collection,
             ids: zapIds,
-            parser: (doc) => ZapModel.fromMap({
-              'id': doc.id,
-              ...doc.data() as Map,
-            }),
+            parser:
+                (doc) => ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
             filter: (data) => data['isDeleted'] != true,
           );
 
@@ -203,13 +195,12 @@ mixin _ZapServiceStreams on _ZapServiceBase {
         .snapshots()
         .map(
           (snapshot) => FirestoreUtils.parseDocumentsSafely<ZapModel>(
-            docs: snapshot.docs.where((doc) => 
-              (doc.data() as Map)['parentZapId'] != null
-            ).toList(),
-            parser: (doc) => ZapModel.fromMap({
-              'id': doc.id,
-              ...doc.data() as Map,
-            }),
+            docs:
+                snapshot.docs
+                    .where((doc) => (doc.data() as Map)['parentZapId'] != null)
+                    .toList(),
+            parser:
+                (doc) => ZapModel.fromMap({'id': doc.id, ...doc.data() as Map}),
             serviceName: 'ZapService',
           ),
         );

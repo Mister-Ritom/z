@@ -28,7 +28,10 @@ class FeedItemWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (item is ZapFeedItem) {
       final zapItem = item as ZapFeedItem;
-      return ZapCard(zap: zapItem.zap, onTap: onZapTap);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: ZapCard(zap: zapItem.zap),
+      );
     } else if (item is AdFeedItem) {
       final adItem = item as AdFeedItem;
       return _buildAdWidget(adItem.placement);

@@ -200,6 +200,11 @@ class PostAnalyticsService {
         .map((snap) => snap.docs.map((d) => d.id).toList());
   }
 
+  Stream<int> likesStream(String id) => _analytics
+      .doc(id)
+      .snapshots()
+      .map((s) => (s.data() as Map<String, dynamic>?)?['likes'] ?? 0);
+
   Future<void> _updateUserTagWeights(String userId, List<String> tags) async {
     final ref = firestore
         .collection('analytics')
@@ -231,7 +236,8 @@ class PostAnalyticsService {
       snap.data()?['usersLiked'] ?? {},
     );
     final currentWeight = (data[creatorUserId] ?? 0) as int;
-    final newWeight = (currentWeight + increment).clamp(0, double.infinity).toInt();
+    final newWeight =
+        (currentWeight + increment).clamp(0, double.infinity).toInt();
     if (newWeight > 0) {
       data[creatorUserId] = newWeight;
     } else {

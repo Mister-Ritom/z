@@ -21,6 +21,14 @@ final postLikedStreamProvider =
       return service.isLikedStream(userId, postId);
     });
 
+final postLikesStreamProvider = StreamProvider.family<int, String>((
+  ref,
+  postId,
+) {
+  final service = ref.watch(postAnalyticsProvider);
+  return service.likesStream(postId);
+});
+
 final postViewsStreamProvider = StreamProvider.family<int, String>((
   ref,
   postId,

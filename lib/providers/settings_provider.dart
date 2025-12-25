@@ -11,13 +11,11 @@ class AppSettings {
   const AppSettings({
     required this.enablePushNotifications,
     required this.autoplayVideos,
-    required this.glassMorphismEnabled,
     required this.theme,
   });
 
   final bool enablePushNotifications;
   final bool autoplayVideos;
-  final bool glassMorphismEnabled;
   final AppTheme theme;
 
   AppSettings copyWith({
@@ -30,7 +28,6 @@ class AppSettings {
       enablePushNotifications:
           enablePushNotifications ?? this.enablePushNotifications,
       autoplayVideos: autoplayVideos ?? this.autoplayVideos,
-      glassMorphismEnabled: glassMorphismEnabled ?? this.glassMorphismEnabled,
       theme: theme ?? this.theme,
     );
   }
@@ -43,7 +40,6 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         const AppSettings(
           enablePushNotifications: true,
           autoplayVideos: true,
-          glassMorphismEnabled: true,
           theme: AppTheme.system,
         ),
       ) {
@@ -64,7 +60,6 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     final prefs = await _ensurePrefs();
     final push = prefs.getBool('settings.push_enabled') ?? true;
     final autoplay = prefs.getBool('settings.autoplay_videos') ?? true;
-    final glass = prefs.getBool('settings.glass_enabled') ?? false;
     final themeString = prefs.getString('settings.theme');
     final theme =
         themeString != null
@@ -77,7 +72,6 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     state = AppSettings(
       enablePushNotifications: push,
       autoplayVideos: autoplay,
-      glassMorphismEnabled: glass,
       theme: theme,
     );
   }
@@ -92,12 +86,6 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     final prefs = await _ensurePrefs();
     state = state.copyWith(autoplayVideos: value);
     await prefs.setBool('settings.autoplay_videos', value);
-  }
-
-  Future<void> setGlassMorphismEnabled(bool value) async {
-    final prefs = await _ensurePrefs();
-    state = state.copyWith(glassMorphismEnabled: value);
-    await prefs.setBool('settings.glass_enabled', value);
   }
 
   Future<void> setTheme(AppTheme theme) async {

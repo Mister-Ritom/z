@@ -1,4 +1,5 @@
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/info/zap/zap_detail_screen.dart';
@@ -27,14 +28,16 @@ class _ForYouTabState extends ConsumerState<ForYouTab> {
       await AppTrackingTransparency.requestTrackingAuthorization();
       if (!mounted) return;
       _hasInitialized = true;
-      
+
       // Load lastViewedZapId from cache
       final cacheService = RecommendationCacheService();
-      final lastViewedZapId = await cacheService.getLastViewedZapId(isShort: false);
-      
-      await ref.read(_forYouFeed.notifier).loadInitial(
-        lastViewedZapId: lastViewedZapId,
+      final lastViewedZapId = await cacheService.getLastViewedZapId(
+        isShort: false,
       );
+
+      await ref
+          .read(_forYouFeed.notifier)
+          .loadInitial(lastViewedZapId: lastViewedZapId);
     });
   }
 
@@ -54,40 +57,41 @@ class _ForYouTabState extends ConsumerState<ForYouTab> {
   ) {
     if (!_hasInitialized || !mounted) return false;
     if (notification.metrics.axis != Axis.vertical) return false;
-    
+
     // Track last viewed zap ID based on scroll position
     if (notification is ScrollUpdateNotification) {
       final scrollPosition = notification.metrics.pixels;
       final viewportHeight = notification.metrics.viewportDimension;
       final viewportStart = scrollPosition;
       final viewportEnd = scrollPosition + viewportHeight;
-      
+
       // Find the zap that's most visible in the viewport
       int? mostVisibleIndex;
       double maxVisibleArea = 0;
-      
+
       for (int i = 0; i < feedState.zaps.length; i++) {
         // Estimate item position (assuming ~400px per item)
         final itemStart = i * 400.0;
         final itemEnd = itemStart + 400.0;
-        
+
         // Calculate visible area (intersection of viewport and item)
         final visibleStart = itemStart < viewportEnd ? itemStart : viewportEnd;
         final visibleEnd = itemEnd > viewportStart ? itemEnd : viewportStart;
         final visibleArea = (visibleEnd - visibleStart).clamp(0.0, 400.0);
-        
+
         if (visibleArea > maxVisibleArea) {
           maxVisibleArea = visibleArea;
           mostVisibleIndex = i;
         }
       }
-      
-      if (mostVisibleIndex != null && mostVisibleIndex < feedState.zaps.length) {
+
+      if (mostVisibleIndex != null &&
+          mostVisibleIndex < feedState.zaps.length) {
         final visibleZapId = feedState.zaps[mostVisibleIndex].id;
         ref.read(_forYouFeed.notifier).updateLastViewedZapId(visibleZapId);
       }
     }
-    
+
     if (feedState.isLoading || !feedState.hasMore) return false;
     if (notification is! ScrollUpdateNotification ||
         notification.dragDetails == null) {
@@ -110,7 +114,17 @@ class _ForYouTabState extends ConsumerState<ForYouTab> {
 
     if (zaps.isEmpty) {
       if (isLoading) {
-        return const Center(child: CircularProgressIndicator());
+        return ListView.builder(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: 5,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: CoolSkeleton.card(),
+            );
+          },
+        );
       }
       return const Center(child: Text('No zaps yet'));
     }

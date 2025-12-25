@@ -27,7 +27,10 @@ Future<void> configureFirebaseEmulators() async {
   try {
     FirebaseAuth.instance.useAuthEmulator(host, 9099);
     FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-    FirebaseStorage.instance.useStorageEmulator(host, 9199);
+    FirebaseStorage.instanceFor(
+      app: Firebase.app(),
+      bucket: DefaultFirebaseOptions.currentPlatform.storageBucket,
+    ).useStorageEmulator(host, 9199);
     FirebaseFunctions.instance.useFunctionsEmulator(host, 5001);
 
     AppLogger.info("Main", 'Firebase emulators connected on $host');
@@ -46,7 +49,7 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  await configureFirebaseEmulators();
+  //await configureFirebaseEmulators();
 
   // Initialize Crashlytics
   FlutterError.onError = (errorDetails) {

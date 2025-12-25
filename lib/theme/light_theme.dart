@@ -1,9 +1,17 @@
+import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class LightTheme {
   static ThemeData get theme {
     return ThemeData(
+      extensions: [
+        CoolThemeExtension(
+          primaryColor: Color(0xFF000000),
+          secondaryColor: Color(0xFF1DA1F2),
+          themeMode: ThemeMode.light,
+        ),
+      ],
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: const ColorScheme.light(

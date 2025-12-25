@@ -190,10 +190,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                 duration: const Duration(milliseconds: 200),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: SizedBox(width: width, height: height, child: child),
-                  ),
+                  child: SizedBox(width: width, height: height, child: child),
                 ),
               ),
             );

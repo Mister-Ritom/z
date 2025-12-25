@@ -1,39 +1,60 @@
 import 'dart:developer';
 import 'dart:async';
 import 'package:camera/camera.dart';
+import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+enum CameraMode { photo, video, both }
 
 class CameraView extends StatefulWidget {
   final int limit;
-  const CameraView({super.key, this.limit = 15});
+  final bool require;
+  final String title;
+  final CameraMode mode;
+
+  const CameraView({
+    super.key,
+    this.limit = 15,
+    this.require = true,
+    this.title = "Camera",
+    this.mode = CameraMode.both,
+  });
 
   @override
   State<CameraView> createState() => _CameraViewState();
 }
 
-class _CameraViewState extends State<CameraView>
-    with SingleTickerProviderStateMixin {
+class _CameraViewState extends State<CameraView> {
   late List<CameraDescription> _cameras;
   CameraController? _controller;
   bool _isRearCamera = true;
   bool _isRecording = false;
   bool _isVideo = false;
-  late TabController _tabController;
   final ImagePicker _picker = ImagePicker();
   Duration _recordDuration = Duration.zero;
   Timer? _timer;
 
+  late final List<HorizontalSelectionItem> _items;
+  int _selectedIndex = 0;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      setState(() {
-        _isVideo = _tabController.index == 1;
-      });
-    });
+
+    _items = switch (widget.mode) {
+      CameraMode.photo => const [HorizontalSelectionItem(title: "Photo")],
+      CameraMode.video => const [HorizontalSelectionItem(title: "Video")],
+      CameraMode.both => const [
+        HorizontalSelectionItem(title: "Photo"),
+        HorizontalSelectionItem(title: "Video"),
+      ],
+    };
+
+    _isVideo = widget.mode == CameraMode.video;
+
     _initCamera();
   }
 
@@ -90,28 +111,22 @@ class _CameraViewState extends State<CameraView>
   Future<void> _capture() async {
     HapticFeedback.mediumImpact();
 
-    if (_tabController.index == 0) {
-      // Photo mode
+    if (!_isVideo) {
       final image = await _controller?.takePicture();
-      if (image != null) {
+      if (image != null && mounted) {
         log("Captured photo: ${image.path}");
-        if (mounted) {
-          Navigator.pop(context, [image]);
-        }
+        Navigator.pop(context, [image]);
       }
     } else {
-      // Video mode
       if (_isRecording) {
         final file = await _controller?.stopVideoRecording();
         _timer?.cancel();
         setState(() {
           _recordDuration = Duration.zero;
         });
-        if (file != null) {
+        if (file != null && mounted) {
           log("Recorded video: ${file.path}");
-          if (mounted) {
-            Navigator.pop(context, [file]);
-          }
+          Navigator.pop(context, [file]);
         }
       } else {
         await _controller?.startVideoRecording();
@@ -133,27 +148,40 @@ class _CameraViewState extends State<CameraView>
 
   Future<void> _pickMedia() async {
     if (widget.limit > 1) {
-      final List<XFile> files = await _picker.pickMultipleMedia(
-        limit: widget.limit,
-      );
-      if (files.isNotEmpty) {
-        log("picked ${files.length} files");
-        if (mounted) {
-          Navigator.pop(context, files);
-        }
+      List<XFile> files = [];
+
+      switch (widget.mode) {
+        case CameraMode.photo:
+          files = await _picker.pickMultiImage(limit: widget.limit);
+          break;
+        case CameraMode.video:
+          files = await _picker.pickMultiVideo(limit: widget.limit);
+          break;
+        case CameraMode.both:
+          files = await _picker.pickMultipleMedia(limit: widget.limit);
+          break;
+      }
+
+      if (files.isNotEmpty && mounted) {
+        Navigator.pop(context, files);
       }
     } else {
-      final file = await _picker.pickMedia();
-      if (file != null) {
-        final files = [file];
-        log("picked ${files.length} files");
-        if (mounted) {
-          Navigator.pop(context, files);
-        }
-      } else {
-        if (mounted) {
-          Navigator.pop(context);
-        }
+      XFile? file;
+
+      switch (widget.mode) {
+        case CameraMode.photo:
+          file = await _picker.pickImage(source: ImageSource.gallery);
+          break;
+        case CameraMode.video:
+          file = await _picker.pickVideo(source: ImageSource.gallery);
+          break;
+        case CameraMode.both:
+          file = await _picker.pickMedia();
+          break;
+      }
+
+      if (mounted) {
+        file == null ? Navigator.pop(context) : Navigator.pop(context, [file]);
       }
     }
   }
@@ -161,7 +189,6 @@ class _CameraViewState extends State<CameraView>
   @override
   void dispose() {
     _controller?.dispose();
-    _tabController.dispose();
     _timer?.cancel();
     super.dispose();
   }
@@ -176,6 +203,17 @@ class _CameraViewState extends State<CameraView>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        leading:
+            widget.require
+                ? const SizedBox.shrink()
+                : IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x),
+                ),
+        title: Text(widget.title),
+      ),
       body: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -184,7 +222,6 @@ class _CameraViewState extends State<CameraView>
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
 
-          // Duration timer (top right when recording)
           if (_isRecording)
             Positioned(
               top: 40,
@@ -218,26 +255,30 @@ class _CameraViewState extends State<CameraView>
               ),
             ),
 
-          Align(
-            alignment: AlignmentGeometry.bottomCenter,
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey,
-                dividerColor: Colors.transparent,
-                tabs: const [Tab(text: 'Photo'), Tab(text: 'Video')],
+          if (_items.length > 1)
+            Positioned(
+              bottom: 120,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: SizedBox(
+                  width: 180,
+                  child: CoolHorizontalSliderSelector(
+                    items: _items,
+                    onSelect: (index, item) {
+                      if (_selectedIndex == index) return;
+                      setState(() {
+                        _selectedIndex = index;
+                        _isVideo = item.title == "Video";
+                      });
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
 
           Positioned(
-            bottom: 30,
+            bottom: 36,
             left: 0,
             right: 0,
             child: Row(
@@ -245,7 +286,7 @@ class _CameraViewState extends State<CameraView>
               children: [
                 IconButton(
                   icon: const Icon(
-                    Icons.photo_library_outlined,
+                    LucideIcons.fileImage,
                     color: Colors.white,
                     size: 30,
                   ),
@@ -272,7 +313,7 @@ class _CameraViewState extends State<CameraView>
                 ),
                 IconButton(
                   icon: const Icon(
-                    Icons.cameraswitch_outlined,
+                    LucideIcons.refreshCcw,
                     color: Colors.white,
                     size: 30,
                   ),

@@ -6,7 +6,6 @@ import '../../providers/zap_provider.dart';
 import '../../providers/profile_provider.dart';
 import 'package:z/widgets/zap/card/zap_card.dart';
 import 'package:z/widgets/common/loading_shimmer.dart';
-import 'package:z/widgets/zap/composer/zap_composer.dart';
 
 class ZapDetailScreen extends ConsumerWidget {
   final String zapId;
@@ -47,6 +46,7 @@ class ZapDetailScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(16),
                       child: ElevatedButton.icon(
                         onPressed: () {
+                          /*
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -55,6 +55,7 @@ class ZapDetailScreen extends ConsumerWidget {
                                       ZapComposer(replyToZapId: zap.id),
                             ),
                           );
+                          */
                         },
                         icon: const Icon(Icons.reply),
                         label: const Text('Reply'),
@@ -93,21 +94,7 @@ class ZapDetailScreen extends ConsumerWidget {
                                 if (replyUser == null) {
                                   return Text("Something went wrong");
                                 }
-                                return ZapCard(
-                                  zap: reply,
-                                  showThreadLine: true,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => ZapDetailScreen(
-                                              zapId: reply.id,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                );
+                                return ZapCard(zap: reply);
                               },
                               loading: () => const ZapCardShimmer(),
                               error: (_, __) => const SizedBox.shrink(),

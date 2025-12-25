@@ -58,13 +58,14 @@ class StoriesScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           children: [
             groupedStoriesAsync.when(
-              data: (groupedStories) =>
-                  groupedStories.isEmpty
-                      ? const SizedBox()
-                      : StoriesSection(
-                        title: "Friends' Stories",
-                        groupedStories: groupedStories,
-                      ),
+              data:
+                  (groupedStories) =>
+                      groupedStories.isEmpty
+                          ? const SizedBox()
+                          : StoriesSection(
+                            title: "Friends' Stories",
+                            groupedStories: groupedStories,
+                          ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) {
                 AppLogger.error(
@@ -77,13 +78,14 @@ class StoriesScreen extends ConsumerWidget {
               },
             ),
             groupedPublicStoriesAsync.when(
-              data: (groupedStories) =>
-                  groupedStories.isEmpty
-                      ? const SizedBox()
-                      : StoriesSection(
-                        title: "Public Stories",
-                        groupedStories: groupedStories,
-                      ),
+              data:
+                  (groupedStories) =>
+                      groupedStories.isEmpty
+                          ? const SizedBox()
+                          : StoriesSection(
+                            title: "Public Stories",
+                            groupedStories: groupedStories,
+                          ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) {
                 AppLogger.error(
@@ -92,7 +94,7 @@ class StoriesScreen extends ConsumerWidget {
                   error: error,
                   stackTrace: stack,
                 );
-                return Center(child: Text('Error: $error'));
+                return SizedBox.shrink();
               },
             ),
           ],
