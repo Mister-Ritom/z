@@ -3,6 +3,7 @@ import 'package:z/models/notification_model.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/utils/constants.dart';
+import 'package:z/utils/logger.dart';
 
 class ProfileService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -177,6 +178,32 @@ class ProfileService {
           .toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<UserModel?> getUserByUsername(String username) async {
+    try {
+      final querySnapshot =
+          await _firestore
+              .collection(AppConstants.usersCollection)
+              .where('username', isEqualTo: username)
+              .limit(1)
+              .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final doc = querySnapshot.docs.first;
+      return UserModel.fromMap({'id': doc.id, ...doc.data()});
+    } catch (e, s) {
+      AppLogger.error(
+        "ProfileService",
+        'Failed to get user by username',
+        error: e,
+        stackTrace: s,
+      );
+      return null;
     }
   }
 }

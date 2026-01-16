@@ -10,12 +10,14 @@ class MediaCarousel extends StatefulWidget {
   final List<String> mediaUrls;
   final double maxHeight;
   final bool thumbnailOnly;
+  final int? borderRadius;
 
   const MediaCarousel({
     super.key,
     required this.mediaUrls,
     this.maxHeight = 300,
     this.thumbnailOnly = false,
+    this.borderRadius,
   });
 
   @override
@@ -91,6 +93,38 @@ class _MediaCarouselState extends State<MediaCarousel> {
     return Stack(
       alignment: Alignment.center,
       children: [
+        if (widget.mediaUrls.length > 1)
+          Positioned(
+            bottom: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.mediaUrls.length, (index) {
+                final isActive = _currentPage.round() == index;
+                return InkWell(
+                  onTap: () {
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color:
+                          isActive
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
         PageView.builder(
           controller: _pageController,
           itemCount: widget.mediaUrls.length,
@@ -190,44 +224,17 @@ class _MediaCarouselState extends State<MediaCarousel> {
                 duration: const Duration(milliseconds: 200),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: SizedBox(width: width, height: height, child: child),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(
+                      widget.borderRadius?.toDouble() ?? 0,
+                    ),
+                    child: SizedBox(width: width, height: height, child: child),
+                  ),
                 ),
               ),
             );
           },
         ),
-        if (widget.mediaUrls.length > 1)
-          Positioned(
-            bottom: 8,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(widget.mediaUrls.length, (index) {
-                final isActive = _currentPage.round() == index;
-                return InkWell(
-                  onTap: () {
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color:
-                          isActive
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.grey.shade400,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
       ],
     );
   }

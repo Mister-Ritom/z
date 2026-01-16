@@ -9,9 +9,10 @@ import 'package:z/models/user_model.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
-import 'package:z/providers/bookmarking_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/zap_provider.dart';
+import 'package:z/screens/main_navigation.dart';
+import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/constants.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/widgets/common/profile_picture.dart';
@@ -32,6 +33,7 @@ class ZapPost {
   final bool isVerified;
   final bool isThread;
   final Privacy privacy;
+  final bool enableNavigation;
 
   ZapPost({
     required this.id,
@@ -42,6 +44,7 @@ class ZapPost {
     required this.likesCount,
     required this.repliesCount,
     required this.isLiked,
+    required this.enableNavigation,
     this.songId,
     this.isVerified = false,
     this.isThread = false,
@@ -51,8 +54,9 @@ class ZapPost {
 
 class ZapCard extends ConsumerWidget {
   final ZapModel zap;
+  final bool enableNavigation;
 
-  const ZapCard({super.key, required this.zap});
+  const ZapCard({super.key, required this.zap, this.enableNavigation = true});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUserId = ref.watch(currentUserProvider).value?.uid ?? '';
@@ -78,6 +82,7 @@ class ZapCard extends ConsumerWidget {
 
         final zapPost = ZapPost(
           id: zap.id,
+          enableNavigation: enableNavigation,
           user: userModel,
           text: zap.text,
           mediaUrls: zap.mediaUrls,
@@ -91,7 +96,7 @@ class ZapCard extends ConsumerWidget {
           privacy: zap.privacy,
         );
 
-        return ZapPostCard(
+        Widget card = ZapPostCard(
           post: zapPost,
           onLikeToggle:
               () => ref
@@ -113,6 +118,22 @@ class ZapCard extends ConsumerWidget {
                 );
           },
         );
+
+        if (enableNavigation) {
+          card = GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ZapDetailScreen(zapId: zap.id),
+                ),
+              );
+            },
+            child: card,
+          );
+        }
+
+        return card;
       },
     );
   }
@@ -152,13 +173,13 @@ class ZapPostCard extends ConsumerWidget {
         border: Border.all(
           color:
               isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.2),
+                  ? Colors.white.withOpacityAlpha(0.1)
+                  : Colors.grey.withOpacityAlpha(0.2),
         ),
         boxShadow: [
           if (!isDark)
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withOpacityAlpha(0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -181,25 +202,23 @@ class ZapPostCard extends ConsumerWidget {
           if (hasMedia) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: Stack(
-                  children: [
-                    // Media Component
-                    MediaCarousel(
-                      mediaUrls: post.mediaUrls,
-                      maxHeight: 400, // Aspect ratio approximation
-                    ),
+              child: Stack(
+                children: [
+                  // Media Component
+                  MediaCarousel(
+                    mediaUrls: post.mediaUrls,
+                    maxHeight: 400, // Aspect ratio approximation
+                    borderRadius: 32,
+                  ),
 
-                    // Music Badge Overlay
-                    if (post.songId != null)
-                      Positioned(
-                        bottom: 16,
-                        right: 16,
-                        child: _MusicBadge(songId: post.songId!),
-                      ),
-                  ],
-                ),
+                  // Music Badge Overlay
+                  if (post.songId != null)
+                    Positioned(
+                      bottom: 16,
+                      right: 16,
+                      child: _MusicBadge(songId: post.songId!),
+                    ),
+                ],
               ),
             ),
           ] else ...[
@@ -218,11 +237,15 @@ class ZapPostCard extends ConsumerWidget {
                 border: Border(
                   top: BorderSide(
                     color:
-                        isDark ? Colors.white10 : Colors.grey.withOpacity(0.1),
+                        isDark
+                            ? Colors.white10
+                            : Colors.grey.withOpacityAlpha(0.1),
                   ),
                   bottom: BorderSide(
                     color:
-                        isDark ? Colors.white10 : Colors.grey.withOpacity(0.1),
+                        isDark
+                            ? Colors.white10
+                            : Colors.grey.withOpacityAlpha(0.1),
                   ),
                 ),
               ),
@@ -274,13 +297,15 @@ class ZapPostCard extends ConsumerWidget {
               isVerified: post.isVerified,
               isLiked: post.isLiked,
               onLikeToggle: onLikeToggle, // Passed from ZapCard
-              onReplyTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ZapDetailScreen(zapId: post.id),
-                    ),
+              onReplyTap: () {
+                if (!post.enableNavigation) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ZapDetailScreen(zapId: post.id),
                   ),
+                );
+              },
               onBoostTap: onBoostTap, // Passed from ZapCard
               onShareTap: () async {
                 await ref.read(postAnalyticsProvider).share(post.id);
@@ -426,7 +451,7 @@ class ZapHeader extends StatelessWidget {
               ),
             ],
           ),
-          IconButton(
+          CoolIconButton(
             onPressed: () {
               showModalBottomSheet(
                 context: context,
@@ -437,13 +462,96 @@ class ZapHeader extends StatelessWidget {
                         ZapMenuSheet(postId: postId, username: user.username),
               );
             },
-            icon: Icon(
-              LucideIcons.ellipsis,
-              color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
-            ),
+            icon: LucideIcons.ellipsis,
+            iconColor: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
           ),
         ],
       ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// COMPONENT: SMALL OVERLAY FOR USER
+// -----------------------------------------------------------------------------
+
+class UserPreviewOverlay extends ConsumerWidget {
+  final String userId;
+  final AnchoredOverlayController controller;
+
+  const UserPreviewOverlay({
+    super.key,
+    required this.userId,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userModel = ref.watch(userByUsernameProvider(userId));
+    return userModel.when(
+      data: (userModel) {
+        if (userModel == null) {
+          return Text('User $userId not found');
+        }
+        return InkWell(
+          onTap: () {
+            controller.hide();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProfileScreen(userId: userModel.id),
+              ),
+            );
+          },
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  ProfilePicture(
+                    pfp: userModel.profilePictureUrl,
+                    name: userModel.displayName,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userModel.displayName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '@${userModel.username}',
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade500
+                                  : Colors.grey.shade400,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      error: (e, st) {
+        AppLogger.error(
+          "User Overlay",
+          'Error loading user for overlay',
+          error: e,
+          stackTrace: st,
+        );
+        return Text('Error loading user: $e');
+      },
+      loading: () {
+        return CoolSkeleton.avatar();
+      },
     );
   }
 }
@@ -463,7 +571,6 @@ class ZapText extends StatelessWidget {
     TapDownDetails details,
   ) {
     final overlayController = AnchoredOverlayController();
-    final box = context.findRenderObject() as RenderBox;
 
     final rect = Rect.fromLTWH(
       details.globalPosition.dx - 4,
@@ -475,13 +582,9 @@ class ZapText extends StatelessWidget {
     overlayController.show(
       context: context,
       anchorRect: rect,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(matchText, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Profile preview info'),
-        ],
+      child: UserPreviewOverlay(
+        userId: matchText,
+        controller: overlayController,
       ),
     );
   }
@@ -519,7 +622,9 @@ class ZapText extends StatelessWidget {
             recognizer:
                 TapGestureRecognizer()
                   ..onTapDown = (details) {
-                    _showTagPopup(context, matchText, details);
+                    if (matchText.startsWith('#'))
+                      return; //TODO go to a separate page
+                    _showTagPopup(context, matchText.substring(1), details);
                   },
           ),
         );
@@ -615,7 +720,7 @@ class ZapActions extends StatelessWidget {
                 child: Icon(
                   LucideIcons.badgeCheck,
                   size: 20,
-                  color: Colors.blueAccent.withOpacity(0.6),
+                  color: Colors.blueAccent.withOpacityAlpha(0.6),
                 ),
               ),
             CoolIconButton(
@@ -754,28 +859,29 @@ class ZapMenuSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "ZAP MANAGEMENT",
+                        "ZAP",
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.2,
                         ),
                       ),
-                      Text(
-                        "NODE_REF: $postId",
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'Courier',
-                          color: Colors.grey,
+                      SizedBox(
+                        width: 200,
+                        child: FittedBox(
+                          child: Text(
+                            postId,
+                            style: TextStyle(color: Colors.grey),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-              IconButton(
+              CoolIconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(LucideIcons.x),
+                icon: LucideIcons.x,
               ),
             ],
           ),

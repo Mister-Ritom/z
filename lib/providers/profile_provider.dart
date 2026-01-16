@@ -15,6 +15,14 @@ final userProfileProvider = StreamProvider.family<UserModel?, String>((
   return authService.getUserByIdStream(userId);
 });
 
+final userByUsernameProvider = FutureProvider.family<UserModel?, String>((
+  ref,
+  username,
+) async {
+  final profileService = ref.watch(profileServiceProvider);
+  return await profileService.getUserByUsername(username);
+});
+
 final userFollowersProvider = StreamProvider.family<List<String>, String>((
   ref,
   userId,

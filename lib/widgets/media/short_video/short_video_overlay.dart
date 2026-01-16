@@ -32,7 +32,7 @@ class ShortVideoOverlay extends StatelessWidget {
             GestureDetector(
               onTap: onProfileTap,
               child: ProfilePicture(
-                pfp: user?.profilePictureUrl,
+                pfp: user.profilePictureUrl,
                 name: user.displayName,
               ),
             ),
@@ -43,14 +43,14 @@ class ShortVideoOverlay extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      user?.displayName ?? 'User',
+                      user.displayName,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         fontSize: 14,
                       ),
                     ),
-                    if (user?.isVerified ?? false) ...[
+                    if (user.isVerified) ...[
                       const SizedBox(width: 4),
                       Icon(
                         Icons.verified,
@@ -61,18 +61,18 @@ class ShortVideoOverlay extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  '@${user?.username ?? ''}',
+                  '@${user.username}',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
             const SizedBox(width: 8),
-            if (user != null && currentUserId != user!.id)
+            if (currentUserId != user.id)
               SizedBox(
                 width: 90,
                 child: ShortVideoFollowButton(
                   currentUserId: currentUserId,
-                  userId: user!.id,
+                  userId: user.id,
                 ),
               ),
           ],

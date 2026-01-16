@@ -144,6 +144,7 @@ class StoryCreationState extends ConsumerState<StoryCreation>
                 maxLines: textOnly ? 8 : 3,
               ),
             ),
+          SizedBox(height: 128),
         ],
       ),
     );

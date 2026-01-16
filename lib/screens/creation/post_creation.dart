@@ -17,7 +17,6 @@ import 'package:z/utils/constants.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/widgets/common/app_image.dart';
-import 'package:z/widgets/cool_widgets/cool_widgets.dart';
 import 'package:z/widgets/media/camera_view.dart';
 import 'package:z/widgets/media/media_carousel.dart';
 import 'package:z/widgets/media/video_player_widget.dart';
@@ -278,18 +277,16 @@ class PostCreationState extends ConsumerState<PostCreation>
           CoolSection(
             title: "Quick Actions",
             initialExpanded: true,
-            child: Padding(
+            child: CoolRow(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               padding: const EdgeInsets.all(8.0),
-              child: CoolRow(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  CoolIconButton(icon: LucideIcons.music),
-                  CoolIconButton(icon: LucideIcons.smilePlus),
-                  CoolIconButton(icon: LucideIcons.atSign),
-                  CoolIconButton(icon: LucideIcons.hash),
-                  CoolIconButton(icon: LucideIcons.clock12),
-                ],
-              ),
+              children: [
+                CoolIconButton(icon: LucideIcons.music, tooltip: "Music"),
+                CoolIconButton(icon: LucideIcons.smilePlus, tooltip: "Badge"),
+                CoolIconButton(icon: LucideIcons.atSign, tooltip: "Mention"),
+                CoolIconButton(icon: LucideIcons.hash, tooltip: "Hashtag"),
+                CoolIconButton(icon: LucideIcons.clock12, tooltip: "Schedule"),
+              ],
             ),
           ),
           CoolSection(
@@ -315,6 +312,7 @@ class PostCreationState extends ConsumerState<PostCreation>
               ),
             ),
           ),
+          SizedBox(height: 128),
         ],
       ),
     );

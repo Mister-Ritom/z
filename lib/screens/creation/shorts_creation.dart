@@ -82,6 +82,7 @@ class ShortsCreationState extends ConsumerState<ShortsCreation>
             ),
           ),
           CoolTextField(hintText: "Add Caption...", maxLines: 3),
+          SizedBox(height: 128),
         ],
       ),
     );

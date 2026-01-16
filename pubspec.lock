@@ -204,10 +204,9 @@ packages:
   cooler_ui:
     dependency: "direct main"
     description:
-      name: cooler_ui
-      sha256: fbc41ebf99bfd8c530b0160f8052373e7dad72bfd0993ee623da555137a55e34
-      url: "https://pub.dev"
-    source: hosted
+      path: cooler_ui
+      relative: true
+    source: path
     version: "1.0.1"
   cross_file:
     dependency: transitive

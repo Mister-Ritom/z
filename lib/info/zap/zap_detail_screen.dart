@@ -39,7 +39,7 @@ class ZapDetailScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Main zap
-                    ZapCard(zap: zap),
+                    ZapCard(zap: zap, enableNavigation: false),
                     const Divider(),
                     // Reply composer button
                     Padding(
