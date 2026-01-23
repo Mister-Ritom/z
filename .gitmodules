@@ -1,0 +1,3 @@
+[submodule "cooler_ui"]
+	path = cooler_ui
+	url = https://github.com/mister-ritom/cool_ui.git
