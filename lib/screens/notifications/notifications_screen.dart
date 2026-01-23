@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../providers/notification_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../widgets/common/empty_state_widget.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -27,7 +28,12 @@ class NotificationsScreen extends ConsumerWidget {
       body: notificationsAsync.when(
         data: (notifications) {
           if (notifications.isEmpty) {
-            return const Center(child: Text('No notifications yet'));
+            return const EmptyStateWidget(
+              title: 'No notifications yet',
+              description:
+                  'When you get likes, comments, or follows, they\'ll show up here.',
+              icon: Icons.notifications_none_rounded,
+            );
           }
 
           return ListView.builder(

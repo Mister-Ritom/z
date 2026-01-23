@@ -120,22 +120,18 @@ class _ReportDialogState extends State<ReportDialog> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            RadioGroup<ReportCategory>(
-              groupValue: _selectedCategory,
-              onChanged: (value) {
-                setState(() => _selectedCategory = value);
-              },
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  ...ReportCategory.values.map((category) {
+            Column(
+              children:
+                  ReportCategory.values.map((category) {
                     return RadioListTile<ReportCategory>(
                       title: Text(_getCategoryLabel(category)),
                       value: category,
+                      groupValue: _selectedCategory,
+                      onChanged: (value) {
+                        setState(() => _selectedCategory = value);
+                      },
                     );
-                  }),
-                ],
-              ),
+                  }).toList(),
             ),
 
             const SizedBox(height: 16),

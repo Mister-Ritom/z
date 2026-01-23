@@ -181,6 +181,30 @@ class ProfileService {
     }
   }
 
+  Future<void> blockUser(String currentUserId, String targetUserId) async {
+    try {
+      await _firestore.runTransaction((transaction) async {
+        // Create block record
+        transaction.set(_firestore.collection('blocks').doc(), {
+          'blockerId': currentUserId,
+          'blockedId': targetUserId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Optimistically unfollow if blocking
+        // (The logic is repetitive with unfollowUser but safe to duplicate or call if refactored.
+        // For atomic safety, we just add the block record. A cloud function usually cleans up follows.)
+      });
+      AppLogger.info(
+        'ProfileService',
+        'User $currentUserId blocked $targetUserId',
+      );
+    } catch (e) {
+      AppLogger.error('ProfileService', 'Error blocking user', error: e);
+      rethrow;
+    }
+  }
+
   Future<UserModel?> getUserByUsername(String username) async {
     try {
       final querySnapshot =

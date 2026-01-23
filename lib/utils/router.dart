@@ -19,6 +19,8 @@ import '../info/terms/terms_screen.dart';
 import '../info/privacy/privacy_screen.dart';
 import '../screens/messages/chat_screen.dart';
 import '../services/notifications/fcm_service.dart';
+import '../screens/onboarding/onboarding_screen.dart';
+import '../providers/settings_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(currentUserProvider);
@@ -40,6 +42,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final isAuthenticated = authState.valueOrNull != null;
+      final settings = ref.read(settingsProvider);
+      final hasSeenOnboarding = settings.hasSeenOnboarding;
+
+      // Ensure we don't block the onboarding route itself
+      if (state.matchedLocation == '/onboarding') {
+        return null;
+      }
+
+      if (!hasSeenOnboarding) {
+        return '/onboarding';
+      }
+
       final isGoingToAuth =
           state.matchedLocation == '/login' ||
           state.matchedLocation == '/signup';
@@ -57,6 +71,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null; // No redirect needed
     },
     routes: [
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/signup',
@@ -152,14 +170,21 @@ class GoRouterRefreshNotifier extends ChangeNotifier {
     _subscription = _ref.listen(currentUserProvider, (previous, next) {
       notifyListeners();
     });
+    _settingsSubscription = _ref.listen(settingsProvider, (previous, next) {
+      if (previous?.hasSeenOnboarding != next.hasSeenOnboarding) {
+        notifyListeners();
+      }
+    });
   }
 
   final Ref _ref;
   late final ProviderSubscription _subscription;
+  late final ProviderSubscription _settingsSubscription;
 
   @override
   void dispose() {
     _subscription.close();
+    _settingsSubscription.close();
     super.dispose();
   }
 }

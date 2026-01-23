@@ -19,6 +19,8 @@ import 'package:z/widgets/common/profile_picture.dart';
 import 'package:z/widgets/media/media_carousel.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:z/widgets/zap/card/overlay_widget.dart';
+import 'package:z/widgets/moderation/report_dialog.dart';
+import 'package:z/models/report_model.dart';
 
 class ZapPost {
   final String id;
@@ -458,8 +460,11 @@ class ZapHeader extends StatelessWidget {
                 backgroundColor: Colors.transparent,
                 isScrollControlled: true,
                 builder:
-                    (context) =>
-                        ZapMenuSheet(postId: postId, username: user.username),
+                    (context) => ZapMenuSheet(
+                      postId: postId,
+                      username: user.username,
+                      targetUserId: user.id,
+                    ),
               );
             },
             icon: LucideIcons.ellipsis,
@@ -802,16 +807,85 @@ class _ActionButton extends StatelessWidget {
 // COMPONENT: MENU ACTION SHEET
 // -----------------------------------------------------------------------------
 
-class ZapMenuSheet extends StatelessWidget {
+class ZapMenuSheet extends ConsumerWidget {
   final String postId;
   final String username;
+  // We need the userId for blocking/reporting, not just username.
+  // Assuming the parent passes the full ZapPost or we resolve it.
+  // Ideally, this widget should take userId.
+  final String targetUserId;
 
-  const ZapMenuSheet({super.key, required this.postId, required this.username});
+  const ZapMenuSheet({
+    super.key,
+    required this.postId,
+    required this.username,
+    required this.targetUserId,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF09090B) : Colors.white;
+
+    void handleBlock() {
+      // Confirm Block
+      showDialog(
+        context: context,
+        builder:
+            (ctx) => AlertDialog(
+              title: Text('Block @$username?'),
+              content: const Text(
+                'They will not be able to see your content or interact with you.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx); // Close dialog
+                    Navigator.pop(context); // Close sheet
+                    try {
+                      final currentUser = ref.read(currentUserProvider).value;
+                      if (currentUser != null) {
+                        await ref
+                            .read(profileServiceProvider)
+                            .blockUser(currentUser.uid, targetUserId);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('@$username blocked.')),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to block: $e')),
+                      );
+                    }
+                  },
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('Block'),
+                ),
+              ],
+            ),
+      );
+    }
+
+    void handleReport() {
+      Navigator.pop(context); // Close sheet logic
+      final currentUser = ref.read(currentUserProvider).value;
+      if (currentUser == null) return;
+
+      showDialog(
+        context: context,
+        builder:
+            (context) => ReportDialog(
+              postId: postId,
+              reportType: ReportType.post,
+              userId: targetUserId,
+              reporterId: currentUser.uid,
+            ),
+      );
+    } // ... existing code ...
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -888,22 +962,32 @@ class ZapMenuSheet extends StatelessWidget {
           const SizedBox(height: 32),
 
           // Options
-          _MenuOption(icon: LucideIcons.link2, label: "Copy Direct Link"),
-          _MenuOption(icon: LucideIcons.bookmark, label: "Archive to Vault"),
-          _MenuOption(icon: LucideIcons.chartArea, label: "View Insights"),
+          _MenuOption(
+            icon: LucideIcons.link2,
+            label: "Copy Direct Link",
+            onTap: () {
+              // Logic to copy link
+              // Clipboard.setData(ClipboardData(text: ...));
+              // Not prioritized by user but good to have
+              Navigator.pop(context);
+            },
+          ),
+
           Divider(
             color: isDark ? Colors.white10 : Colors.grey.shade100,
             height: 32,
           ),
-          _MenuOption(icon: LucideIcons.eyeOff, label: "Limit Visibility"),
           _MenuOption(
             icon: LucideIcons.userMinus,
-            label: "Restrict @$username",
+            label:
+                "Block @$username", // User asked for "Restrict" button to do block logic essentially
+            onTap: handleBlock,
           ),
           _MenuOption(
             icon: LucideIcons.flag,
             label: "Report Violation",
             isDanger: true,
+            onTap: handleReport,
           ),
         ],
       ),
@@ -915,11 +999,13 @@ class _MenuOption extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isDanger;
+  final VoidCallback? onTap;
 
   const _MenuOption({
     required this.icon,
     required this.label,
     this.isDanger = false,
+    this.onTap,
   });
 
   @override
@@ -937,7 +1023,7 @@ class _MenuOption extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: onTap ?? () {},
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

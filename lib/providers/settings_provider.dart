@@ -12,23 +12,27 @@ class AppSettings {
     required this.enablePushNotifications,
     required this.autoplayVideos,
     required this.theme,
+    required this.hasSeenOnboarding,
   });
 
   final bool enablePushNotifications;
   final bool autoplayVideos;
   final AppTheme theme;
+  final bool hasSeenOnboarding;
 
   AppSettings copyWith({
     bool? enablePushNotifications,
     bool? autoplayVideos,
     bool? glassMorphismEnabled,
     AppTheme? theme,
+    bool? hasSeenOnboarding,
   }) {
     return AppSettings(
       enablePushNotifications:
           enablePushNotifications ?? this.enablePushNotifications,
       autoplayVideos: autoplayVideos ?? this.autoplayVideos,
       theme: theme ?? this.theme,
+      hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
     );
   }
 }
@@ -41,6 +45,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
           enablePushNotifications: true,
           autoplayVideos: true,
           theme: AppTheme.system,
+          hasSeenOnboarding: false,
         ),
       ) {
     _initialization = _loadSettings();
@@ -73,6 +78,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       enablePushNotifications: push,
       autoplayVideos: autoplay,
       theme: theme,
+      hasSeenOnboarding: prefs.getBool('settings.has_seen_onboarding') ?? false,
     );
   }
 
@@ -92,6 +98,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     final prefs = await _ensurePrefs();
     state = state.copyWith(theme: theme);
     await prefs.setString('settings.theme', theme.toString().split('.').last);
+  }
+
+  Future<void> markOnboardingSeen() async {
+    final prefs = await _ensurePrefs();
+    state = state.copyWith(hasSeenOnboarding: true);
+    await prefs.setBool('settings.has_seen_onboarding', true);
   }
 
   ThemeData getThemeData(Brightness systemBrightness) {

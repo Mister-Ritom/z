@@ -7,6 +7,7 @@ import 'package:z/providers/zap_provider.dart';
 import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/services/content/recommendations/recommendation_cache_service.dart';
 import 'package:z/widgets/ads/feed_with_ads.dart';
+import 'package:z/widgets/common/empty_state_widget.dart';
 
 class ForYouTab extends ConsumerStatefulWidget {
   const ForYouTab({super.key});
@@ -126,7 +127,11 @@ class _ForYouTabState extends ConsumerState<ForYouTab> {
           },
         );
       }
-      return const Center(child: Text('No zaps yet'));
+      return const EmptyStateWidget(
+        title: 'No zaps yet',
+        description: 'Be the first to post something amazing!',
+        icon: Icons.auto_awesome_outlined,
+      );
     }
 
     final feedItems = _adManager.injectAdsIntoZapBatch(zaps);

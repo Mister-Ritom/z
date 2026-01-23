@@ -108,7 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           indicatorColor: Theme.of(context).colorScheme.primary,
           labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
-          tabs: const [Tab(text: 'For You'), Tab(text: 'Following')],
+          tabs: const [Tab(text: 'Following'), Tab(text: 'For You')],
         ),
       ),
       body: Column(
@@ -124,8 +124,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                const ForYouTab(),
                 FollowingTab(userId: currentUser.uid),
+                const ForYouTab(),
               ],
             ),
           ),

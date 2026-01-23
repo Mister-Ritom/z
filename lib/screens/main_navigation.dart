@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,6 +60,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     final notifier = ref.read(currentIndexProvider.notifier);
     final currentIndex = notifier.state;
     if (index == currentIndex) return;
+    HapticFeedback.mediumImpact();
+    HapticFeedback.mediumImpact();
     _pageController.jumpToPage(index);
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     final page = _pages[index];
