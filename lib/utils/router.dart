@@ -47,7 +47,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Ensure we don't block the onboarding route itself
       if (state.matchedLocation == '/onboarding') {
-        return null;
+        return hasSeenOnboarding ? '/login' : null;
       }
 
       if (!hasSeenOnboarding) {
@@ -126,6 +126,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             return SharingScreen([filePath]);
           }
           // Otherwise, use the extra data (from normal sharing flow)
+          if (state.extra is Map<String, dynamic>) {
+            final data = state.extra as Map<String, dynamic>;
+            final paths = data['paths'] as List<String>? ?? [];
+            final text = data['text'] as String?;
+            return SharingScreen(paths, initialText: text);
+          }
           final mediaUrls = state.extra as List<String>? ?? [];
           return SharingScreen(mediaUrls);
         },

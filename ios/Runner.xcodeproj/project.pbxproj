@@ -20,6 +20,7 @@
 		9B87F1772EC35CFD00524FBA /* MultiNativeAdFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87F1762EC35CFD00524FBA /* MultiNativeAdFactory.swift */; };
 		9BCB82C62EDB7E7E0081B70B /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9BCB82BC2EDB7E7E0081B70B /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A206097BF4999F6EF1132519 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E444B395C30067B8C4A8D27F /* Pods_Runner.framework */; };
+		D741D96C06FBB9FC4F5F03AA /* Pods_ShareExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC2F7AAEA2DF72A9CFCA5B69 /* Pods_ShareExtension.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +72,8 @@
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		3ECEC30878ADBEDDB107ED53 /* Pods-ShareExtension.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareExtension.debug.xcconfig"; path = "Target Support Files/Pods-ShareExtension/Pods-ShareExtension.debug.xcconfig"; sourceTree = "<group>"; };
+		4A41E05C143917E390B90F56 /* Pods-ShareExtension.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareExtension.profile.xcconfig"; path = "Target Support Files/Pods-ShareExtension/Pods-ShareExtension.profile.xcconfig"; sourceTree = "<group>"; };
 		6878D9051A5B791BC9D27252 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -89,8 +92,10 @@
 		9B87F1762EC35CFD00524FBA /* MultiNativeAdFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiNativeAdFactory.swift; sourceTree = "<group>"; };
 		9BCB82BC2EDB7E7E0081B70B /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		CDE73F9DF2DA0DB48E295955 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		DC2F7AAEA2DF72A9CFCA5B69 /* Pods_ShareExtension.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ShareExtension.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E444B395C30067B8C4A8D27F /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5734D912C66BF43F52C7522 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
+		F392CA793054B05467218A08 /* Pods-ShareExtension.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShareExtension.release.xcconfig"; path = "Target Support Files/Pods-ShareExtension/Pods-ShareExtension.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -139,6 +144,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D741D96C06FBB9FC4F5F03AA /* Pods_ShareExtension.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +156,7 @@
 			children = (
 				E444B395C30067B8C4A8D27F /* Pods_Runner.framework */,
 				6878D9051A5B791BC9D27252 /* Pods_RunnerTests.framework */,
+				DC2F7AAEA2DF72A9CFCA5B69 /* Pods_ShareExtension.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -171,6 +178,9 @@
 				CDE73F9DF2DA0DB48E295955 /* Pods-RunnerTests.debug.xcconfig */,
 				29EC1D17CA7903EED48D36B6 /* Pods-RunnerTests.release.xcconfig */,
 				0FDC806C32C7F4E497565ECA /* Pods-RunnerTests.profile.xcconfig */,
+				3ECEC30878ADBEDDB107ED53 /* Pods-ShareExtension.debug.xcconfig */,
+				F392CA793054B05467218A08 /* Pods-ShareExtension.release.xcconfig */,
+				4A41E05C143917E390B90F56 /* Pods-ShareExtension.profile.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -279,6 +289,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9BCB82CC2EDB7E7E0081B70B /* Build configuration list for PBXNativeTarget "ShareExtension" */;
 			buildPhases = (
+				6319A2746820CF17E151C82F /* [CP] Check Pods Manifest.lock */,
 				9BCB82B82EDB7E7E0081B70B /* Sources */,
 				9BCB82B92EDB7E7E0081B70B /* Frameworks */,
 				9BCB82BA2EDB7E7E0081B70B /* Resources */,
@@ -436,6 +447,28 @@
 			);
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/Pods-RunnerTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		6319A2746820CF17E151C82F /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ShareExtension-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -854,6 +887,7 @@
 		};
 		9BCB82C82EDB7E7E0081B70B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3ECEC30878ADBEDDB107ED53 /* Pods-ShareExtension.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -896,6 +930,7 @@
 		};
 		9BCB82C92EDB7E7E0081B70B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F392CA793054B05467218A08 /* Pods-ShareExtension.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -935,6 +970,7 @@
 		};
 		9BCB82CA2EDB7E7E0081B70B /* Profile */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4A41E05C143917E390B90F56 /* Pods-ShareExtension.profile.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;

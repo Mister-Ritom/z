@@ -34,7 +34,9 @@ class FollowingTab extends ConsumerWidget {
                   icon: Icons.people_outline_rounded,
                   buttonText: 'Share Profile',
                   onButtonPressed: () {
-                    Share.share('Add me on Z! My user ID is $userId');
+                    SharePlus.instance.share(
+                      ShareParams(text: 'Add me on Z! My user ID is $userId'),
+                    );
                   },
                 ),
               );

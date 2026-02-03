@@ -35,7 +35,9 @@ extension PrivacyIcon on Privacy {
 }
 
 class PostCreation extends ConsumerStatefulWidget {
-  const PostCreation({super.key});
+  final List<XFile>? initialMedia;
+  final String? initialText;
+  const PostCreation({super.key, this.initialMedia, this.initialText});
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() {
@@ -48,7 +50,19 @@ class PostCreationState extends ConsumerState<PostCreation>
   final mediaStateProvider = StateProvider((ref) => <XFile>[]);
   final previewTypeProvider = StateProvider((ref) => 0);
   final privacyTypeProvider = StateProvider((ref) => Privacy.eveyrone);
-  final captionController = TextEditingController();
+  late final TextEditingController captionController;
+
+  @override
+  void initState() {
+    super.initState();
+    captionController = TextEditingController(text: widget.initialText);
+    if (widget.initialMedia != null && widget.initialMedia!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(mediaStateProvider.notifier).state = widget.initialMedia!;
+      });
+    }
+  }
+
   Privacy get privacyType => ref.watch(privacyTypeProvider);
   set privacyType(Privacy privacy) =>
       ref.read(privacyTypeProvider.notifier).state = privacy;

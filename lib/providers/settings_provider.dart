@@ -37,73 +37,55 @@ class AppSettings {
   }
 }
 
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError(
+    'SharedPreferences must be overridden in ProviderScope',
+  );
+});
+
 class SettingsNotifier extends StateNotifier<AppSettings> {
-  SettingsNotifier({SharedPreferences? preferences})
-    : _prefs = preferences,
-      super(
-        const AppSettings(
-          enablePushNotifications: true,
-          autoplayVideos: true,
-          theme: AppTheme.system,
-          hasSeenOnboarding: false,
+  SettingsNotifier(this._prefs)
+    : super(
+        AppSettings(
+          enablePushNotifications:
+              _prefs.getBool('settings.push_enabled') ?? true,
+          autoplayVideos: _prefs.getBool('settings.autoplay_videos') ?? true,
+          theme: _loadTheme(_prefs),
+          hasSeenOnboarding:
+              _prefs.getBool('settings.has_seen_onboarding') ?? false,
         ),
-      ) {
-    _initialization = _loadSettings();
-  }
+      );
 
-  SharedPreferences? _prefs;
-  late final Future<void> _initialization;
+  final SharedPreferences _prefs;
 
-  Future<void> get initialized => _initialization;
-
-  Future<SharedPreferences> _ensurePrefs() async {
-    _prefs ??= await SharedPreferences.getInstance();
-    return _prefs!;
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await _ensurePrefs();
-    final push = prefs.getBool('settings.push_enabled') ?? true;
-    final autoplay = prefs.getBool('settings.autoplay_videos') ?? true;
+  static AppTheme _loadTheme(SharedPreferences prefs) {
     final themeString = prefs.getString('settings.theme');
-    final theme =
-        themeString != null
-            ? AppTheme.values.firstWhere(
-              (e) => e.toString() == 'AppTheme.$themeString',
-              orElse: () => AppTheme.system,
-            )
-            : AppTheme.system;
-
-    state = AppSettings(
-      enablePushNotifications: push,
-      autoplayVideos: autoplay,
-      theme: theme,
-      hasSeenOnboarding: prefs.getBool('settings.has_seen_onboarding') ?? false,
-    );
+    return themeString != null
+        ? AppTheme.values.firstWhere(
+          (e) => e.toString() == 'AppTheme.$themeString',
+          orElse: () => AppTheme.system,
+        )
+        : AppTheme.system;
   }
 
   Future<void> setPushNotifications(bool value) async {
-    final prefs = await _ensurePrefs();
     state = state.copyWith(enablePushNotifications: value);
-    await prefs.setBool('settings.push_enabled', value);
+    await _prefs.setBool('settings.push_enabled', value);
   }
 
   Future<void> setAutoplayVideos(bool value) async {
-    final prefs = await _ensurePrefs();
     state = state.copyWith(autoplayVideos: value);
-    await prefs.setBool('settings.autoplay_videos', value);
+    await _prefs.setBool('settings.autoplay_videos', value);
   }
 
   Future<void> setTheme(AppTheme theme) async {
-    final prefs = await _ensurePrefs();
     state = state.copyWith(theme: theme);
-    await prefs.setString('settings.theme', theme.toString().split('.').last);
+    await _prefs.setString('settings.theme', theme.toString().split('.').last);
   }
 
   Future<void> markOnboardingSeen() async {
-    final prefs = await _ensurePrefs();
     state = state.copyWith(hasSeenOnboarding: true);
-    await prefs.setBool('settings.has_seen_onboarding', true);
+    await _prefs.setBool('settings.has_seen_onboarding', true);
   }
 
   ThemeData getThemeData(Brightness systemBrightness) {
@@ -134,5 +116,6 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
   ref,
 ) {
-  return SettingsNotifier();
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return SettingsNotifier(prefs);
 });

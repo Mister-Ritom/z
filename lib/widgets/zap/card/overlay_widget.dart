@@ -52,7 +52,7 @@ class _AnchoredOverlay extends StatelessWidget {
           onTap: onDismiss,
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-            child: Container(color: Colors.black.withOpacity(0.25)),
+            child: Container(color: Colors.black.withValues(alpha: 0.25)),
           ),
         ),
         Positioned.fromRect(
@@ -120,7 +120,7 @@ class _OverlayCardState extends State<_OverlayCard>
                   BoxShadow(
                     blurRadius: 30,
                     offset: const Offset(0, 10),
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                   ),
                 ],
               ),

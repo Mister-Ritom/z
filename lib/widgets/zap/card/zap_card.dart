@@ -627,8 +627,9 @@ class ZapText extends StatelessWidget {
             recognizer:
                 TapGestureRecognizer()
                   ..onTapDown = (details) {
-                    if (matchText.startsWith('#'))
+                    if (matchText.startsWith('#')) {
                       return; //TODO go to a separate page
+                    }
                     _showTagPopup(context, matchText.substring(1), details);
                   },
           ),
@@ -725,7 +726,7 @@ class ZapActions extends StatelessWidget {
                 child: Icon(
                   LucideIcons.badgeCheck,
                   size: 20,
-                  color: Colors.blueAccent.withOpacityAlpha(0.6),
+                  color: Colors.blueAccent.withValues(alpha: 0.6),
                 ),
               ),
             CoolIconButton(
@@ -844,6 +845,7 @@ class ZapMenuSheet extends ConsumerWidget {
                 ),
                 TextButton(
                   onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(ctx); // Close dialog
                     Navigator.pop(context); // Close sheet
                     try {
@@ -852,12 +854,12 @@ class ZapMenuSheet extends ConsumerWidget {
                         await ref
                             .read(profileServiceProvider)
                             .blockUser(currentUser.uid, targetUserId);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           SnackBar(content: Text('@$username blocked.')),
                         );
                       }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(content: Text('Failed to block: $e')),
                       );
                     }
@@ -920,7 +922,7 @@ class ZapMenuSheet extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.1),
+                      color: Colors.blueAccent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(
@@ -1015,7 +1017,7 @@ class _MenuOption extends StatelessWidget {
         isDanger ? Colors.redAccent : (isDark ? Colors.white : Colors.black87);
     final bgHover =
         isDanger
-            ? Colors.redAccent.withOpacity(0.1)
+            ? Colors.redAccent.withValues(alpha: 0.1)
             : (isDark ? Colors.grey.shade800 : Colors.grey.shade100);
 
     return Padding(
@@ -1069,7 +1071,7 @@ class _MusicBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(left: 4, right: 12, top: 4, bottom: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
+        color: Colors.black.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white24),
       ),

@@ -28,6 +28,12 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<string>No</string>
 
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-2032620092700178~3236202307</string>

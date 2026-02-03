@@ -1,0 +1,12 @@
+Analyzing z...
+
+  error - lib/screens/creation/something.dart:121:3 - Non-nullable instance field 'rotation' must be initialized. Try adding an initializer expression, or add a field initializer in this constructor, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib/screens/creation/something.dart:121:3 - Non-nullable instance field 'scale' must be initialized. Try adding an initializer expression, or add a field initializer in this constructor, or mark it 'late'. - not_initialized_non_nullable_instance_field
+   info - cooler_ui/lib/src/data/shuffled_stack.dart:408:9 - 'translate' is deprecated and shouldn't be used. Use translateByVector3, translateByVector4, or translateByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - cooler_ui/lib/src/data/shuffled_stack.dart:414:9 - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - cooler_ui/lib/src/foundation/animated_surface.dart:169:11 - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - cooler_ui/lib/src/interactions/swipe_action.dart:174:46 - 'translate' is deprecated and shouldn't be used. Use translateByVector3, translateByVector4, or translateByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/widgets/moderation/report_dialog.dart:129:23 - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/widgets/moderation/report_dialog.dart:130:23 - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+
+8 issues found.

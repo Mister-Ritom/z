@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -13,6 +14,8 @@ import 'package:z/providers/fcm_provider.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/services/analytics/firebase_analytics_service.dart';
+import 'package:share_handler/share_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:z/utils/logger.dart';
 import 'utils/router.dart';
 
@@ -49,6 +52,9 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Pre-initialize SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+
   //await configureFirebaseEmulators();
 
   // Initialize Crashlytics
@@ -73,7 +79,12 @@ void main() async {
   // Initialize ad manager
   await AdManager().initialize();
 
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -86,10 +97,12 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   String? _previousUserId;
   ProviderSubscription<AsyncValue<User?>>? _authSubscription;
+  StreamSubscription<SharedMedia>? _sharingSubscription;
 
   @override
   void initState() {
     super.initState();
+    _initSharingListener();
     // Initialize FCM service
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -126,9 +139,52 @@ class _MyAppState extends ConsumerState<MyApp> {
     );
   }
 
+  void _initSharingListener() async {
+    final handler = ShareHandlerPlatform.instance;
+
+    // Listen to shared media stream
+    _sharingSubscription = handler.sharedMediaStream.listen((
+      SharedMedia media,
+    ) {
+      _handleSharedMedia(media);
+    });
+
+    // Check for initial shared media (on app startup)
+    final initialMedia = await handler.getInitialSharedMedia();
+    if (initialMedia != null) {
+      _handleSharedMedia(initialMedia);
+    }
+  }
+
+  void _handleSharedMedia(SharedMedia media) {
+    final mediaPaths =
+        media.attachments?.map((a) => a?.path).whereType<String>().toList() ??
+        [];
+
+    if (mediaPaths.isNotEmpty || media.content != null) {
+      AppLogger.info(
+        'Main',
+        'Global sharing detected',
+        data: {
+          'mediaCount': mediaPaths.length,
+          'hasText': media.content != null,
+        },
+      );
+
+      // Navigate to sharing screen using GoRouter
+      // We pass the list of paths and optionally the text content
+      final router = ref.read(routerProvider);
+      router.push(
+        '/sharing',
+        extra: {'paths': mediaPaths, 'text': media.content},
+      );
+    }
+  }
+
   @override
   void dispose() {
     _authSubscription?.close();
+    _sharingSubscription?.cancel();
     super.dispose();
   }
 
