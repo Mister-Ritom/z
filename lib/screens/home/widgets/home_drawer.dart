@@ -42,17 +42,17 @@ class HomeDrawer extends ConsumerWidget {
                       )
                       : null,
             ),
-            accountName: Text(currentUser.displayName ?? 'No Name'),
+            accountName: Text('No Name'), //TODO
             accountEmail: Text(currentUser.email ?? 'No Email'),
             currentAccountPicture: InkWell(
               onTap: () {
                 Navigator.pop(context);
-                context.push('/profile/${currentUser.uid}');
+                context.push('/profile/${currentUser.id}');
               },
-              child: ProfilePicture(
-                pfp: currentUser.photoURL,
-                name: currentUser.displayName ?? currentUser.email!,
-              ),
+              // child: ProfilePicture( TODO
+              //   pfp: currentUser.photoURL,
+              //   name: currentUser.displayName ?? currentUser.email!,
+              // ),
             ),
           ),
           _DrawerTile(
@@ -60,7 +60,7 @@ class HomeDrawer extends ConsumerWidget {
             title: 'Profile',
             onTap: () {
               Navigator.pop(context);
-              context.push('/profile/${currentUser.uid}');
+              context.push('/profile/${currentUser.id}');
             },
           ),
           _DrawerTile(

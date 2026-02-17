@@ -341,7 +341,7 @@ class PostCreationState extends ConsumerState<PostCreation>
       ).showSnackBar(SnackBar(content: Text("Cannot upload empty post")));
       return CreationResult.stay;
     }
-    final currentUserId = ref.read(currentUserProvider).valueOrNull?.uid;
+    final currentUserId = ref.read(currentUserProvider).valueOrNull?.id;
     if (currentUserId == null) {
       ScaffoldMessenger.of(
         context,

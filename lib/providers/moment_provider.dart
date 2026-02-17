@@ -24,14 +24,14 @@ final momentsRailProvider = StreamProvider<List<MomentModel>>((ref) {
 
   if (currentUser == null) return Stream.value([]);
 
-  final followingAsync = ref.watch(userFollowingProvider(currentUser.uid));
+  final followingAsync = ref.watch(userFollowingProvider(currentUser.id));
 
   return followingAsync.when(
     data: (followingIds) {
       // Also include own moments
       return service.getMomentsFeed(
         followingIds: followingIds,
-        currentUserId: currentUser.uid,
+        currentUserId: currentUser.id,
       );
     },
     loading: () => Stream.value([]),

@@ -1,5 +1,9 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/models/notification_model.dart';
+import 'package:z/supabase/database.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/utils/constants.dart';
@@ -7,6 +11,83 @@ import 'package:z/utils/logger.dart';
 
 class ProfileService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _db = Database.client;
+
+  Future<UserModel?> createProfile(UserModel user) async {
+    try {
+      await _db.from("profiles").insert(user.toMap());
+      return user;
+    } catch (e) {
+      AppLogger.error(
+        "Supabase Client-> Profile Service",
+        "Failed to create profile",
+        error: e,
+      );
+      throw Exception('Failed to create profile: $e');
+    }
+  }
+
+  Future<UserModel?> getProfileByUsername(String username) async {
+    try {
+      final data =
+          await _db.from("profiles").select().eq("username", username).single();
+      final profile = UserModel.fromMap(data);
+      return profile;
+    } catch (e) {
+      AppLogger.error(
+        "Supabase Client-> Profile Service",
+        "Failed to get profile with username $username",
+        error: e,
+      );
+      throw Exception('Failed to create profile $username: $e');
+    }
+  }
+
+  Future<bool> isProfileUsernameAvailable(String username) async {
+    final res =
+        await _db
+            .from('profiles')
+            .select('id')
+            .eq('username', username)
+            .count();
+
+    return (res.count) == 0;
+  }
+
+  Future<String> getAvailableUsername(
+    String baseName, {
+    int attempt = 0,
+  }) async {
+    if (attempt > 5) {
+      final random = Random().nextInt(900000) + 100000;
+      return "$baseName$random";
+    }
+
+    final username =
+        attempt == 0 ? baseName : "$baseName${Random().nextInt(9999)}";
+
+    final isAvailable = await isProfileUsernameAvailable(username);
+
+    if (isAvailable) return username;
+
+    return getAvailableUsername(baseName, attempt: attempt + 1);
+  }
+
+  Future<UserModel?> getProfileByUserId(String userId) async {
+    try {
+      final data =
+          await _db.from("profiles").select().eq("id", userId).single();
+      final profile = UserModel.fromMap(data);
+      return profile;
+    } catch (e) {
+      AppLogger.error(
+        "Supabase Client-> Profile Service",
+        "Failed to get profile with id $userId",
+        error: e,
+      );
+      throw Exception('Failed to create profile $userId: $e');
+    }
+  }
 
   // Update user profile
   Future<void> updateProfile({

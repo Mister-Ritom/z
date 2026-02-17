@@ -1,73 +1,118 @@
+enum AccountType {
+  public,
+  private,
+  verified,
+  business;
+
+  @override
+  String toString() {
+    switch (this) {
+      case AccountType.public:
+        return 'public';
+      case AccountType.private:
+        return 'private';
+      case AccountType.verified:
+        return 'verified';
+      case AccountType.business:
+        return 'business';
+    }
+  }
+
+  static AccountType fromString(String value) {
+    switch (value) {
+      case 'public':
+        return AccountType.public;
+      case 'private':
+        return AccountType.private;
+      case 'verified':
+        return AccountType.verified;
+      case 'business':
+        return AccountType.business;
+      default:
+        throw ArgumentError('Invalid account type: $value');
+    }
+  }
+}
+
 class UserModel {
   final String id;
-  final String email;
+
   final String username;
   final String displayName;
   final String? bio;
   final String? profilePictureUrl;
   final String? coverPhotoUrl;
   final DateTime createdAt;
+  final DateTime updatedAt;
   final int followersCount;
   final int followingCount;
   final int zapsCount;
+  final AccountType accountType;
   final bool isVerified;
-  final bool isPrivate;
 
   UserModel({
     required this.id,
-    required this.email,
     required this.username,
     required this.displayName,
     this.bio,
     this.profilePictureUrl,
     this.coverPhotoUrl,
+    required this.updatedAt,
     required this.createdAt,
+    this.isVerified = false,
     this.followersCount = 0,
     this.followingCount = 0,
     this.zapsCount = 0,
-    this.isVerified = false,
-    this.isPrivate = false,
+    this.accountType = AccountType.public,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       id: map['id'] ?? '',
-      email: map['email'] ?? '',
       username: map['username'] ?? '',
-      displayName: map['displayName'] ?? '',
+      displayName: map['display_name'] ?? '',
       bio: map['bio'],
-      profilePictureUrl: map['profilePictureUrl'],
-      coverPhotoUrl: map['coverPhotoUrl'],
-      createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
-      followersCount: map['followersCount'] ?? 0,
-      followingCount: map['followingCount'] ?? 0,
-      zapsCount: map['zapsCount'] ?? 0,
-      isVerified: map['isVerified'] ?? false,
-      isPrivate: map['isPrivate'] ?? false,
+      profilePictureUrl: map['profile_picture_url'],
+      coverPhotoUrl: map['cover_photo_url'],
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at']).toUtc()
+              : DateTime.now().toUtc(),
+      updatedAt:
+          map['updated_at'] != null
+              ? DateTime.parse(map['updated_at']).toUtc()
+              : DateTime.now().toUtc(),
+      followersCount: map['followers_count'] ?? 0,
+      followingCount: map['following_count'] ?? 0,
+      zapsCount: map['zaps_count'] ?? 0,
+      accountType: AccountType.fromString(map['account_type'] ?? 'public'),
+      isVerified:
+          (AccountType.fromString(map['account_type'] ?? 'public')) ==
+              AccountType.verified ||
+          (AccountType.fromString(map['account_type'] ?? 'public')) ==
+              AccountType.business,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'email': email,
       'username': username,
-      'displayName': displayName,
+      'display_name': displayName,
       'bio': bio,
-      'profilePictureUrl': profilePictureUrl,
-      'coverPhotoUrl': coverPhotoUrl,
-      'createdAt': createdAt,
-      'followersCount': followersCount,
-      'followingCount': followingCount,
-      'zapsCount': zapsCount,
-      'isVerified': isVerified,
-      'isPrivate': isPrivate,
+      'profile_picture_url': profilePictureUrl,
+      'cover_photo_url': coverPhotoUrl,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'followers_count': followersCount,
+      'following_count': followingCount,
+      'zaps_count': zapsCount,
+      'account_type': accountType.toString(),
     };
   }
 
   UserModel copyWith({
     String? id,
-    String? email,
     String? username,
     String? displayName,
     String? bio,
@@ -77,23 +122,25 @@ class UserModel {
     int? followersCount,
     int? followingCount,
     int? zapsCount,
-    bool? isVerified,
-    bool? isPrivate,
+    required DateTime updatedAt,
+    AccountType? accountType,
   }) {
     return UserModel(
       id: id ?? this.id,
-      email: email ?? this.email,
       username: username ?? this.username,
       displayName: displayName ?? this.displayName,
       bio: bio ?? this.bio,
       profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
       coverPhotoUrl: coverPhotoUrl ?? this.coverPhotoUrl,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       zapsCount: zapsCount ?? this.zapsCount,
-      isVerified: isVerified ?? this.isVerified,
-      isPrivate: isPrivate ?? this.isPrivate,
+      accountType: accountType ?? this.accountType,
     );
   }
+
+  DateTime get createdAtLocal => createdAt.toLocal();
+  DateTime get updatedAtLocal => updatedAt.toLocal();
 }

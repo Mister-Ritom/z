@@ -61,7 +61,7 @@ class ZapCard extends ConsumerWidget {
   const ZapCard({super.key, required this.zap, this.enableNavigation = true});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUserId = ref.watch(currentUserProvider).value?.uid ?? '';
+    final currentUserId = ref.watch(currentUserProvider).value?.id ?? '';
 
     final userAsync = ref.watch(userProfileProvider(zap.userId));
     final isLikedAsync = ref.watch(
@@ -328,16 +328,16 @@ class ZapPostCard extends ConsumerWidget {
                         .read(
                           isBookmarkedProvider((
                             zapId: post.id,
-                            userId: currentUser.uid,
+                            userId: currentUser.id,
                           )),
                         )
                         .value ??
                     false;
 
                 if (bookmarked) {
-                  await zapService.removeBookmark(post.id, currentUser.uid);
+                  await zapService.removeBookmark(post.id, currentUser.id);
                 } else {
-                  await zapService.bookmarkZap(post.id, currentUser.uid);
+                  await zapService.bookmarkZap(post.id, currentUser.id);
                 }
                 ref.invalidate(isBookmarkedProvider);
               },
@@ -853,7 +853,7 @@ class ZapMenuSheet extends ConsumerWidget {
                       if (currentUser != null) {
                         await ref
                             .read(profileServiceProvider)
-                            .blockUser(currentUser.uid, targetUserId);
+                            .blockUser(currentUser.id, targetUserId);
                         messenger.showSnackBar(
                           SnackBar(content: Text('@$username blocked.')),
                         );
@@ -884,7 +884,7 @@ class ZapMenuSheet extends ConsumerWidget {
               postId: postId,
               reportType: ReportType.post,
               userId: targetUserId,
-              reporterId: currentUser.uid,
+              reporterId: currentUser.id,
             ),
       );
     } // ... existing code ...

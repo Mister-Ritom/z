@@ -11,11 +11,7 @@ class StoryOptionsSheet extends ConsumerStatefulWidget {
   final StoryModel story;
   final VoidCallback? onDeleted;
 
-  const StoryOptionsSheet({
-    super.key,
-    required this.story,
-    this.onDeleted,
-  });
+  const StoryOptionsSheet({super.key, required this.story, this.onDeleted});
 
   @override
   ConsumerState<StoryOptionsSheet> createState() => _StoryOptionsSheetState();
@@ -33,12 +29,14 @@ class _StoryOptionsSheetState extends ConsumerState<StoryOptionsSheet> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => BlockConfirmationDialog(
-        title: 'Delete Story',
-        message: 'Are you sure you want to delete this story? This action cannot be undone.',
-        confirmText: 'Delete',
-        onConfirm: () {},
-      ),
+      builder:
+          (context) => BlockConfirmationDialog(
+            title: 'Delete Story',
+            message:
+                'Are you sure you want to delete this story? This action cannot be undone.',
+            confirmText: 'Delete',
+            onConfirm: () {},
+          ),
     );
 
     if (confirmed != true) return;
@@ -49,7 +47,7 @@ class _StoryOptionsSheetState extends ConsumerState<StoryOptionsSheet> {
     try {
       await storyService.deleteStory(
         storyId: widget.story.id,
-        userId: currentUser.uid,
+        userId: currentUser.id,
       );
       if (mounted) {
         Navigator.of(context).pop();
@@ -60,9 +58,9 @@ class _StoryOptionsSheetState extends ConsumerState<StoryOptionsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
       }
     } finally {
       if (mounted) {
@@ -82,20 +80,21 @@ class _StoryOptionsSheetState extends ConsumerState<StoryOptionsSheet> {
     try {
       await showDialog(
         context: context,
-        builder: (context) => ReportDialog(
-          reportType: ReportType.story,
-          storyId: widget.story.id,
-          reporterId: currentUser.uid,
-        ),
+        builder:
+            (context) => ReportDialog(
+              reportType: ReportType.story,
+              storyId: widget.story.id,
+              reporterId: currentUser.id,
+            ),
       );
       if (mounted) {
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to report: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to report: $e')));
       }
     } finally {
       if (mounted) {
@@ -107,7 +106,7 @@ class _StoryOptionsSheetState extends ConsumerState<StoryOptionsSheet> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
-    final isOwner = currentUser?.uid == widget.story.userId;
+    final isOwner = currentUser?.id == widget.story.userId;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -119,30 +118,31 @@ class _StoryOptionsSheetState extends ConsumerState<StoryOptionsSheet> {
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('Delete', style: TextStyle(color: Colors.red)),
               onTap: _isDeleting ? null : _handleDelete,
-              trailing: _isDeleting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
+              trailing:
+                  _isDeleting
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : null,
             ),
           if (!isOwner)
             ListTile(
               leading: const Icon(Icons.flag_outlined),
               title: const Text('Report'),
               onTap: _isReporting ? null : _handleReport,
-              trailing: _isReporting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
+              trailing:
+                  _isReporting
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : null,
             ),
         ],
       ),
     );
   }
 }
-

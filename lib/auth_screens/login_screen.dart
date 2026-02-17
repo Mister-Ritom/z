@@ -51,7 +51,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/');
       }
     } catch (e, stackTrace) {
-      AppLogger.error('LoginScreen', 'Email sign in failed', error: e, stackTrace: stackTrace);
+      final errorMessage = e.toString();
+      if (errorMessage.contains('Email not confirmed')) {
+        ref.read(pendingEmailProvider.notifier).state =
+            _emailController.text.trim();
+        if (mounted) {
+          context.go('/verify-email');
+        }
+        return;
+      }
+
+      AppLogger.error(
+        'LoginScreen',
+        'Email sign in failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,
@@ -86,7 +101,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/');
       }
     } catch (e, stackTrace) {
-      AppLogger.error('LoginScreen', 'Google sign in failed', error: e, stackTrace: stackTrace);
+      AppLogger.error(
+        'LoginScreen',
+        'Google sign in failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,

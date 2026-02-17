@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:z/providers/profile_provider.dart';
 import 'package:z/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,12 +40,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    final email = _emailController.text.trim();
 
     try {
       final authService = ref.read(authServiceProvider);
+      final profileService = ref.read(profileServiceProvider);
 
       // Check username availability
-      final isAvailable = await authService.isUsernameAvailable(
+      final isAvailable = await profileService.isProfileUsernameAvailable(
         _usernameController.text.trim(),
       );
 
@@ -58,12 +61,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         return;
       }
 
+      final password = _passwordController.text;
       await authService.signUpWithEmail(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+        email: email,
+        password: password,
         username: _usernameController.text.trim(),
         displayName: _displayNameController.text.trim(),
       );
+
+      // Save email and password for verification screen
+      ref.read(pendingEmailProvider.notifier).state = email;
+      ref.read(pendingPasswordProvider.notifier).state = password;
 
       // Track successful signup
       await FirebaseAnalyticsService.logSignUp(signUpMethod: 'email');
@@ -73,7 +81,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         context.pushReplacement('/');
       }
     } catch (e, stackTrace) {
-      AppLogger.error('SignUpScreen', 'Email sign up failed', error: e, stackTrace: stackTrace);
+      AppLogger.error(
+        'SignUpScreen',
+        'Email sign up failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,
@@ -110,7 +123,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         context.go('/');
       }
     } catch (e, stackTrace) {
-      AppLogger.error('SignUpScreen', 'Google sign up failed', error: e, stackTrace: stackTrace);
+      AppLogger.error(
+        'SignUpScreen',
+        'Google sign up failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
       // Report error to Crashlytics
       await FirebaseAnalyticsService.recordError(
         e,

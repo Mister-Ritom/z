@@ -14,7 +14,7 @@ import '../../services/analytics/firebase_analytics_service.dart';
 
 class StoryCreationScreen extends ConsumerStatefulWidget {
   final XFile? initialFile;
-  
+
   const StoryCreationScreen({super.key, this.initialFile});
 
   @override
@@ -81,19 +81,19 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
     final user = ref.read(currentUserProvider).value;
     if (user == null) return;
 
-    final visibleTo = await _getVisibleTo(user.uid);
+    final visibleTo = await _getVisibleTo(user.id);
     final uploadNotifier = ref.read(uploadNotifierProvider.notifier);
     final service = ref.read(storyServiceProvider);
 
     uploadNotifier.uploadFiles(
       files: [file],
       type: UploadType.document,
-      referenceId: user.uid,
+      referenceId: user.id,
       onComplete: (urls) async {
         try {
           final mediaUrl = urls.first;
           await service.createStory(
-            uid: user.uid,
+            uid: user.id,
             caption: _textController.text.trim(),
             mediaUrl: mediaUrl,
             visibility: _visibility,

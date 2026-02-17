@@ -84,7 +84,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
       return;
     }
     final analyticsService = ref.read(storyAnalyticsProvider);
-    analyticsService.viewStory(currentUser.uid, currentStory.id).catchError((
+    analyticsService.viewStory(currentUser.id, currentStory.id).catchError((
       e,
       st,
     ) {
@@ -444,8 +444,14 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
                                             StoryBlurContainer(child: child),
                                     onDeleted: () {
                                       // Refresh stories after deletion
-                                      ref.invalidate(groupedStoriesProvider(currentUserId));
-                                      ref.invalidate(groupedPublicStoriesProvider(currentUserId));
+                                      ref.invalidate(
+                                        groupedStoriesProvider(currentUserId),
+                                      );
+                                      ref.invalidate(
+                                        groupedPublicStoriesProvider(
+                                          currentUserId,
+                                        ),
+                                      );
                                     },
                                   ),
                       loading: () => const CircularProgressIndicator(),
@@ -484,7 +490,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
                     }
                     return StreamBuilder<bool>(
                       stream: analyticsService.isStoryLikedStream(
-                        currentUser.uid,
+                        currentUser.id,
                         currentStory.id,
                       ),
                       initialData: false,
@@ -493,7 +499,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
                         return IconButton(
                           onPressed: () {
                             analyticsService.toggleLikeStory(
-                              currentUser.uid,
+                              currentUser.id,
                               currentStory.id,
                             );
                           },

@@ -98,12 +98,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final bioChanged = widget.user.bio != bio;
       final pfpChanged = newPfp != widget.user.profilePictureUrl;
       final coverChanged = newCover != widget.user.coverPhotoUrl;
-
-      await currentUser.updateProfile(
-        displayName: nameChanged ? displayName : null,
-        photoURL: pfpChanged ? newPfp : null,
-      );
-      await currentUser.reload();
+      //TODO
+      // await currentUser.updateProfile(
+      //   displayName: nameChanged ? displayName : null,
+      //   photoURL: pfpChanged ? newPfp : null,
+      // );
+      // await currentUser.reload();
 
       // Update profile
       await profileService.updateProfile(

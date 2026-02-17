@@ -174,7 +174,7 @@ class StoryItemCard extends ConsumerWidget {
     StoryAnalyticsService analyticsService,
     WidgetRef ref,
   ) async {
-    final currentUserId = ref.read(currentUserProvider).valueOrNull?.uid;
+    final currentUserId = ref.read(currentUserProvider).valueOrNull?.id;
     if (currentUserId == null) return stories;
 
     final futures =
@@ -268,7 +268,7 @@ class _StoryThumbnail extends ConsumerWidget {
     return StreamBuilder<bool>(
       stream:
           currentUser != null
-              ? analyticsService.isStoryViewedStream(currentUser.uid, story.id)
+              ? analyticsService.isStoryViewedStream(currentUser.id, story.id)
               : Stream.value(false),
       initialData: false,
       builder: (context, snapshot) {

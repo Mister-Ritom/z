@@ -311,7 +311,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final currentUserId = currentUser.uid;
+    final currentUserId = currentUser.id;
     final key = [currentUserId, widget.otherUserId]..sort();
     final messagesAsync = ref.watch(
       messagesProvider(key.join(_conversationSeparator)),

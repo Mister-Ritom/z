@@ -50,14 +50,14 @@ class ShortVideoWidget extends ConsumerWidget {
 
     final userAsync = ref.watch(userProfileProvider(zap.userId));
     final isLikedStream = ref.watch(
-      videoLikedStreamProvider((currentUser.uid, zap.id)),
+      videoLikedStreamProvider((currentUser.id, zap.id)),
     );
     final commentsStream = ref.watch(videoCommentsCountStreamProvider(zap.id));
     final sharesStream = ref.watch(videoSharesStreamProvider(zap.id));
     final analytics = ref.read(shortVideoAnalyticsProvider);
 
     final isBookmarkedAsync = ref.watch(
-      isBookmarkedProvider((zapId: zap.id, userId: currentUser.uid)),
+      isBookmarkedProvider((zapId: zap.id, userId: currentUser.id)),
     );
 
     return userAsync.when(
@@ -88,7 +88,7 @@ class ShortVideoWidget extends ConsumerWidget {
                 sharesCount: sharesStream.valueOrNull,
                 onLike: () async {
                   await analytics.toggleLike(
-                    currentUser.uid,
+                    currentUser.id,
                     zap.id,
                     zap.hashtags,
                     creatorUserId: zap.userId,
@@ -104,7 +104,7 @@ class ShortVideoWidget extends ConsumerWidget {
                     builder:
                         (_) => CommentSheet(
                           zapId: zap.id,
-                          currentUserId: currentUser.uid,
+                          currentUserId: currentUser.id,
                         ),
                   );
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =
@@ -133,7 +133,7 @@ class ShortVideoWidget extends ConsumerWidget {
                         (_) => ShortVideoOptionsSheet(
                           zapId: zap.id,
                           zapUserId: zap.userId,
-                          currentUserId: currentUser.uid,
+                          currentUserId: currentUser.id,
                           isBookmarked: isBookmarked,
                         ),
                   );
@@ -148,7 +148,7 @@ class ShortVideoWidget extends ConsumerWidget {
               right: 72,
               child: ShortVideoOverlay(
                 user: user,
-                currentUserId: currentUser.uid,
+                currentUserId: currentUser.id,
                 zapUserId: zap.userId,
                 zapText: zap.text,
                 createdAt: zap.createdAt,

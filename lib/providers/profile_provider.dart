@@ -12,7 +12,7 @@ final userProfileProvider = StreamProvider.family<UserModel?, String>((
   userId,
 ) {
   final authService = ref.read(authServiceProvider);
-  return authService.getUserByIdStream(userId);
+  return Stream.empty();
 });
 
 final userByUsernameProvider = FutureProvider.family<UserModel?, String>((

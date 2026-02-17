@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/firebase_options.dart';
 import 'package:z/providers/settings_provider.dart';
 import 'package:z/providers/fcm_provider.dart';
@@ -16,36 +13,9 @@ import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/services/analytics/firebase_analytics_service.dart';
 import 'package:share_handler/share_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
 import 'utils/router.dart';
-
-Future<void> configureFirebaseEmulators() async {
-  if (kReleaseMode) return;
-
-  final host =
-      defaultTargetPlatform == TargetPlatform.android
-          ? '10.0.2.2'
-          : 'localhost';
-
-  try {
-    FirebaseAuth.instance.useAuthEmulator(host, 9099);
-    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-    FirebaseStorage.instanceFor(
-      app: Firebase.app(),
-      bucket: DefaultFirebaseOptions.currentPlatform.storageBucket,
-    ).useStorageEmulator(host, 9199);
-    FirebaseFunctions.instance.useFunctionsEmulator(host, 5001);
-
-    AppLogger.info("Main", 'Firebase emulators connected on $host');
-  } catch (e, st) {
-    AppLogger.error(
-      "Main",
-      'Failed to connect Firebase emulators',
-      error: e,
-      stackTrace: st,
-    );
-  }
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,7 +25,8 @@ void main() async {
   // Pre-initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
 
-  //await configureFirebaseEmulators();
+  // Initialize Supabase
+  await Database.initialize();
 
   // Initialize Crashlytics
   FlutterError.onError = (errorDetails) {
@@ -125,9 +96,9 @@ class _MyAppState extends ConsumerState<MyApp> {
         next.whenData((user) async {
           final fcmService = ref.read(fcmServiceProvider);
           if (user != null) {
-            await fcmService.getTokenAndSave(user.uid);
-            await FirebaseAnalyticsService.setUserId(user.uid);
-            _previousUserId = user.uid;
+            await fcmService.getTokenAndSave(user.id);
+            await FirebaseAnalyticsService.setUserId(user.id);
+            _previousUserId = user.id;
           } else if (_previousUserId != null) {
             await fcmService.deleteToken(_previousUserId!);
             await FirebaseAnalyticsService.setUserId(null);

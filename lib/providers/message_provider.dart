@@ -24,7 +24,7 @@ final messagesProvider = StreamProvider.family<List<MessageModel>, String>((
   final recipients = key.split(separator);
   final messageService = ref.watch(messageServiceProvider);
   final currentUser = ref.watch(currentUserProvider).valueOrNull;
-  final currentUserId = currentUser?.uid ?? recipients.first;
+  final currentUserId = currentUser?.id ?? recipients.first;
   return messageService.getMessages(recipients, currentUserId);
 });
 
