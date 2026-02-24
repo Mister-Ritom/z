@@ -1,16 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:z/firebase_options.dart';
 import 'package:z/providers/settings_provider.dart';
-import 'package:z/providers/fcm_provider.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/services/ads/ad_manager.dart';
-import 'package:z/services/analytics/firebase_analytics_service.dart';
 import 'package:share_handler/share_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:z/supabase/database.dart';
@@ -20,32 +14,11 @@ import 'utils/router.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
   // Pre-initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
 
   // Initialize Supabase
   await Database.initialize();
-
-  // Initialize Crashlytics
-  FlutterError.onError = (errorDetails) {
-    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-  };
-
-  // Pass all uncaught asynchronous errors to Crashlytics
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
-
-  // Enable Crashlytics collection in release mode
-  if (kReleaseMode) {
-    FirebaseAnalyticsService.setCrashlyticsCollectionEnabled(true);
-  } else {
-    // Disable in debug mode for faster development
-    FirebaseAnalyticsService.setCrashlyticsCollectionEnabled(false);
-  }
 
   // Initialize ad manager
   await AdManager().initialize();
@@ -74,34 +47,14 @@ class _MyAppState extends ConsumerState<MyApp> {
   void initState() {
     super.initState();
     _initSharingListener();
-    // Initialize FCM service
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        final fcmService = ref.read(fcmServiceProvider);
-        await fcmService.initialize();
-      } catch (e, st) {
-        // Log error but don't crash the app
-        AppLogger.error(
-          'MyApp',
-          'Error initializing FCM service in initState',
-          error: e,
-          stackTrace: st,
-        );
-      }
-    });
 
     _authSubscription = ref.listenManual<AsyncValue<User?>>(
       currentUserProvider,
       (previous, next) {
         next.whenData((user) async {
-          final fcmService = ref.read(fcmServiceProvider);
           if (user != null) {
-            await fcmService.getTokenAndSave(user.id);
-            await FirebaseAnalyticsService.setUserId(user.id);
             _previousUserId = user.id;
           } else if (_previousUserId != null) {
-            await fcmService.deleteToken(_previousUserId!);
-            await FirebaseAnalyticsService.setUserId(null);
             _previousUserId = null;
           }
         });

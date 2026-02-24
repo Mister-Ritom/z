@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'dart:async';
 import 'package:z/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,6 @@ import 'package:z/info/privacy/privacy_screen.dart';
 import 'package:z/info/terms/terms_screen.dart';
 import 'package:z/utils/helpers.dart';
 import '../providers/auth_provider.dart';
-import '../services/analytics/firebase_analytics_service.dart';
-import 'dart:async';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,8 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         password: _passwordController.text,
       );
 
-      // Track successful login
-      await FirebaseAnalyticsService.logLogin(loginMethod: 'email');
+      // Track successful login (Analytics removed)
 
       AppLogger.info('LoginScreen', 'Email sign in successful');
       if (mounted) {
@@ -67,13 +65,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         error: e,
         stackTrace: stackTrace,
       );
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        stackTrace,
-        reason: 'Email sign in failed',
-        fatal: false,
-      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -93,8 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authService = ref.read(authServiceProvider);
       await authService.signInWithGoogle();
 
-      // Track successful login
-      await FirebaseAnalyticsService.logLogin(loginMethod: 'google');
+      // Track successful login (Analytics removed)
 
       AppLogger.info('LoginScreen', 'Google sign in successful');
       if (mounted) {
@@ -106,13 +96,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         'Google sign in failed',
         error: e,
         stackTrace: stackTrace,
-      );
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        stackTrace,
-        reason: 'Google sign in failed',
-        fatal: false,
       );
       if (mounted) {
         ScaffoldMessenger.of(
@@ -129,10 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    // Track screen view
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(FirebaseAnalyticsService.logScreenView(screenName: 'login'));
-    });
+    // Track screen view (Analytics removed)
   }
 
   @override

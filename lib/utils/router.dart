@@ -19,7 +19,6 @@ import '../info/feedback/feedback_screen.dart';
 import '../info/terms/terms_screen.dart';
 import '../info/privacy/privacy_screen.dart';
 import '../screens/messages/chat_screen.dart';
-import '../services/notifications/fcm_service.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../providers/settings_provider.dart';
 
@@ -160,13 +159,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       return Scaffold(body: Center(child: Text('Error: ${state.error}')));
     },
   );
-
-  // Set up FCM navigation handler after router is created
-  FCMNavigationHandler.navigateToChat = (String otherUserId) {
-    Future.microtask(() {
-      router.go('/chat/$otherUserId');
-    });
-  };
 
   return router;
 });

@@ -1,18 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/social/profile_service.dart';
 import '../models/user_model.dart';
-import 'auth_provider.dart';
 
 final profileServiceProvider = Provider<ProfileService>((ref) {
   return ProfileService();
 });
 
-final userProfileProvider = StreamProvider.family<UserModel?, String>((
+final userProfileProvider = FutureProvider.family<UserModel?, String>((
   ref,
   userId,
 ) {
-  final authService = ref.read(authServiceProvider);
-  return Stream.empty();
+  final profileService = ref.read(profileServiceProvider);
+  return profileService.getProfileByUserId(userId);
 });
 
 final userByUsernameProvider = FutureProvider.family<UserModel?, String>((
@@ -23,20 +22,20 @@ final userByUsernameProvider = FutureProvider.family<UserModel?, String>((
   return await profileService.getUserByUsername(username);
 });
 
-final userFollowersProvider = StreamProvider.family<List<String>, String>((
+final userFollowersProvider = FutureProvider.family<List<String>, String>((
   ref,
   userId,
-) {
+) async {
   final profileService = ref.watch(profileServiceProvider);
-  return profileService.getUserFollowers(userId);
+  return await profileService.getUserFollowers(userId);
 });
 
-final userFollowingProvider = StreamProvider.family<List<String>, String>((
+final userFollowingProvider = FutureProvider.family<List<String>, String>((
   ref,
   userId,
-) {
+) async {
   final profileService = ref.watch(profileServiceProvider);
-  return profileService.getUserFollowing(userId);
+  return await profileService.getUserFollowing(userId);
 });
 
 final searchUsersProvider = FutureProvider.family<List<UserModel>, String>((

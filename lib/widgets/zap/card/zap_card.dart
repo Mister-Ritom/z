@@ -7,10 +7,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:z/info/zap/zap_detail_screen.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/models/zap_model.dart';
-import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/zap_provider.dart';
+import 'package:z/providers/interaction_provider.dart';
+import 'package:z/providers/moderation_provider.dart';
 import 'package:z/screens/main_navigation.dart';
 import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/constants.dart';
@@ -65,11 +66,7 @@ class ZapCard extends ConsumerWidget {
 
     final userAsync = ref.watch(userProfileProvider(zap.userId));
     final isLikedAsync = ref.watch(
-      postLikedStreamProvider((currentUserId, zap.id)),
-    );
-    final likesCountAsync = ref.watch(postLikesStreamProvider(zap.id));
-    final repliesCountAsync = ref.watch(
-      postCommentsCountStreamProvider(zap.id),
+      postLikedProvider((currentUserId, zap.id, false)),
     );
 
     return userAsync.when(
@@ -89,9 +86,9 @@ class ZapCard extends ConsumerWidget {
           text: zap.text,
           mediaUrls: zap.mediaUrls,
           createdAt: _formatDate(zap.createdAt),
-          likesCount: likesCountAsync.value ?? zap.likesCount,
-          repliesCount: repliesCountAsync.value ?? zap.repliesCount,
-          isLiked: isLikedAsync.value ?? false, // Stream-driven
+          likesCount: zap.likesCount,
+          repliesCount: zap.repliesCount,
+          isLiked: isLikedAsync.value ?? false,
           songId: zap.songId,
           isVerified: userModel.isVerified,
           isThread: zap.isThread,
@@ -102,22 +99,13 @@ class ZapCard extends ConsumerWidget {
           post: zapPost,
           onLikeToggle:
               () => ref
-                  .read(postAnalyticsProvider)
-                  .toggleLike(
-                    currentUserId,
-                    zap.id,
-                    zap.hashtags,
-                    creatorUserId: zap.userId,
-                  ),
+                  .read(interactionServiceProvider(false))
+                  .toggleLike(currentUserId, zap.id),
           onBoostTap: () {
             if (currentUserId == zap.userId) return;
             ref
-                .read(postAnalyticsProvider)
-                .repostPost(
-                  originalPostId: zap.id,
-                  currentUserId: currentUserId,
-                  originalUserId: zap.userId,
-                );
+                .read(interactionServiceProvider(false))
+                .toggleRepost(currentUserId, zap.id);
           },
         );
 
@@ -310,7 +298,9 @@ class ZapPostCard extends ConsumerWidget {
               },
               onBoostTap: onBoostTap, // Passed from ZapCard
               onShareTap: () async {
-                await ref.read(postAnalyticsProvider).share(post.id);
+                await ref
+                    .read(interactionServiceProvider(false))
+                    .share(post.id);
                 await SharePlus.instance.share(
                   ShareParams(
                     text:
@@ -852,7 +842,7 @@ class ZapMenuSheet extends ConsumerWidget {
                       final currentUser = ref.read(currentUserProvider).value;
                       if (currentUser != null) {
                         await ref
-                            .read(profileServiceProvider)
+                            .read(blockServiceProvider)
                             .blockUser(currentUser.id, targetUserId);
                         messenger.showSnackBar(
                           SnackBar(content: Text('@$username blocked.')),

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum ReportType { post, user, story }
 
 enum ReportCategory {
@@ -42,30 +40,37 @@ class ReportModel {
   factory ReportModel.fromMap(Map<String, dynamic> map) {
     return ReportModel(
       id: map['id'] ?? '',
-      reporterId: map['reporterId'] ?? '',
-      reportType: _reportTypeFromString(map['reportType'] ?? 'post'),
-      reportedPostId: map['reportedPostId'],
-      reportedUserId: map['reportedUserId'],
-      reportedStoryId: map['reportedStoryId'],
+      reporterId: map['reporter_id'] ?? map['reporterId'] ?? '',
+      reportType: _reportTypeFromString(
+        map['report_type'] ?? map['reportType'] ?? 'post',
+      ),
+      reportedPostId: map['reported_post_id'] ?? map['reportedPostId'],
+      reportedUserId: map['reported_user_id'] ?? map['reportedUserId'],
+      reportedStoryId: map['reported_story_id'] ?? map['reportedStoryId'],
       category: _categoryFromString(map['category'] ?? 'other'),
-      additionalDetails: map['additionalDetails'],
-      createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
-      isResolved: map['isResolved'] ?? false,
+      additionalDetails: map['additional_details'] ?? map['additionalDetails'],
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'])
+              : (map['createdAt'] != null
+                  ? DateTime.parse(map['createdAt'])
+                  : DateTime.now()),
+      isResolved: map['is_resolved'] ?? map['isResolved'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'reporterId': reporterId,
-      'reportType': _reportTypeToString(reportType),
-      'reportedPostId': reportedPostId,
-      'reportedUserId': reportedUserId,
-      'reportedStoryId': reportedStoryId,
+      'reporter_id': reporterId,
+      'report_type': _reportTypeToString(reportType),
+      'reported_post_id': reportedPostId,
+      'reported_user_id': reportedUserId,
+      'reported_story_id': reportedStoryId,
       'category': _categoryToString(category),
-      'additionalDetails': additionalDetails,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'isResolved': isResolved,
+      'additional_details': additionalDetails,
+      'created_at': createdAt.toIso8601String(),
+      'is_resolved': isResolved,
     };
   }
 

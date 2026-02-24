@@ -9,7 +9,6 @@ import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/utils/constants.dart';
-import '../analytics/firebase_analytics_service.dart';
 
 class StorageService {
   final SupabaseClient _supabase = Database.client;
@@ -90,12 +89,6 @@ class StorageService {
         );
 
         if (attempt >= _maxRetries) {
-          await FirebaseAnalyticsService.recordError(
-            e,
-            st,
-            reason: 'Supabase upload failed',
-            fatal: false,
-          );
           throw Exception('Upload failed after retries: $e');
         }
 
@@ -155,12 +148,6 @@ class StorageService {
         );
 
         if (attempt >= _maxRetries) {
-          await FirebaseAnalyticsService.recordError(
-            e,
-            st,
-            reason: 'Supabase document upload failed',
-            fatal: false,
-          );
           throw Exception('Document upload failed after retries: $e');
         }
 

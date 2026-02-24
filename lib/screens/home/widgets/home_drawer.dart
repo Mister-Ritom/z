@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/settings_provider.dart';
 import 'package:z/utils/logger.dart';
-import 'package:z/widgets/common/profile_picture.dart';
 
 class HomeDrawer extends ConsumerWidget {
   const HomeDrawer({super.key});

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:z/providers/message_provider.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/utils/helpers.dart';
+import 'package:z/widgets/common/profile_picture.dart';
 import '../../providers/auth_provider.dart';
 import 'package:z/screens/home/widgets/following_tab.dart';
 import 'package:z/screens/home/widgets/for_you_tab.dart';
@@ -67,12 +68,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            // child: ProfilePicture(
-            //   //TODO
-            //   // pfp: currentUser.photoURL,
-            //   // name: currentUser.displayName ?? currentUser.email!,
-            // ),
-            child: Container(),
+            child: ProfilePicture(pfp: null, name: currentUser.email!),
           ),
         ),
         title: Image.asset(

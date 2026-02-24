@@ -179,11 +179,7 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
         AppLogger.warn(
           'ForYouFeedNotifier',
           'Received empty results on initial load',
-          data: {
-            'isShort': isShort,
-            'hasMore': hasMore,
-            'source': source,
-          },
+          data: {'isShort': isShort, 'hasMore': hasMore, 'source': source},
         );
       }
 
@@ -203,20 +199,17 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
 
       // If we got empty results from cache source, clear local cache
       // This happens when server-side cache is corrupted or empty
-      if (fetched.isEmpty && (source == 'cache' || source == 'cache_fallback')) {
+      if (fetched.isEmpty &&
+          (source == 'cache' || source == 'cache_fallback')) {
         AppLogger.warn(
           'ForYouFeedNotifier',
           'Received empty results from cache source, clearing local cache',
-          data: {
-            'isShort': isShort,
-            'source': source,
-            'reset': reset,
-          },
+          data: {'isShort': isShort, 'source': source, 'reset': reset},
         );
-        
+
         // Clear local cache since server cache is empty/corrupted
         await _cacheService.clearCache(isShort: isShort);
-        
+
         // If this was initial load with empty results, set hasMore to false
         // This will prevent infinite loading attempts
         if (reset && updated.isEmpty) {
@@ -227,7 +220,7 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
             isLoading: false,
             lastViewedZapId: newLastViewedZapId,
           );
-          
+
           AppLogger.warn(
             'ForYouFeedNotifier',
             'Empty cache results on initial load - no content available',
@@ -329,21 +322,21 @@ class ForYouFeedNotifier extends StateNotifier<ForYouFeedState> {
   }
 }
 
-// Following feed provider (isShort not needed here unless you want to separate short/fulls)
-final followingFeedProvider = StreamProvider.family<List<ZapModel>, String>((
+// Following feed provider
+final followingFeedProvider = FutureProvider.family<List<ZapModel>, String>((
   ref,
   userId,
-) {
+) async {
   final zapService = ref.watch(zapServiceProvider(false)); // full zaps
-  return zapService.getFollowingFeed(userId);
+  return await zapService.getFollowingFeed(userId);
 });
 
-final userZapsProvider = StreamProvider.family<List<ZapModel>, String>((
+final userZapsProvider = FutureProvider.family<List<ZapModel>, String>((
   ref,
   userId,
-) {
+) async {
   final zapService = ref.watch(zapServiceProvider(false));
-  return zapService.getUserZaps(userId);
+  return await zapService.getUserZaps(userId);
 });
 
 final searchZapsProvider = FutureProvider.family<List<ZapModel>, String>((
@@ -354,42 +347,42 @@ final searchZapsProvider = FutureProvider.family<List<ZapModel>, String>((
   return await zapService.searchZaps(query);
 });
 
-final zapRepliesProvider = StreamProvider.family<List<ZapModel>, String>((
+final zapRepliesProvider = FutureProvider.family<List<ZapModel>, String>((
   ref,
   zapId,
-) {
+) async {
   final zapService = ref.watch(zapServiceProvider(false));
-  return zapService.getZapReplies(zapId);
+  return await zapService.getZapReplies(zapId);
 });
 
-final userRepliesProvider = StreamProvider.family<List<ZapModel>, String>((
+final userRepliesProvider = FutureProvider.family<List<ZapModel>, String>((
   ref,
   userId,
-) {
+) async {
   final zapService = ref.watch(zapServiceProvider(false));
-  return zapService.getUserReplies(userId);
+  return await zapService.getUserReplies(userId);
 });
 
-final userLikedZapsProvider = StreamProvider.family<List<ZapModel>, String>((
+final userLikedZapsProvider = FutureProvider.family<List<ZapModel>, String>((
   ref,
   userId,
-) {
+) async {
   final zapService = ref.watch(zapServiceProvider(false));
-  return zapService.getUserLikedZaps(userId);
+  return await zapService.getUserLikedZaps(userId);
 });
 
-final userRezapedZapsProvider = StreamProvider.family<List<ZapModel>, String>((
+final userRezapedZapsProvider = FutureProvider.family<List<ZapModel>, String>((
   ref,
   userId,
-) {
+) async {
   final zapService = ref.watch(zapServiceProvider(false));
-  return zapService.getUserRezapedZaps(userId);
+  return await zapService.getUserRezapedZaps(userId);
 });
 
 final userBookmarkedZapsProvider =
-    StreamProvider.family<List<ZapModel>, String>((ref, userId) {
+    FutureProvider.family<List<ZapModel>, String>((ref, userId) async {
       final zapService = ref.watch(zapServiceProvider(false));
-      return zapService.getUserBookmarkedZaps(userId);
+      return await zapService.getUserBookmarkedZaps(userId);
     });
 
 final zapProvider = FutureProvider.family<ZapModel?, String>((ref, zapId) {

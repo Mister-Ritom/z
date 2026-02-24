@@ -1,19 +1,17 @@
 import 'dart:ui';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:uuid/uuid.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/screens/creation/abstract_page.dart';
 import 'package:z/screens/main_navigation.dart';
-import 'package:z/services/analytics/firebase_analytics_service.dart';
-import 'package:z/utils/constants.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/widgets/common/app_image.dart';
@@ -348,12 +346,9 @@ class PostCreationState extends ConsumerState<PostCreation>
       ).showSnackBar(SnackBar(content: Text("User not authenticated")));
       return CreationResult.stay;
     }
-    final id =
-        FirebaseFirestore.instance
-            .collection(AppConstants.zapsCollection)
-            .doc()
-            .id;
+    final String id = const Uuid().v4();
     final zapService = ref.read(zapServiceProvider(false));
+
     if (media.isNotEmpty) {
       final uploadService = ref.read(uploadNotifierProvider.notifier);
       uploadService.uploadFiles(
@@ -361,24 +356,24 @@ class PostCreationState extends ConsumerState<PostCreation>
         type: UploadType.zap,
         referenceId: id,
         onComplete: (urls) async {
-          await zapService.createZap(
-            zapId: id,
+          final zap = ZapModel(
+            id: id,
             userId: currentUserId,
             text: text,
             mediaUrls: urls,
+            createdAt: DateTime.now(),
           );
-          await FirebaseAnalyticsService.logPostCreated(
-            contentType: 'media',
-            isShort: false,
-          );
+          await zapService.createZap(zap);
         },
       );
     } else {
-      await zapService.createZap(zapId: id, userId: currentUserId, text: text);
-      await FirebaseAnalyticsService.logPostCreated(
-        contentType: 'text',
-        isShort: false,
+      final zap = ZapModel(
+        id: id,
+        userId: currentUserId,
+        text: text,
+        createdAt: DateTime.now(),
       );
+      await zapService.createZap(zap);
     }
     AppLogger.info(
       'ZapComposer',

@@ -26,30 +26,35 @@ class MessageModel {
   factory MessageModel.fromMap(Map<String, dynamic> map) {
     return MessageModel(
       id: map['id'] ?? '',
-      conversationId: map['conversationId'] ?? '',
-      senderId: map['senderId'] ?? '',
-      recipientsIds: List<String>.from(map['recipientsIds'] ?? map['receiverIds'] ?? []),
+      conversationId: map['conversation_id'] ?? '',
+      senderId: map['sender_id'] ?? '',
+      recipientsIds: List<String>.from(map['recipient_ids'] ?? []),
       text: map['text'] ?? '',
-      mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
-      createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
-      isRead: map['isRead'] ?? false,
-      isDeleted: map['isDeleted'] ?? false,
-      isPending: map['isPending'] ?? false,
+      mediaUrls:
+          map['media_urls'] != null
+              ? List<String>.from(map['media_urls'])
+              : null,
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'].toString())
+              : DateTime.now(),
+      isRead: map['is_read'] ?? false,
+      isDeleted: map['is_deleted'] ?? false,
+      isPending: map['is_pending'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'conversationId': conversationId,
-      'senderId': senderId,
-      'recipientsIds': recipientsIds,
+      'conversation_id': conversationId,
+      'sender_id': senderId,
+      'recipient_ids': recipientsIds,
       'text': text,
-      'mediaUrls': mediaUrls,
-      'createdAt': createdAt,
-      'isRead': isRead,
-      'isDeleted': isDeleted,
-      'isPending': isPending,
+      'media_urls': mediaUrls,
+      'created_at': createdAt.toIso8601String(),
+      'is_read': isRead,
+      'is_deleted': isDeleted,
+      'is_pending': isPending,
     };
   }
 }
@@ -75,10 +80,13 @@ class ConversationModel {
     return ConversationModel(
       id: map['id'] ?? '',
       recipients: List<String>.from(map['recipients'] ?? []),
-      lastMessageAt: map['lastMessageAt']?.toDate() ?? DateTime.now(),
-      lastMessage: map['lastMessage'],
-      unreadCount: map['unreadCount'] ?? 0,
-      lastMessageSender: map["lastMessageSender"],
+      lastMessageAt:
+          map['last_message_at'] != null
+              ? DateTime.parse(map['last_message_at'].toString())
+              : DateTime.now(),
+      lastMessage: map['last_message'],
+      unreadCount: map['unread_count'] ?? 0,
+      lastMessageSender: map['last_message_sender'],
     );
   }
 
@@ -86,10 +94,10 @@ class ConversationModel {
     return {
       'id': id,
       'recipients': recipients,
-      'lastMessageAt': lastMessageAt,
-      'lastMessage': lastMessage,
-      'unreadCount': unreadCount,
-      'lastMessageSender': lastMessageSender,
+      'last_message_at': lastMessageAt.toIso8601String(),
+      'last_message': lastMessage,
+      'unread_count': unreadCount,
+      'last_message_sender': lastMessageSender,
     };
   }
 }

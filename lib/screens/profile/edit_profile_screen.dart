@@ -107,7 +107,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
       // Update profile
       await profileService.updateProfile(
-        userId: widget.user.id,
+        widget.user.id,
         displayName: nameChanged ? displayName : null,
         bio: bioChanged ? bio : null,
         profilePictureUrl: pfpChanged ? newPfp : null,

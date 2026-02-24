@@ -13,7 +13,6 @@ import '../../providers/message_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/moderation_provider.dart';
-import '../../services/analytics/firebase_analytics_service.dart';
 import '../../widgets/moderation/block_confirmation_dialog.dart';
 import 'package:z/widgets/messages/message_bubble.dart';
 
@@ -191,12 +190,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _messageController.clear();
       _scrollToBottom();
     } catch (e, stackTrace) {
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        stackTrace,
-        reason: 'Failed to send message in chat screen',
-        fatal: false,
+      AppLogger.error(
+        'ChatScreen',
+        'Failed to send message',
+        error: e,
+        stackTrace: stackTrace,
       );
       if (mounted && context.mounted) {
         ScaffoldMessenger.of(
@@ -222,10 +220,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _markReadMessages(String currentUserId) {
     final messageService = ref.read(messageServiceProvider);
     unawaited(
-      messageService.markMessagesAsRead([
+      messageService.markAsRead(
+        _getConversationId(currentUserId),
         currentUserId,
-        widget.otherUserId,
-      ], currentUserId),
+      ),
     );
   }
 
@@ -248,11 +246,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final blockService = ref.read(blockServiceProvider);
 
     try {
-      await blockService.blockUserForMessaging(
-        blockerId: currentUserId,
-        blockedUserId: widget.otherUserId,
-      );
-      if (mounted && context.mounted && context.mounted) {
+      await blockService.blockMessaging(currentUserId, widget.otherUserId);
+      if (mounted && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User blocked for messaging')),
         );

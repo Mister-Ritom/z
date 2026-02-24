@@ -1,337 +1,232 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/models/message_model.dart';
-import 'package:z/utils/constants.dart';
-import '../analytics/firebase_analytics_service.dart';
+import 'package:z/supabase/database.dart';
+import 'package:z/utils/logger.dart';
 
+/// MessageService — Supabase-backed messaging with Realtime support.
 class MessageService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _db = Database.client;
 
-  // Use ||| as separator - this must never appear in user IDs
-  static const String _conversationSeparator = '|||';
+  // ─── CONVERSATIONS ─────────────────────────────────────
 
-  String _getConversationId(List<String> recipients) {
-    final sortedIds = [...recipients]..sort();
-    return sortedIds.join(_conversationSeparator);
+  String getConversationId(List<String> userIds) {
+    final sorted = List<String>.from(userIds)..sort();
+    return sorted.join('_');
   }
 
-  // ✅ NEW: Add a pending message immediately to Firestore
-  Future<MessageModel> addPendingMessage({
-    required String senderId,
-    required List<String> recipients,
-    required String text,
-    required String conversationId,
-    List<String>? localPaths,
-  }) async {
-    try {
-      final message = MessageModel(
-        id: _firestore.collection(AppConstants.messagesCollection).doc().id,
-        conversationId: conversationId,
-        senderId: senderId,
-        recipientsIds: recipients,
-        text: text,
-        mediaUrls: localPaths,
-        isPending: true,
-        isDeleted: false,
-        createdAt: DateTime.now(),
-      );
-
-      await _firestore
-          .collection(AppConstants.messagesCollection)
-          .doc(message.id)
-          .set(message.toMap());
-
-      return message;
-    } catch (e) {
-      throw Exception('Failed to add pending message: $e');
-    }
+  Stream<List<ConversationModel>> getConversations(String userId) {
+    return _db
+        .from('conversations')
+        .stream(primaryKey: ['id'])
+        .order('last_message_at', ascending: false)
+        .map((data) {
+          return data
+              .where((d) {
+                final recipients = List<String>.from(d['recipients'] ?? []);
+                return recipients.contains(userId);
+              })
+              .map((d) => ConversationModel.fromMap(d))
+              .toList();
+        });
   }
 
-  // ✅ NEW: Finalize a pending message after upload finishes
-  Future<void> finalizePendingMessage({
-    required String messageId,
-    required List<String> uploadedUrls,
-  }) async {
-    try {
-      await _firestore
-          .collection(AppConstants.messagesCollection)
-          .doc(messageId)
-          .update({
-            'isPending': false,
-            'mediaUrls': uploadedUrls,
-            'updatedAt': DateTime.now(),
-          });
-    } catch (e) {
-      throw Exception('Failed to finalize pending message: $e');
-    }
-  }
+  // ─── MESSAGES ──────────────────────────────────────────
 
-  /// Check if messaging is blocked between two users
-  Future<bool> isMessagingBlocked({
-    required String senderId,
-    required List<String> recipients,
-  }) async {
-    try {
-      // Check if sender has blocked any recipient for messaging
-      for (final recipientId in recipients) {
-        final senderBlockedDoc = await _firestore
-            .collection('users')
-            .doc(senderId)
-            .collection('blocked_users_messaging')
-            .doc(recipientId)
-            .get();
-        
-        if (senderBlockedDoc.exists) {
-          return true;
-        }
-
-        // Check if recipient has blocked sender for messaging
-        final recipientBlockedDoc = await _firestore
-            .collection('users')
-            .doc(recipientId)
-            .collection('blocked_users_messaging')
-            .doc(senderId)
-            .get();
-        
-        if (recipientBlockedDoc.exists) {
-          return true;
-        }
-      }
-      return false;
-    } catch (e) {
-      // If error, allow messaging (fail open)
-      return false;
-    }
-  }
-
-  // ✅ Existing sendMessage (unchanged)
   Future<MessageModel> sendMessage({
     required String senderId,
     required List<String> recipients,
     required String text,
     String? referenceId,
     List<String>? mediaUrls,
-    String? videoUrl,
   }) async {
     try {
-      // Check if messaging is blocked
-      final isBlocked = await isMessagingBlocked(
-        senderId: senderId,
-        recipients: recipients,
-      );
-      
-      if (isBlocked) {
-        throw Exception('Messaging is blocked between these users');
-      }
+      final conversationId = referenceId ?? getConversationId(recipients);
 
-      final conversationId = referenceId ?? _getConversationId(recipients);
+      final data = {
+        'conversation_id': conversationId,
+        'sender_id': senderId,
+        'recipient_ids': recipients,
+        'text': text,
+        'media_urls': mediaUrls ?? [],
+        'is_pending': false,
+        'is_deleted': false,
+        'created_at': DateTime.now().toIso8601String(),
+      };
 
-      final message = MessageModel(
-        id: _firestore.collection(AppConstants.messagesCollection).doc().id,
-        conversationId: conversationId,
-        senderId: senderId,
-        recipientsIds: recipients,
-        text: text,
-        mediaUrls: mediaUrls,
-        isPending: false,
-        isDeleted: false,
-        createdAt: DateTime.now(),
-      );
+      final result = await _db.from('messages').insert(data).select().single();
+      final message = MessageModel.fromMap(result);
 
-      await _firestore
-          .collection(AppConstants.messagesCollection)
-          .doc(message.id)
-          .set(message.toMap());
-
-      await _firestore.collection('conversations').doc(conversationId).set({
+      // Update or create conversation
+      await _db.from('conversations').upsert({
         'id': conversationId,
         'recipients': recipients,
-        'lastMessage':
+        'last_message':
             text.isNotEmpty
                 ? text
                 : (mediaUrls?.isNotEmpty ?? false)
                 ? '📎 Media'
                 : '',
-        'lastMessageAt': DateTime.now(),
-        'unreadCount': FieldValue.increment(1),
-        'isDeleted': false,
-        'isRead': false,
-        'createdAt': DateTime.now(),
-        'lastMessageSender': senderId,
-      }, SetOptions(merge: true));
-
-      // Track message sent in Firebase Analytics
-      await FirebaseAnalyticsService.logMessageSent();
+        'last_message_at': DateTime.now().toIso8601String(),
+        'last_message_sender': senderId,
+        'unread_count': 1,
+        'is_deleted': false,
+        'is_read': false,
+        'created_at': DateTime.now().toIso8601String(),
+      });
 
       return message;
-    } catch (e, stackTrace) {
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        stackTrace,
-        reason: 'Failed to send message',
-        fatal: false,
+    } catch (e, st) {
+      AppLogger.error(
+        'MessageService',
+        'Failed to send message',
+        error: e,
+        stackTrace: st,
       );
-      throw Exception('Failed to send message: $e');
+      rethrow;
     }
   }
 
-  // ✅ Everything else remains unchanged below...
-  Stream<List<MessageModel>> getMessages(
-    List<String> recipients,
-    String currentUserId,
-  ) {
-    final conversationId = _getConversationId(recipients);
-
-    return _firestore
-        .collection(AppConstants.messagesCollection)
-        .where('recipientsIds', arrayContains: currentUserId)
-        .where('conversationId', isEqualTo: conversationId)
-        .where('isDeleted', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .limit(AppConstants.messagesPerPage)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map(
-                    (doc) =>
-                        MessageModel.fromMap({'id': doc.id, ...doc.data()}),
-                  )
-                  .toList()
-                  .reversed
-                  .toList(),
-        );
-  }
-
-  Stream<List<ConversationModel>> getConversations(String userId) {
-    return _firestore
-        .collection('conversations')
-        .where('recipients', arrayContains: userId)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map(
-                    (doc) => ConversationModel.fromMap({
-                      'id': doc.id,
-                      ...doc.data(),
-                    }),
-                  )
-                  .toList()
-                ..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt)),
-        );
-  }
-
-  Future<void> markMessagesAsRead(
-    List<String> recipients,
-    String currentUserId,
-  ) async {
-    try {
-      final conversationId = _getConversationId(recipients);
-
-      final conversationDoc =
-          await _firestore
-              .collection('conversations')
-              .doc(conversationId)
-              .get();
-
-      if (!conversationDoc.exists) return;
-
-      final conversationData = conversationDoc.data()!;
-      final lastMessageSender = conversationData['lastMessageSender'];
-
-      if (lastMessageSender != null && lastMessageSender != currentUserId) {
-        final batch = _firestore.batch();
-
-        final messages =
-            await _firestore
-                .collection(AppConstants.messagesCollection)
-                .where('recipientsIds', arrayContains: currentUserId)
-                .where('conversationId', isEqualTo: conversationId)
-                .where('isRead', isEqualTo: false)
-                .get();
-
-        for (final doc in messages.docs) {
-          batch.update(doc.reference, {'isRead': true});
-        }
-
-        await batch.commit();
-
-        await _firestore.collection('conversations').doc(conversationId).update(
-          {'unreadCount': 0, 'isRead': true},
-        );
-
-        for (final recipient in recipients) {
-          if (recipient != currentUserId) {
-            await markMessageNotificationsAsRead(
-              currentUserId: currentUserId,
-              otherUserId: recipient,
-            );
-          }
-        }
-      }
-    } catch (e) {
-      throw Exception('Failed to mark messages as read: $e');
-    }
-  }
-
-  Future<void> markMessageNotificationsAsRead({
-    required String currentUserId,
-    required String otherUserId,
+  Future<MessageModel> addPendingMessage({
+    required String senderId,
+    required List<String> recipients,
+    required String text,
+    required String conversationId,
+    required List<String> localPaths,
   }) async {
-    try {
-      final querySnapshot =
-          await _firestore
-              .collection(AppConstants.notificationsCollection)
-              .where('userId', isEqualTo: currentUserId)
-              .where('fromUserId', isEqualTo: otherUserId)
-              .where('type', isEqualTo: "message")
-              .where('isRead', isEqualTo: false)
-              .get();
+    final message = MessageModel(
+      id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: conversationId,
+      senderId: senderId,
+      recipientsIds: recipients,
+      text: text,
+      mediaUrls: localPaths, // Placeholder for local display
+      createdAt: DateTime.now(),
+      isRead: false,
+      isPending: true,
+      isDeleted: false,
+    );
 
-      final batch = _firestore.batch();
+    // Persist pending message so it's visible in the stream
+    await _db.from('messages').insert({
+      'id': message.id,
+      'conversation_id': message.conversationId,
+      'sender_id': message.senderId,
+      'recipient_ids': message.recipientsIds,
+      'text': message.text,
+      'media_urls': message.mediaUrls,
+      'is_pending': true,
+      'is_deleted': false,
+      'created_at': message.createdAt.toIso8601String(),
+    });
 
-      for (final doc in querySnapshot.docs) {
-        batch.update(doc.reference, {'isRead': true});
-      }
-
-      await batch.commit();
-    } catch (e) {
-      throw Exception('❌ Failed to mark message notifications as read: $e');
-    }
+    return message;
   }
 
-  /// Delete a sent message (only by sender)
-  Future<void> deleteMessage({
+  Future<void> finalizePendingMessage({
     required String messageId,
-    required String userId,
+    required List<String> uploadedUrls,
   }) async {
     try {
-      final messageDoc = await _firestore
-          .collection(AppConstants.messagesCollection)
-          .doc(messageId)
-          .get();
+      await _db
+          .from('messages')
+          .update({'media_urls': uploadedUrls, 'is_pending': false})
+          .eq('id', messageId);
 
-      if (!messageDoc.exists) {
-        throw Exception('Message not found');
+      AppLogger.info('MessageService', 'Finalized pending message: $messageId');
+    } catch (e, st) {
+      AppLogger.error(
+        'MessageService',
+        'Failed to finalize message',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Stream<List<MessageModel>> getMessages(String conversationId) {
+    return _db
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('conversation_id', conversationId)
+        .order('created_at', ascending: false)
+        .map((data) => data.map((d) => MessageModel.fromMap(d)).toList());
+  }
+
+  Future<void> markAsRead(String conversationId, String userId) async {
+    try {
+      await _db
+          .from('messages')
+          .update({'is_read': true})
+          .eq('conversation_id', conversationId)
+          .neq('sender_id', userId);
+
+      await _db
+          .from('conversations')
+          .update({'is_read': true, 'unread_count': 0})
+          .eq('id', conversationId);
+    } catch (e, st) {
+      AppLogger.error(
+        'MessageService',
+        'Failed to mark as read',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      await _db
+          .from('messages')
+          .update({'is_deleted': true})
+          .eq('id', messageId);
+    } catch (e, st) {
+      AppLogger.error(
+        'MessageService',
+        'Failed to delete message',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> deleteConversation(String conversationId) async {
+    try {
+      await _db
+          .from('conversations')
+          .update({'is_deleted': true})
+          .eq('id', conversationId);
+    } catch (e, st) {
+      AppLogger.error(
+        'MessageService',
+        'Failed to delete conversation',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<bool> isMessagingBlocked({
+    required String senderId,
+    required List<String> recipients,
+  }) async {
+    try {
+      for (final recipientId in recipients) {
+        final block =
+            await _db
+                .from('blocks')
+                .select('id')
+                .or('blocker_id.eq.$senderId,blocker_id.eq.$recipientId')
+                .inFilter('block_type', ['user', 'messaging'])
+                .or(
+                  'blocked_user_id.eq.$senderId,blocked_user_id.eq.$recipientId',
+                )
+                .maybeSingle();
+        if (block != null) return true;
       }
-
-      final messageData = messageDoc.data();
-      if (messageData == null) {
-        throw Exception('Message data not found');
-      }
-
-      final senderId = messageData['senderId'] as String?;
-      if (senderId != userId) {
-        throw Exception('Only the sender can delete this message');
-      }
-
-      await _firestore
-          .collection(AppConstants.messagesCollection)
-          .doc(messageId)
-          .update({'isDeleted': true});
+      return false;
     } catch (e) {
-      throw Exception('Failed to delete message: $e');
+      return false;
     }
   }
 }

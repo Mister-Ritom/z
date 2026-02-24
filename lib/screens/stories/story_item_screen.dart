@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/models/ad_model.dart';
 import 'package:z/models/story_model.dart';
-import 'package:z/providers/analytics_providers.dart';
-import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/interaction_provider.dart';
+import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/stories_provider.dart';
 import 'package:z/services/ads/ad_manager.dart';
 import 'package:z/widgets/ads/ad_widgets.dart';
@@ -83,8 +83,8 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
       );
       return;
     }
-    final analyticsService = ref.read(storyAnalyticsProvider);
-    analyticsService.viewStory(currentUser.id, currentStory.id).catchError((
+    final interactionService = ref.read(interactionServiceProvider(false));
+    interactionService.viewStory(currentUser.id, currentStory.id).catchError((
       e,
       st,
     ) {
@@ -332,7 +332,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userProfileProvider(currentUserId));
-    final analyticsService = ref.watch(storyAnalyticsProvider);
+    final interactionService = ref.watch(interactionServiceProvider(false));
 
     final screenHeight = MediaQuery.of(context).size.height;
     final dragAbs = _dragOffsetY.abs();
@@ -489,7 +489,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
                       return const SizedBox.shrink();
                     }
                     return StreamBuilder<bool>(
-                      stream: analyticsService.isStoryLikedStream(
+                      stream: interactionService.storyLikedStream(
                         currentUser.id,
                         currentStory.id,
                       ),
@@ -498,7 +498,7 @@ class _StoryItemScreenState extends ConsumerState<StoryItemScreen>
                         final isLiked = snapshot.data ?? false;
                         return IconButton(
                           onPressed: () {
-                            analyticsService.toggleLikeStory(
+                            interactionService.toggleStoryLike(
                               currentUser.id,
                               currentStory.id,
                             );

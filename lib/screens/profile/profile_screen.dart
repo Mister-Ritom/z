@@ -48,7 +48,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserModelProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final isOwnProfile = currentUser?.id == widget.userId;
     final userAsync = ref.watch(userProfileProvider(widget.userId));
 
@@ -193,10 +193,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final blockService = ref.read(blockServiceProvider);
 
     try {
-      await blockService.blockUserForContent(
-        blockerId: currentUser.id,
-        blockedUserId: widget.userId,
-      );
+      await blockService.blockUser(currentUser.id, widget.userId);
       if (mounted && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User blocked successfully')),

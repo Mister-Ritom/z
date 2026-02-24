@@ -47,11 +47,11 @@ class _ReportDialogState extends State<ReportDialog> {
     try {
       await _reportService.reportContent(
         reporterId: widget.reporterId,
-        reportType: widget.reportType,
+        reportType: widget.reportType.name,
         postId: widget.postId,
         userId: widget.userId,
         storyId: widget.storyId,
-        category: _selectedCategory!,
+        category: _selectedCategory!.name,
         additionalDetails:
             _detailsController.text.trim().isEmpty
                 ? null

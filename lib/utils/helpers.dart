@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../supabase/database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
@@ -96,9 +96,8 @@ class Helpers {
     required NotificationType type,
     String? zapId,
   }) async {
-    final FirebaseFirestore firestore = FirebaseFirestore.instance;
     final notification = NotificationModel(
-      id: firestore.collection(AppConstants.notificationsCollection).doc().id,
+      id: '', // Supabase will generate UUID
       userId: userId,
       fromUserId: fromUserId,
       type: type,
@@ -106,10 +105,7 @@ class Helpers {
       createdAt: DateTime.now(),
     );
 
-    await firestore
-        .collection(AppConstants.notificationsCollection)
-        .doc(notification.id)
-        .set(notification.toMap());
+    await Database.client.from('notifications').insert(notification.toMap());
   }
 
   static bool isVideoPath(String path) {

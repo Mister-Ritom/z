@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:z/models/zap_model.dart';
-import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/interaction_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/screens/profile/profile_screen.dart';
@@ -50,11 +50,15 @@ class ShortVideoWidget extends ConsumerWidget {
 
     final userAsync = ref.watch(userProfileProvider(zap.userId));
     final isLikedStream = ref.watch(
-      videoLikedStreamProvider((currentUser.id, zap.id)),
+      postLikedStreamProvider((currentUser.id, zap.id, true)),
     );
-    final commentsStream = ref.watch(videoCommentsCountStreamProvider(zap.id));
-    final sharesStream = ref.watch(videoSharesStreamProvider(zap.id));
-    final analytics = ref.read(shortVideoAnalyticsProvider);
+    final commentsStream = ref.watch(
+      postCommentsCountStreamProvider((zap.id, true)),
+    );
+    final sharesStream = ref.watch(
+      postSharesCountStreamProvider((zap.id, true)),
+    );
+    final interactionService = ref.watch(interactionServiceProvider(true));
 
     final isBookmarkedAsync = ref.watch(
       isBookmarkedProvider((zapId: zap.id, userId: currentUser.id)),
@@ -87,12 +91,7 @@ class ShortVideoWidget extends ConsumerWidget {
                 commentsCount: commentsStream.valueOrNull,
                 sharesCount: sharesStream.valueOrNull,
                 onLike: () async {
-                  await analytics.toggleLike(
-                    currentUser.id,
-                    zap.id,
-                    zap.hashtags,
-                    creatorUserId: zap.userId,
-                  );
+                  await interactionService.toggleLike(currentUser.id, zap.id);
                 },
                 onComment: () async {
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =
@@ -113,7 +112,7 @@ class ShortVideoWidget extends ConsumerWidget {
                 onShare: () async {
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =
                       false;
-                  await analytics.share(zap.id);
+                  await interactionService.share(zap.id);
                   await SharePlus.instance.share(
                     ShareParams(
                       text:

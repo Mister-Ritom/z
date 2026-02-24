@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class CommentModel {
   final String id;
   final String text;
@@ -21,16 +19,19 @@ class CommentModel {
     this.isEdited = false,
   });
 
-  factory CommentModel.fromMap(Map<String, dynamic> map, String id) {
+  factory CommentModel.fromMap(Map<String, dynamic> map, [String? id]) {
     return CommentModel(
-      id: id,
+      id: id ?? map['id'] ?? '',
       text: map['text'] ?? '',
-      userId: map['userId'] ?? '',
-      postId: map['postId'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      parentCommentId: map['parentCommentId'],
-      likesCount: map['likesCount'] ?? 0,
-      isEdited: map['isEdited'] ?? false,
+      userId: map['user_id'] ?? '',
+      postId: map['post_id'] ?? '',
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'])
+              : DateTime.now(),
+      parentCommentId: map['parent_comment_id'],
+      likesCount: map['likes_count'] ?? 0,
+      isEdited: map['is_edited'] ?? false,
     );
   }
 
@@ -38,12 +39,12 @@ class CommentModel {
     return {
       'id': id,
       'text': text,
-      'userId': userId,
-      'postId': postId,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'parentCommentId': parentCommentId,
-      'likesCount': likesCount,
-      'isEdited': isEdited,
+      'user_id': userId,
+      'post_id': postId,
+      'created_at': createdAt.toIso8601String(),
+      'parent_comment_id': parentCommentId,
+      'likes_count': likesCount,
+      'is_edited': isEdited,
     };
   }
 }

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
-import 'package:z/models/comment_model.dart';
 import 'package:z/providers/zap_provider.dart';
 
 class CommentSheet extends ConsumerStatefulWidget {
@@ -48,21 +46,20 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                 ),
               ),
               Expanded(
-                child: StreamBuilder<List<CommentModel>>(
-                  stream: zapService.streamCommentsForPostPaginated(
-                    widget.zapId,
-                    50,
-                  ),
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: zapService.getComments(widget.zapId),
                   builder: (context, snapshot) {
                     final comments = snapshot.data ?? [];
                     return ListView.builder(
                       controller: controller,
                       itemCount: comments.length,
                       itemBuilder: (_, index) {
-                        final comment = comments[index];
+                        final data = comments[index];
+                        final text = data['text'] ?? '';
+                        final userId = data['user_id'] ?? '';
                         return ListTile(
-                          title: Text(comment.text),
-                          subtitle: Text(comment.userId),
+                          title: Text(text),
+                          subtitle: Text(userId),
                         );
                       },
                     );
@@ -90,14 +87,12 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                     onPressed: () async {
                       final text = _controller.text.trim();
                       if (text.isEmpty) return;
-                      final comment = CommentModel(
-                        id: const Uuid().v4(),
+                      await zapService.addComment(
                         postId: widget.zapId,
                         userId: widget.currentUserId,
                         text: text,
-                        createdAt: DateTime.now(),
                       );
-                      await zapService.addComment(comment);
+                      setState(() {}); // Refresh to see new comment
                       _controller.clear();
                     },
                   ),

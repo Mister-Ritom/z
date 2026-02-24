@@ -14,16 +14,6 @@ dependencies:
   # State Management
   flutter_riverpod: ^2.6.1
 
-  # Firebase
-  firebase_core: ^4.2.1
-  firebase_auth: ^6.1.2
-  cloud_firestore: ^6.1.0
-  firebase_storage: ^13.0.0
-  firebase_messaging: ^16.0.4
-  firebase_analytics: ^12.0.4
-  firebase_crashlytics: ^5.0.5
-  cloud_functions: ^6.0.4
-
   # UI & Icons
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1

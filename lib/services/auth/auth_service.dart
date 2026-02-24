@@ -34,9 +34,8 @@ class AuthService {
       updatedAt: DateTime.now().toUtc(),
     );
 
-    final profile = await profileService.createProfile(userModel);
-
-    return profile;
+    await profileService.createProfile(userModel);
+    return userModel;
   }
 
   Future<UserModel?> signUpWithEmail({
@@ -56,7 +55,7 @@ class AuthService {
 
       if (user == null) return null;
 
-      return _createUserProfileFromAuthResponse(
+      return await _createUserProfileFromAuthResponse(
         user: user,
         username: username,
         displayName: displayName,

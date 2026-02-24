@@ -5,7 +5,8 @@ class Database {
   static Future<void> initialize() async {
     _supabase = await Supabase.initialize(
       url: 'https://acrjeiyscacdtyxxsxid.supabase.co',
-      anonKey: 'sb_publishable_5WHjxmL1vxLF2fk6DDuz1A__uIQVLI0',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjcmplaXlzY2FjZHR5eHhzeGlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNjg0MzMsImV4cCI6MjA4NTc0NDQzM30.mCnA44xS3a1zLFjYYbbMBwdMVCLQYZ7yMPiWsfJeCms',
     );
   }
 

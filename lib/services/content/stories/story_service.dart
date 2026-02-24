@@ -1,101 +1,138 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:z/supabase/database.dart';
 import 'package:z/utils/constants.dart';
 import 'package:z/models/story_model.dart';
-import '../../shared/firestore_utils.dart';
+import 'package:z/utils/logger.dart';
 
+/// StoryService — Supabase-backed stories.
 class StoryService {
-  final _firestore = FirebaseFirestore.instance;
-  CollectionReference get _stories =>
-      _firestore.collection(AppConstants.storiesCollection);
+  final SupabaseClient _db = Database.client;
 
-  Stream<List<StoryModel>> getStoriesVisibleTo(String currentUserId) {
-    final cutoff = DateTime.now().subtract(
-      Duration(hours: AppConstants.storyExpiryHours),
-    );
+  Future<List<StoryModel>> getStoriesVisibleTo(String currentUserId) async {
+    try {
+      final cutoff =
+          DateTime.now()
+              .subtract(Duration(hours: AppConstants.storyExpiryHours))
+              .toIso8601String();
 
-    return _stories
-        .where('visibleTo', arrayContains: currentUserId)
-        .where('isDeleted', isEqualTo: false)
-        .where('createdAt', isGreaterThanOrEqualTo: cutoff)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((d) => StoryModel.fromDoc(d)).toList(),
-        );
-  }
+      final data = await _db
+          .from('stories')
+          .select()
+          .eq('is_deleted', false)
+          .gte('created_at', cutoff)
+          .or(
+            'visibility.eq.public,user_id.eq.$currentUserId,visible_to.cs.{$currentUserId}',
+          )
+          .order('created_at', ascending: false);
 
-  Stream<List<StoryModel>> getPublicStories() {
-    final cutoff = DateTime.now().subtract(
-      Duration(hours: AppConstants.storyExpiryHours),
-    );
-
-    return _stories
-        .where('visibility', isEqualTo: StoryVisibility.public.name)
-        .where('isDeleted', isEqualTo: false)
-        .where('createdAt', isGreaterThanOrEqualTo: cutoff)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((d) => StoryModel.fromDoc(d)).toList(),
-        );
+      return data.map<StoryModel>((d) => StoryModel.fromMap(d)).toList();
+    } catch (e, st) {
+      AppLogger.error(
+        'StoryService',
+        'Failed to get visible stories',
+        error: e,
+        stackTrace: st,
+      );
+      return [];
+    }
   }
 
   Future<List<StoryModel>> getLatestPublicStories({int limit = 200}) async {
-    final cutoff = DateTime.now().subtract(
-      Duration(hours: AppConstants.storyExpiryHours),
-    );
+    try {
+      final cutoff =
+          DateTime.now()
+              .subtract(Duration(hours: AppConstants.storyExpiryHours))
+              .toIso8601String();
 
-    final snapshot =
-        await _stories
-            .where('visibility', isEqualTo: StoryVisibility.public.name)
-            .where('isDeleted', isEqualTo: false)
-            .where('createdAt', isGreaterThanOrEqualTo: cutoff)
-            .orderBy('createdAt', descending: true)
-            .limit(limit)
-            .get();
+      final data = await _db
+          .from('stories')
+          .select()
+          .eq('visibility', 'public')
+          .eq('is_deleted', false)
+          .gte('created_at', cutoff)
+          .order('created_at', ascending: false)
+          .limit(limit);
 
-    return snapshot.docs.map((d) => StoryModel.fromDoc(d)).toList();
+      return data.map<StoryModel>((d) => StoryModel.fromMap(d)).toList();
+    } catch (e, st) {
+      AppLogger.error(
+        'StoryService',
+        'Failed to get public stories',
+        error: e,
+        stackTrace: st,
+      );
+      return [];
+    }
   }
 
-  Stream<List<StoryModel>> getStoriesByUser(String uid) {
-    final cutoff = DateTime.now().subtract(
-      Duration(hours: AppConstants.storyExpiryHours),
-    );
+  Future<List<StoryModel>> getStoriesByUser(String uid) async {
+    try {
+      final cutoff =
+          DateTime.now()
+              .subtract(Duration(hours: AppConstants.storyExpiryHours))
+              .toIso8601String();
 
-    return _stories
-        .where('userId', isEqualTo: uid)
-        .where('isDeleted', isEqualTo: false)
-        .where('createdAt', isGreaterThanOrEqualTo: cutoff)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((d) => StoryModel.fromDoc(d)).toList(),
-        );
+      final data = await _db
+          .from('stories')
+          .select()
+          .eq('user_id', uid)
+          .eq('is_deleted', false)
+          .gte('created_at', cutoff)
+          .order('created_at', ascending: false);
+
+      return data.map<StoryModel>((d) => StoryModel.fromMap(d)).toList();
+    } catch (e, st) {
+      AppLogger.error(
+        'StoryService',
+        'Failed to get user stories',
+        error: e,
+        stackTrace: st,
+      );
+      return [];
+    }
   }
 
   Future<List<StoryModel>> getStoriesByIds(List<String> storyIds) async {
-    return FirestoreUtils.fetchDocumentsByIds<StoryModel>(
-      collection: _stories,
-      ids: storyIds,
-      parser: (doc) => StoryModel.fromDoc(doc),
-    );
+    if (storyIds.isEmpty) return [];
+    try {
+      final data = await _db
+          .from('stories')
+          .select()
+          .inFilter('id', storyIds)
+          .eq('is_deleted', false);
+      return data.map<StoryModel>((d) => StoryModel.fromMap(d)).toList();
+    } catch (e, st) {
+      AppLogger.error(
+        'StoryService',
+        'Failed to get stories by IDs',
+        error: e,
+        stackTrace: st,
+      );
+      return [];
+    }
   }
 
-  Stream<bool> userHasStories(String uid) {
-    final cutoff = DateTime.now().subtract(
-      Duration(hours: AppConstants.storyExpiryHours),
-    );
+  Future<bool> userHasStories(String uid) async {
+    try {
+      final cutoff =
+          DateTime.now()
+              .subtract(Duration(hours: AppConstants.storyExpiryHours))
+              .toIso8601String();
 
-    return _stories
-        .where('userId', isEqualTo: uid)
-        .where('isDeleted', isEqualTo: false)
-        .where('createdAt', isGreaterThanOrEqualTo: cutoff)
-        .limit(1)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.isNotEmpty);
+      final data =
+          await _db
+              .from('stories')
+              .select('id')
+              .eq('user_id', uid)
+              .eq('is_deleted', false)
+              .gte('created_at', cutoff)
+              .limit(1)
+              .maybeSingle();
+
+      return data != null;
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> createStory({
@@ -105,42 +142,44 @@ class StoryService {
     required StoryVisibility visibility,
     required List<String> visibleTo,
   }) async {
-    await _stories.add({
-      'userId': uid,
-      'caption': caption,
-      'mediaUrl': mediaUrl,
-      'visibility': visibility.name,
-      'createdAt': FieldValue.serverTimestamp(),
-      'visibleTo': visibleTo,
-      'isDeleted': false,
-    });
+    try {
+      await _db.from('stories').insert({
+        'user_id': uid,
+        'caption': caption,
+        'media_url': mediaUrl,
+        'visibility': visibility.name,
+        'visible_to': visibleTo,
+        'is_deleted': false,
+      });
+    } catch (e, st) {
+      AppLogger.error(
+        'StoryService',
+        'Failed to create story',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
-  /// Delete a story (only by owner)
   Future<void> deleteStory({
     required String storyId,
     required String userId,
   }) async {
     try {
-      final storyDoc = await _stories.doc(storyId).get();
-      
-      if (!storyDoc.exists) {
-        throw Exception('Story not found');
-      }
-
-      final storyData = storyDoc.data() as Map<String, dynamic>?;
-      if (storyData == null) {
-        throw Exception('Story data not found');
-      }
-
-      final storyUserId = storyData['userId'] as String?;
-      if (storyUserId != userId) {
-        throw Exception('Only the owner can delete this story');
-      }
-
-      await _stories.doc(storyId).update({'isDeleted': true});
-    } catch (e) {
-      throw Exception('Failed to delete story: $e');
+      await _db
+          .from('stories')
+          .update({'is_deleted': true})
+          .eq('id', storyId)
+          .eq('user_id', userId);
+    } catch (e, st) {
+      AppLogger.error(
+        'StoryService',
+        'Failed to delete story',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
     }
   }
 }
