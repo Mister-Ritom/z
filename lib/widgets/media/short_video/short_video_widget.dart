@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import 'package:z/widgets/media/short_video/comment_sheet.dart';
 import 'package:z/widgets/media/short_video/short_video_actions.dart';
 import 'package:z/widgets/media/short_video/short_video_overlay.dart';
 import 'package:z/widgets/media/short_video/short_video_options_sheet.dart';
+import 'package:z/services/analytics/analytics_service.dart';
 
 // manual play state per zap id
 final manualShouldPlayProvider = StateProvider.family<bool, String>(
@@ -92,6 +94,18 @@ class ShortVideoWidget extends ConsumerWidget {
                 sharesCount: sharesStream.valueOrNull,
                 onLike: () async {
                   await interactionService.toggleLike(currentUser.id, zap.id);
+                  // Track like
+                  unawaited(
+                    ref
+                        .read(analyticsServiceProvider)
+                        .capture(
+                          eventName: 'video_liked',
+                          properties: {
+                            'video_id': zap.id,
+                            'creator_id': zap.userId,
+                          },
+                        ),
+                  );
                 },
                 onComment: () async {
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =
@@ -108,6 +122,16 @@ class ShortVideoWidget extends ConsumerWidget {
                   );
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =
                       true;
+
+                  // Track comment open
+                  unawaited(
+                    ref
+                        .read(analyticsServiceProvider)
+                        .capture(
+                          eventName: 'video_comments_opened',
+                          properties: {'video_id': zap.id},
+                        ),
+                  );
                 },
                 onShare: () async {
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =
@@ -121,6 +145,16 @@ class ShortVideoWidget extends ConsumerWidget {
                   );
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =
                       true;
+
+                  // Track share
+                  unawaited(
+                    ref
+                        .read(analyticsServiceProvider)
+                        .capture(
+                          eventName: 'video_shared',
+                          properties: {'video_id': zap.id},
+                        ),
+                  );
                 },
                 onMoreOptions: () async {
                   ref.read(manualShouldPlayProvider(zap.id).notifier).state =

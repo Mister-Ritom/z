@@ -5,6 +5,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:z/screens/creation/abstract_page.dart';
 import 'package:z/widgets/media/camera_view.dart';
 import 'package:z/widgets/media/video_player_widget.dart';
+import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/zap_provider.dart';
+import 'package:z/providers/storage_provider.dart';
+import 'package:z/services/content/zaps/zap_service.dart';
+import 'package:z/models/zap_model.dart';
 
 class ShortsCreation extends ConsumerStatefulWidget {
   final List<XFile>? initialMedia;
@@ -108,6 +113,66 @@ class ShortsCreationState extends ConsumerState<ShortsCreation>
 
   @override
   Future<CreationResult?> onNext() async {
+    final String text = captionController.text.trim();
+    final media = ref.read(mediaProvider);
+
+    if (media == null && text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Cannot upload empty shorts")),
+      );
+      return CreationResult.stay;
+    }
+
+    final currentUserId = ref.read(currentUserProvider).valueOrNull?.id;
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("User not authenticated")));
+      return CreationResult.stay;
+    }
+
+    // Shorts are basically Zaps with isShort: true
+    final zapService = ref.read(zapServiceProvider(true));
+
+    _handleBackgroundShortsCreation(
+      text: text,
+      userId: currentUserId,
+      media: media,
+      zapService: zapService,
+    );
+
     return CreationResult.success;
+  }
+
+  void _handleBackgroundShortsCreation({
+    required String text,
+    required String userId,
+    required XFile? media,
+    required ZapService zapService,
+  }) async {
+    try {
+      List<String> urls = [];
+      if (media != null) {
+        final uploadService = ref.read(uploadNotifierProvider.notifier);
+        urls = await uploadService.uploadFiles(
+          files: [media],
+          type: UploadType.shorts,
+          referenceId: userId,
+        );
+      }
+
+      final zap = ZapModel(
+        id: userId + DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: userId,
+        text: text,
+        mediaUrls: urls,
+        createdAt: DateTime.now(),
+        isShort: true,
+      );
+
+      await zapService.createZap(zap);
+    } catch (e) {
+      // Log error
+    }
   }
 }

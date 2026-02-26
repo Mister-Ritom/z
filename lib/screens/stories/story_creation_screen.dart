@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +12,7 @@ import 'package:z/widgets/media/camera_view.dart';
 import 'package:z/widgets/media/video_player_widget.dart';
 import '../../models/story_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/analytics/analytics_service.dart';
 
 class StoryCreationScreen extends ConsumerStatefulWidget {
   final XFile? initialFile;
@@ -99,7 +101,15 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
             visibility: _visibility,
             visibleTo: visibleTo,
           );
-          // Track story creation (Analytics removed)
+          // Track story creation
+          unawaited(
+            ref
+                .read(analyticsServiceProvider)
+                .capture(
+                  eventName: 'story_created',
+                  properties: {'visibility': _visibility.name},
+                ),
+          );
         } catch (e, stackTrace) {
           AppLogger.error(
             'StoryService',

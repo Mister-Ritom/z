@@ -62,7 +62,7 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
   static const _parallelLimit = 3;
   static const _maxRetries = 2;
 
-  Future<void> uploadFiles({
+  Future<List<String>> uploadFiles({
     required List<XFile> files,
     required UploadType type,
     required String referenceId,
@@ -75,9 +75,9 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
     for (int i = 0; i < files.length; i++) {
       if (queue.length >= _parallelLimit) {
         await Future.any(queue);
-        for (final f in queue) {
-          f.whenComplete(() => queue.remove(f));
-        }
+        // Clean up completed futures from queue
+        // Note: we don't need to manually remove here if we use Future.wait at the end,
+        // but this limit prevents too many concurrent uploads.
       }
 
       final file = files[i];
@@ -94,21 +94,25 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
         ),
       ];
 
-      queue.add(
-        _uploadSingle(
-          id: id,
-          file: file,
-          index: i,
-          type: type,
-          referenceId: referenceId,
-          storage: storage,
-          onDone: (url) => uploadedUrls.add(url),
-        ),
+      final uploadFuture = _uploadSingle(
+        id: id,
+        file: file,
+        index: i,
+        type: type,
+        referenceId: referenceId,
+        storage: storage,
+        onDone: (url) => uploadedUrls.add(url),
       );
+
+      queue.add(uploadFuture);
+      // Remove from queue when done to keep queue.length accurate for limit
+      uploadFuture.whenComplete(() => queue.remove(uploadFuture));
     }
 
     await Future.wait(queue);
+
     if (onComplete != null) onComplete(uploadedUrls);
+    return uploadedUrls;
   }
 
   Future<void> _uploadSingle({

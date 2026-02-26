@@ -9,6 +9,7 @@ import 'package:share_handler/share_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
+import 'package:z/services/analytics/analytics_service.dart';
 import 'utils/router.dart';
 
 void main() async {
@@ -52,10 +53,23 @@ class _MyAppState extends ConsumerState<MyApp> {
       currentUserProvider,
       (previous, next) {
         next.whenData((user) async {
+          final analyticsService = ref.read(analyticsServiceProvider);
           if (user != null) {
             _previousUserId = user.id;
+            // Identify user in PostHog
+            unawaited(
+              analyticsService.identify(
+                user.id,
+                userProperties: {
+                  'email': (user.email ?? '') as Object,
+                  'username': (user.userMetadata?['username'] ?? '') as Object,
+                },
+              ),
+            );
           } else if (_previousUserId != null) {
             _previousUserId = null;
+            // Reset PostHog on logout
+            unawaited(analyticsService.reset());
           }
         });
       },

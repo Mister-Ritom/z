@@ -8,6 +8,7 @@ import 'package:z/info/terms/terms_screen.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/utils/logger.dart';
+import 'package:z/services/analytics/analytics_service.dart';
 import '../providers/auth_provider.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -73,6 +74,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           _passwordController.text;
 
       AppLogger.info('SignUpScreen', 'Email sign up successful');
+
+      // Track signup event
+      unawaited(
+        ref
+            .read(analyticsServiceProvider)
+            .capture(
+              eventName: 'signup_successful',
+              properties: {'method': 'email', 'email': email},
+            ),
+      );
+
       if (mounted) {
         context.pushReplacement('/');
       }
@@ -103,6 +115,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       await authService.signInWithGoogle();
 
       AppLogger.info('SignUpScreen', 'Google sign up successful');
+
+      // Track signup event
+      unawaited(
+        ref
+            .read(analyticsServiceProvider)
+            .capture(
+              eventName: 'signup_successful',
+              properties: {'method': 'google'},
+            ),
+      );
+
       if (mounted) {
         context.go('/');
       }

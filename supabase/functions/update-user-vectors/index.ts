@@ -38,19 +38,29 @@ serve(async (req: Request) => {
     let positiveVector: number[] | null = userData?.positive_vector as any;
     let negativeVector: number[] | null = userData?.negative_vector as any;
 
-    // 3. Update vectors using running average
-    // V_new = (V_old * N + V_curr) / (N + 1)
-    if (interaction_type === 'like' || interaction_type === 'view') {
+    // 3. Update vectors using weighted running average
+    // V_new = (V_old * N + V_curr * W) / (N + W)
+    const weights: Record<string, number> = {
+      'view': 1,
+      'like': 3,
+      'share': 5,
+      'skip': 1,
+      'block': 5
+    };
+    
+    const weight = weights[interaction_type] || 1;
+
+    if (interaction_type === 'like' || interaction_type === 'view' || interaction_type === 'share') {
       if (!positiveVector) {
         positiveVector = currentEmbedding;
       } else {
-        positiveVector = positiveVector.map((val, i) => (val * count + currentEmbedding[i]) / (count + 1));
+        positiveVector = positiveVector.map((val, i) => (val * count + currentEmbedding[i] * weight) / (count + weight));
       }
     } else if (interaction_type === 'skip' || interaction_type === 'block') {
       if (!negativeVector) {
         negativeVector = currentEmbedding;
       } else {
-        negativeVector = negativeVector.map((val, i) => (val * count + currentEmbedding[i]) / (count + 1));
+        negativeVector = negativeVector.map((val, i) => (val * count + currentEmbedding[i] * weight) / (count + weight));
       }
     }
 
@@ -61,7 +71,7 @@ serve(async (req: Request) => {
         user_id,
         positive_vector: positiveVector,
         negative_vector: negativeVector,
-        interaction_count: count + 1,
+        interaction_count: count + weight,
         updated_at: new Date().toISOString(),
       });
 

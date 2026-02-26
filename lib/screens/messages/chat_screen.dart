@@ -15,6 +15,7 @@ import '../../providers/profile_provider.dart';
 import '../../providers/moderation_provider.dart';
 import '../../widgets/moderation/block_confirmation_dialog.dart';
 import 'package:z/widgets/messages/message_bubble.dart';
+import '../../services/analytics/analytics_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String otherUserId;
@@ -148,6 +149,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         currentUserId: currentUserId,
       );
     }
+
+    // Track message sent
+    unawaited(
+      ref
+          .read(analyticsServiceProvider)
+          .capture(
+            eventName: 'message_sent',
+            properties: {'has_files': hasFiles, 'conversation_id': referenceId},
+          ),
+    );
 
     Helpers.createNotification(
       userId: widget.otherUserId,

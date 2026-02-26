@@ -10,6 +10,7 @@ import 'package:z/models/zap_model.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/providers/zap_provider.dart';
+import 'package:z/services/content/zaps/zap_service.dart';
 import 'package:z/screens/creation/abstract_page.dart';
 import 'package:z/screens/main_navigation.dart';
 import 'package:z/utils/helpers.dart';
@@ -336,50 +337,80 @@ class PostCreationState extends ConsumerState<PostCreation>
     if (media.isEmpty && text.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Cannot upload empty post")));
+      ).showSnackBar(const SnackBar(content: Text("Cannot upload empty post")));
       return CreationResult.stay;
     }
+
     final currentUserId = ref.read(currentUserProvider).valueOrNull?.id;
     if (currentUserId == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("User not authenticated")));
+      ).showSnackBar(const SnackBar(content: Text("User not authenticated")));
       return CreationResult.stay;
     }
+
     final String id = const Uuid().v4();
     final zapService = ref.read(zapServiceProvider(false));
 
-    if (media.isNotEmpty) {
-      final uploadService = ref.read(uploadNotifierProvider.notifier);
-      uploadService.uploadFiles(
-        files: media,
-        type: UploadType.zap,
-        referenceId: id,
-        onComplete: (urls) async {
-          final zap = ZapModel(
-            id: id,
-            userId: currentUserId,
-            text: text,
-            mediaUrls: urls,
-            createdAt: DateTime.now(),
-          );
-          await zapService.createZap(zap);
-        },
-      );
-    } else {
-      final zap = ZapModel(
-        id: id,
-        userId: currentUserId,
-        text: text,
-        createdAt: DateTime.now(),
-      );
-      await zapService.createZap(zap);
-    }
+    // Fire and forget background upload & creation
+    _handleBackgroundZapCreation(
+      id: id,
+      text: text,
+      userId: currentUserId,
+      zapService: zapService,
+    );
+
     AppLogger.info(
       'ZapComposer',
-      'Zap created successfully',
+      'Zap creation triggered in background',
       data: {'zapId': id, 'isShort': false, 'hasMedia': media.isNotEmpty},
     );
+
     return CreationResult.success;
+  }
+
+  void _handleBackgroundZapCreation({
+    required String id,
+    required String text,
+    required String userId,
+    required ZapService zapService,
+  }) async {
+    try {
+      List<String> urls = [];
+      if (media.isNotEmpty) {
+        final uploadService = ref.read(uploadNotifierProvider.notifier);
+        urls = await uploadService.uploadFiles(
+          files: media,
+          type: UploadType.zap,
+          referenceId: id,
+        );
+      }
+
+      final zap = ZapModel(
+        id: id,
+        userId: userId,
+        text: text,
+        mediaUrls: urls,
+        createdAt: DateTime.now(),
+        isShort: false,
+      );
+
+      await zapService.createZap(zap);
+
+      AppLogger.info(
+        'ZapComposer',
+        'Background zap creation success',
+        data: {'zapId': id},
+      );
+    } catch (e, st) {
+      AppLogger.error(
+        'ZapComposer',
+        'Background zap creation failed',
+        error: e,
+        stackTrace: st,
+        data: {'zapId': id},
+      );
+      // We could potentially show a notification here if we had a notification service
+    }
   }
 }

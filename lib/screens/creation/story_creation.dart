@@ -7,6 +7,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:z/screens/creation/abstract_page.dart';
 import 'package:z/widgets/common/app_image.dart';
 import 'package:z/widgets/media/camera_view.dart';
+import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/stories_provider.dart';
+import 'package:z/providers/storage_provider.dart';
+import 'package:z/services/content/stories/story_service.dart';
+import 'package:z/models/story_model.dart';
 
 class StoryCreation extends ConsumerStatefulWidget {
   final List<XFile>? initialMedia;
@@ -169,7 +174,70 @@ class StoryCreationState extends ConsumerState<StoryCreation>
 
   @override
   Future<CreationResult?> onNext() async {
+    final String text = captionController.text.trim();
+    final media = ref.read(mediaProvider);
+    final textOnly = ref.read(textOnlyProvider);
+
+    if (!textOnly && media == null && text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Cannot upload empty story")),
+      );
+      return CreationResult.stay;
+    }
+
+    final currentUserId = ref.read(currentUserProvider).valueOrNull?.id;
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("User not authenticated")));
+      return CreationResult.stay;
+    }
+
+    final storyService = ref.read(storyServiceProvider);
+
+    _handleBackgroundStoryCreation(
+      text: text,
+      userId: currentUserId,
+      media: media,
+      storyService: storyService,
+      textOnly: textOnly,
+    );
+
     return CreationResult.success;
+  }
+
+  void _handleBackgroundStoryCreation({
+    required String text,
+    required String userId,
+    required XFile? media,
+    required StoryService storyService,
+    required bool textOnly,
+  }) async {
+    try {
+      String mediaUrl = "";
+      if (!textOnly && media != null) {
+        final uploadService = ref.read(uploadNotifierProvider.notifier);
+        final urls = await uploadService.uploadFiles(
+          files: [media],
+          type: UploadType.story,
+          referenceId:
+              userId, // Stories don't have a fixed ID before creation here
+        );
+        if (urls.isNotEmpty) {
+          mediaUrl = urls.first;
+        }
+      }
+
+      await storyService.createStory(
+        uid: userId,
+        caption: text,
+        mediaUrl: mediaUrl,
+        visibility: StoryVisibility.public,
+        visibleTo: [],
+      );
+    } catch (e) {
+      // Log error
+    }
   }
 }
 

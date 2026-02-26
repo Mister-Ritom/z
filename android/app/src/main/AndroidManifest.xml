@@ -102,6 +102,12 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-2032620092700178~9610038961" />
+
+        <!-- PostHog Analytics -->
+        <meta-data android:name="com.posthog.posthog.API_KEY" android:value="phc_Wby6VWPRJECsxhglQCshhq5MXifR5m8EdSAAWB2T1aG" />
+        <meta-data android:name="com.posthog.posthog.POSTHOG_HOST" android:value="https://us.i.posthog.com" />
+        <meta-data android:name="com.posthog.posthog.TRACK_APPLICATION_LIFECYCLE_EVENTS" android:value="true" />
+        <meta-data android:name="com.posthog.posthog.DEBUG" android:value="true" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -1,0 +1,128 @@
+00:00 +0: loading /Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart                                                                                                         00:01 +0: loading /Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart                                                                                                         00:02 +0: loading /Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart                                                                                                         00:03 +0: loading /Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart                                                                                                         00:03 +0: (setUpAll)                                                                                                                                                                                   00:03 +0: renders ZapCard with interactions                                                                                                                                                            00:04 +0: renders ZapCard with interactions                                                                                                                                                            00:04 +1: renders ZapCard with interactions                                                                                                                                                            00:04 +1: tapping like calls interaction service                                                                                                                                                       00:04 +2: tapping like calls interaction service                                                                                                                                                       00:04 +2: tapping boost calls interaction service                                                                                                                                                      00:04 +3: tapping boost calls interaction service                                                                                                                                                      00:04 +3: tapping share calls interaction service                                                                                                                                                      00:04 +4: tapping share calls interaction service                                                                                                                                                      00:04 +4: tapping bookmark calls zap service                                                                                                                                                           00:04 +5: tapping bookmark calls zap service                                                                                                                                                           00:04 +5: tapping menu then report shows report dialog                                                                                                                                                 00:04 +5: tapping menu then report shows report dialog                                                                                                                                                 
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following _Exception was thrown building Builder:
+Exception: Database not initialized
+
+The relevant error-causing widget was:
+  MaterialApp
+  MaterialApp:file:///Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart:95:14
+
+When the exception was thrown, this was the stack:
+#0      Database.client (package:z/supabase/database.dart:22:7)
+#1      new ReportService (package:z/services/moderation/report_service.dart:7:39)
+#2      new _ReportDialogState (package:z/widgets/moderation/report_dialog.dart:28:26)
+#3      ReportDialog.createState (package:z/widgets/moderation/report_dialog.dart:22:40)
+#4      new StatefulElement (package:flutter/src/widgets/framework.dart:5905:60)
+#5      StatefulWidget.createElement (package:flutter/src/widgets/framework.dart:779:38)
+...     Normal element mounting (211 frames)
+#216    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4590:20)
+#217    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7269:36)
+#218    Element.updateChild (package:flutter/src/widgets/framework.dart:4059:18)
+#219    Element.updateChildren (package:flutter/src/widgets/framework.dart:4258:32)
+#220    MultiChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7302:17)
+#221    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#222    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#223    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5985:11)
+#224    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#225    StatefulElement.update (package:flutter/src/widgets/framework.dart:6010:5)
+#226    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#227    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#228    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#229    ProxyElement.update (package:flutter/src/widgets/framework.dart:6152:5)
+#230    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#231    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#232    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#233    ProxyElement.update (package:flutter/src/widgets/framework.dart:6152:5)
+#234    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#235    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#236    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#237    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5985:11)
+#238    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#239    StatefulElement.update (package:flutter/src/widgets/framework.dart:6010:5)
+#240    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#241    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#242    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#243    ProxyElement.update (package:flutter/src/widgets/framework.dart:6152:5)
+#244    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#245    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#246    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#247    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5985:11)
+#248    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#249    StatefulElement.update (package:flutter/src/widgets/framework.dart:6010:5)
+#250    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#251    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#252    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5985:11)
+#253    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#254    StatefulElement.update (package:flutter/src/widgets/framework.dart:6010:5)
+#255    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#256    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7125:14)
+#257    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#258    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7125:14)
+#259    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#260    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#261    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#262    ProxyElement.update (package:flutter/src/widgets/framework.dart:6152:5)
+#263    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#264    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#265    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#266    ProxyElement.update (package:flutter/src/widgets/framework.dart:6152:5)
+#267    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#268    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5844:16)
+#269    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5985:11)
+#270    Element.rebuild (package:flutter/src/widgets/framework.dart:5532:7)
+#271    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2750:15)
+#272    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2807:11)
+#273    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3111:18)
+#274    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:1506:19)
+#275    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#276    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1434:15)
+#277    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1347:9)
+#278    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1335:9)
+#281    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#282    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1324:27)
+#283    WidgetTester.pumpAndSettle.<anonymous closure> (package:flutter_test/src/widget_tester.dart:719:23)
+#286    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#287    WidgetTester.pumpAndSettle (package:flutter_test/src/widget_tester.dart:712:27)
+#288    main.<anonymous closure> (file:///Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart:195:18)
+<asynchronous suspension>
+#289    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#290    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1059:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TypeWidgetFinder:<Found 0 widgets with type "ReportDialog": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart:197:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1059:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart line 197
+The test description was:
+  tapping menu then report shows report dialog
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (2) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:04 +5 -1: tapping menu then report shows report dialog [E]                                                                                                                                          
+  Test failed. See exception logs above.
+  The test description was: tapping menu then report shows report dialog
+  
+
+To run this test again: /opt/homebrew/Caskroom/flutter/3.29.3/flutter/bin/cache/dart-sdk/bin/dart test /Users/ritom/Projects/z/test/widget/interactions/post_interactions_test.dart -p vm --plain-name 'tapping menu then report shows report dialog'
+00:04 +5 -1: tapping menu then block shows block dialog and calls service                                                                                                                              00:04 +6 -1: tapping menu then block shows block dialog and calls service                                                                                                                              00:04 +6 -1: tapping ZapCard navigates to ZapDetailScreen                                                                                                                                              00:04 +7 -1: tapping ZapCard navigates to ZapDetailScreen                                                                                                                                              00:04 +7 -1: (tearDownAll)                                                                                                                                                                             00:04 +7 -1: Some tests failed.                                                                                                                                                                        
