@@ -50,7 +50,7 @@ class AuthService {
     return userModel;
   }
 
-  Future<UserModel?> signUpWithEmail({
+  Future<Map<String, dynamic>?> signUpWithEmail({
     required String email,
     required String password,
     required String username,
@@ -67,11 +67,16 @@ class AuthService {
 
       if (user == null) return null;
 
-      return await _createUserProfileFromAuthResponse(
+      final profile = await _createUserProfileFromAuthResponse(
         user: user,
         username: username,
         displayName: displayName,
       );
+      return {
+        'user': user,
+        'session': signUpResponse.session,
+        'profile': profile,
+      };
     } catch (e) {
       throw Exception('Sign up failed: $e');
     }

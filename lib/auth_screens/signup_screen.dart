@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/info/privacy/privacy_screen.dart';
 import 'package:z/info/terms/terms_screen.dart';
 import 'package:z/providers/profile_provider.dart';
@@ -61,12 +62,39 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         return;
       }
 
-      await authService.signUpWithEmail(
+      final data = await authService.signUpWithEmail(
         email: email,
         password: _passwordController.text.trim(),
         username: _usernameController.text.trim(),
         displayName: _displayNameController.text.trim(),
       );
+
+      if (data == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Sign up failed')));
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final Session? session = data['session'];
+      final User? user = data['user'];
+      if (session == null || user != null) {
+        //User must verify their email
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sign up successful! Please check your email to verify your account.',
+              ),
+            ),
+          );
+          context.pushReplacement('/verify-email');
+        }
+      }
 
       // Save email and password for verification screen
       ref.read(pendingEmailProvider.notifier).state = email;
