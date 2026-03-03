@@ -132,7 +132,7 @@ void main() {
     );
     if (snck.evaluate().isNotEmpty) {
       final textWidget = tester.widget<Text>(snck.first);
-      print("Found snackbars: ${textWidget.data}");
+      debugPrint("Found snackbars: ${textWidget.data}");
     }
 
     verify(() => mockZapService.createZap(any())).called(1);

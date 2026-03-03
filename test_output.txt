@@ -1,59 +1,0 @@
-00:00 +0: loading /Users/ritom/Projects/z/test/widget/creation/post_creation_test.dart                                                                                                                 00:01 +0: loading /Users/ritom/Projects/z/test/widget/creation/post_creation_test.dart                                                                                                                 00:02 +0: loading /Users/ritom/Projects/z/test/widget/creation/post_creation_test.dart                                                                                                                 00:02 +0: renders PostCreation UI elements                                                                                                                                                             00:03 +0: renders PostCreation UI elements                                                                                                                                                             00:03 +1: renders PostCreation UI elements                                                                                                                                                             00:03 +1: empty post shows snackbar                                                                                                                                                                    00:04 +1: empty post shows snackbar                                                                                                                                                                    00:04 +2: empty post shows snackbar                                                                                                                                                                    00:04 +2: text post without media calls createZap                                                                                                                                                      00:04 +3: text post without media calls createZap                                                                                                                                                      00:04 +3: post with media calls upload and createZap                                                                                                                                                   00:04 +3: post with media calls upload and createZap                                                                                                                                                   
-══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following StateError was thrown running a test:
-Bad state: A test tried to use `any` or `captureAny` on a parameter of type `UploadType`, but
-registerFallbackValue was not previously called to register a fallback value for `UploadType`.
-
-To fix, do:
-
-```
-void main() {
-  setUpAll(() {
-    registerFallbackValue(/* create a dummy instance of `UploadType` */);
-  });
-}
-```
-
-This instance of `UploadType` will only be passed around, but never be interacted with.
-Therefore, if `UploadType` is a function, it does not have to return a valid object and
-could throw unconditionally.
-If you cannot easily create an instance of `UploadType`, consider defining a `Fake`:
-
-```
-class MyTypeFake extends Fake implements MyType {}
-
-void main() {
-  setUpAll(() {
-    registerFallbackValue(MyTypeFake());
-  });
-}
-```
-
-Fallbacks are required because mocktail has to know of a valid `UploadType` to prevent
-TypeErrors from being thrown in Dart's sound null safe mode, while still
-providing a convenient syntax.
-
-When the exception was thrown, this was the stack:
-#0      _getFallbackValue (package:mocktail/src/_register_matcher.dart:49:5)
-#1      _registerMatcher (package:mocktail/src/_register_matcher.dart:160:25)
-#2      any (package:mocktail/src/_register_matcher.dart:104:10)
-#3      main.<anonymous closure>.<anonymous closure> (file:///Users/ritom/Projects/z/test/widget/creation/post_creation_test.dart:157:15)
-#4      when.<anonymous closure> (package:mocktail/src/mocktail.dart:211:9)
-#5      main.<anonymous closure> (file:///Users/ritom/Projects/z/test/widget/creation/post_creation_test.dart:154:9)
-#6      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:29)
-<asynchronous suspension>
-#7      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1059:5)
-<asynchronous suspension>
-<asynchronous suspension>
-(elided one frame from package:stack_trace)
-
-The test description was:
-  post with media calls upload and createZap
-════════════════════════════════════════════════════════════════════════════════════════════════════
-00:04 +3 -1: post with media calls upload and createZap [E]                                                                                                                                            
-  Test failed. See exception logs above.
-  The test description was: post with media calls upload and createZap
-  
-
-To run this test again: /opt/homebrew/Caskroom/flutter/3.29.3/flutter/bin/cache/dart-sdk/bin/dart test /Users/ritom/Projects/z/test/widget/creation/post_creation_test.dart -p vm --plain-name 'post with media calls upload and createZap'
-00:04 +3 -1: Some tests failed.                                                                                                                                                                        

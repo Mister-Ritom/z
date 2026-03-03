@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/settings_provider.dart';
 import 'package:z/utils/logger.dart';
+import 'package:z/widgets/common/profile_picture.dart';
 
 class HomeDrawer extends ConsumerWidget {
   const HomeDrawer({super.key});
@@ -12,7 +13,7 @@ class HomeDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUserModel = ref.watch(currentUserModelProvider).valueOrNull;
-    final theme = ref.watch(settingsProvider);
+    final settings = ref.watch(settingsProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     if (currentUser == null) {
       return const Drawer();
@@ -41,17 +42,23 @@ class HomeDrawer extends ConsumerWidget {
                       )
                       : null,
             ),
-            accountName: Text('No Name'), //TODO
-            accountEmail: Text(currentUser.email ?? 'No Email'),
+            accountName: Text(
+              currentUser.displayName ?? 'No Name',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            accountEmail: Text(
+              currentUser.email ?? 'No Email',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             currentAccountPicture: InkWell(
               onTap: () {
                 Navigator.pop(context);
                 context.push('/profile/${currentUser.id}');
               },
-              // child: ProfilePicture( TODO
-              //   pfp: currentUser.photoURL,
-              //   name: currentUser.displayName ?? currentUser.email!,
-              // ),
+              child: ProfilePicture(
+                pfp: currentUser.profilePictureUrl,
+                name: currentUser.displayName ?? currentUser.email!,
+              ),
             ),
           ),
           _DrawerTile(
@@ -148,19 +155,19 @@ class HomeDrawer extends ConsumerWidget {
           ),
           const Divider(),
           _DrawerTile(
-            icon: switch (theme.theme) {
+            icon: switch (settings.theme) {
               AppTheme.light => Icons.light_mode_outlined,
               AppTheme.dark => Icons.dark_mode_outlined,
               AppTheme.system => Icons.brightness_auto_outlined,
             },
-            title: switch (theme.theme) {
+            title: switch (settings.theme) {
               AppTheme.light => 'Light',
               AppTheme.dark => 'Dark',
               AppTheme.system => 'System',
             },
             onTap: () {
               final notifier = ref.read(settingsProvider.notifier);
-              final nextTheme = switch (theme.theme) {
+              final nextTheme = switch (settings.theme) {
                 AppTheme.light => AppTheme.dark,
                 AppTheme.dark => AppTheme.system,
                 AppTheme.system => AppTheme.light,

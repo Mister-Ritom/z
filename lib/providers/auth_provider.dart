@@ -4,8 +4,11 @@ import '../services/auth/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../models/user_model.dart';
 
+import '../services/analytics/analytics_service.dart';
+
 final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService(ref);
+  final analytics = ref.watch(analyticsServiceProvider);
+  return AuthService(ref, analytics: analytics);
 });
 
 final currentUserProvider = StreamProvider<sb.User?>((ref) {
@@ -30,3 +33,10 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
 
 final pendingEmailProvider = StateProvider<String?>((ref) => null);
 final pendingPasswordProvider = StateProvider<String?>((ref) => null);
+
+extension UserExtension on sb.User {
+  bool get isEmailVerified => emailConfirmedAt != null;
+  String? get displayName => userMetadata?['full_name'];
+  String get username => userMetadata?['username'] ?? "";
+  String? get profilePictureUrl => userMetadata?['profile_picture_url'];
+}

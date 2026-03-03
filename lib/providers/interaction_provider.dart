@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/social/interaction_service.dart';
+import '../services/analytics/analytics_service.dart';
 
 final interactionServiceProvider = Provider.family<InteractionService, bool>((
   ref,
   isShort,
 ) {
-  return InteractionService(isShortVideo: isShort);
+  final analytics = ref.watch(analyticsServiceProvider);
+  return InteractionService(isShortVideo: isShort, analytics: analytics);
 });
 
 // ─── POST INTERACTIONS ──────────────────────────────────

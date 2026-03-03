@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
+import '../analytics/analytics_service.dart';
 
 /// InteractionService — unified service for likes, views, shares, and reposts.
 /// Replaces PostAnalyticsService, StoryAnalyticsService, and UserAnalyticsService.
@@ -8,8 +9,9 @@ import 'package:z/utils/logger.dart';
 class InteractionService {
   final SupabaseClient _db = Database.client;
   final bool isShortVideo;
+  final AnalyticsService? analytics;
 
-  InteractionService({this.isShortVideo = false});
+  InteractionService({this.isShortVideo = false, this.analytics});
 
   String get _contentType => isShortVideo ? 'short' : 'zap';
   String get _contentTable => isShortVideo ? 'shorts' : 'zaps';
@@ -128,6 +130,15 @@ class InteractionService {
           'p_amount': liked ? -1 : 1,
         },
       );
+
+      analytics?.capture(
+        eventName: 'content_liked',
+        properties: {
+          'target_id': targetId,
+          'target_type': _contentType,
+          'is_liked': !liked,
+        },
+      );
     } catch (e, st) {
       AppLogger.error(
         'InteractionService',
@@ -139,45 +150,75 @@ class InteractionService {
     }
   }
 
-  // ─── VIEWS ─────────────────────────────────────────────
+  // ─── VIEWS DEBOUNCING ──────────────────────────────────
+  static final Map<String, Set<String>> _viewBuffer = {};
+  static DateTime _lastFlush = DateTime.now();
+  static bool _isFlushing = false;
 
   Future<void> view(String userId, String targetId) async {
     try {
-      final existing =
-          await _db
-              .from('user_interactions')
-              .select('viewed')
-              .eq('user_id', userId)
-              .eq('target_id', targetId)
-              .eq('target_type', _contentType)
-              .maybeSingle();
+      _viewBuffer.putIfAbsent(_contentType, () => {}).add(targetId);
 
-      if (existing?['viewed'] == true) return;
+      final shouldFlush =
+          DateTime.now().difference(_lastFlush).inSeconds > 10 ||
+          (_viewBuffer[_contentType]?.length ?? 0) >= 20;
 
-      await _db.from('user_interactions').upsert({
-        'user_id': userId,
-        'target_id': targetId,
-        'target_type': _contentType,
-        'viewed': true,
-        'viewed_at': DateTime.now().toIso8601String(),
-      });
-
-      await _db.rpc(
-        'increment_counter',
-        params: {
-          'p_table': _contentTable,
-          'p_column': 'views_count',
-          'p_id': targetId,
-          'p_amount': 1,
-        },
-      );
+      if (shouldFlush && !_isFlushing) {
+        _flushViews(userId); // Non-blocking flush
+      }
     } catch (e, st) {
       AppLogger.error(
         'InteractionService',
-        'Failed to record view',
+        'Failed to buffer view',
         error: e,
         stackTrace: st,
       );
+    }
+  }
+
+  Future<void> _flushViews(String userId) async {
+    if (_isFlushing) return;
+    _isFlushing = true;
+    try {
+      final targets = _viewBuffer[_contentType]?.toList() ?? [];
+      if (targets.isEmpty) return;
+
+      _viewBuffer[_contentType]?.clear();
+      _lastFlush = DateTime.now();
+
+      for (final id in targets) {
+        await _db.from('user_interactions').upsert({
+          'user_id': userId,
+          'target_id': id,
+          'target_type': _contentType,
+          'viewed': true,
+          'viewed_at': DateTime.now().toIso8601String(),
+        });
+
+        await _db.rpc(
+          'increment_counter',
+          params: {
+            'p_table': _contentTable,
+            'p_column': 'views_count',
+            'p_id': id,
+            'p_amount': 1,
+          },
+        );
+
+        analytics?.capture(
+          eventName: 'content_viewed',
+          properties: {'target_id': id, 'target_type': _contentType},
+        );
+      }
+    } catch (e, st) {
+      AppLogger.error(
+        'InteractionService',
+        'Flush failed',
+        error: e,
+        stackTrace: st,
+      );
+    } finally {
+      _isFlushing = false;
     }
   }
 
@@ -236,6 +277,15 @@ class InteractionService {
           'p_amount': isReshared ? -1 : 1,
         },
       );
+
+      analytics?.capture(
+        eventName: 'content_reshared',
+        properties: {
+          'target_id': targetId,
+          'target_type': _contentType,
+          'is_reshared': !isReshared,
+        },
+      );
     } catch (e, st) {
       AppLogger.error(
         'InteractionService',
@@ -257,6 +307,11 @@ class InteractionService {
         'target_type': _contentType,
         'skipped': true,
       });
+
+      analytics?.capture(
+        eventName: 'content_skipped',
+        properties: {'target_id': targetId, 'target_type': _contentType},
+      );
     } catch (e, st) {
       AppLogger.error(
         'InteractionService',

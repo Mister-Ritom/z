@@ -5,11 +5,13 @@ import 'package:z/models/user_model.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
+import '../analytics/analytics_service.dart';
 
 class AuthService {
   final Ref ref;
+  final AnalyticsService? analytics;
 
-  AuthService(this.ref);
+  AuthService(this.ref, {this.analytics});
 
   final _auth = Database.client.auth;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
@@ -35,6 +37,16 @@ class AuthService {
     );
 
     await profileService.createProfile(userModel);
+
+    analytics?.identify(
+      user.id,
+      userProperties: {'username': username, 'display_name': displayName},
+    );
+    analytics?.capture(
+      eventName: 'user_onboarded',
+      properties: {'method': 'signup'},
+    );
+
     return userModel;
   }
 
@@ -80,6 +92,13 @@ class AuthService {
       final String id = signInResponse.user!.id;
       final profileService = ref.read(profileServiceProvider);
       final profile = await profileService.getProfileByUserId(id);
+
+      analytics?.identify(id);
+      analytics?.capture(
+        eventName: 'user_signed_in',
+        properties: {'method': 'email'},
+      );
+
       return profile;
     } catch (e) {
       throw Exception('Sign in failed: $e');
@@ -128,8 +147,14 @@ class AuthService {
 
   // Sign out
   Future<void> signOut() async {
+    final userId = _auth.currentUser?.id;
     await _googleSignIn.signOut();
     await _auth.signOut();
+
+    if (userId != null) {
+      analytics?.capture(eventName: 'user_signed_out');
+      analytics?.reset();
+    }
   }
 
   // Resend email confirmation

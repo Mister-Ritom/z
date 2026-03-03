@@ -3,18 +3,14 @@ import 'package:z/utils/logger.dart';
 import 'package:z/supabase/database.dart';
 import 'package:z/models/zap_model.dart';
 import 'package:z/utils/constants.dart';
+import '../../analytics/analytics_service.dart';
 
 /// RecommendationService — calls Supabase Edge Functions for ML-powered recommendations.
-///
-/// Edge functions to be implemented:
-/// - `embed-content` — generates embeddings via Transformers.js
-/// - `update-user-vectors` — updates user preference vectors
-/// - `get-recommendations` — vector similarity + engagement + recency scoring
-/// - `get-story-recommendations` — same for stories
-///
-/// See RECOMMENDATIONS.md for full documentation.
 class RecommendationService {
   final SupabaseClient _db = Database.client;
+  final AnalyticsService? analytics;
+
+  RecommendationService({this.analytics});
 
   /// Get personalized zap recommendations from edge function.
   /// Falls back to recent popular content if edge function fails.
@@ -49,12 +45,24 @@ class RecommendationService {
       }
 
       final data = response.data as Map<String, dynamic>;
-      return {
+      final results = {
         'zapIds': List<String>.from(data['zapIds'] ?? []),
         'hasMore': data['hasMore'] ?? false,
         'nextLastZap': data['nextLastZap'],
         'source': data['source'] ?? 'edge_function',
       };
+
+      analytics?.capture(
+        eventName: 'recommendations_served',
+        properties: {
+          'count': (results['zapIds'] as List).length,
+          'source': results['source'],
+          'is_short': isShort,
+          'feed_type': isShort ? 'short' : 'personalized',
+        },
+      );
+
+      return results;
     } catch (e, st) {
       AppLogger.error(
         'RecommendationService',

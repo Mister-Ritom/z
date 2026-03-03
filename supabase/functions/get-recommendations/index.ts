@@ -7,105 +7,127 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 serve(async (req: Request) => {
   try {
-    const { user_id, content_type = 'zap', limit = 20 } = await req.json();
+    const { user_id, content_type = 'zap', limit = 20, feed_type = 'personalized' } = await req.json();
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: 'Missing user_id' }), { status: 400 });
     }
 
-    // 1. Fetch user preference vectors
+    const table = content_type === 'zap' ? 'zaps' : 'stories';
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // 1. Fetch user preference vectors and interaction count
     const { data: userData, error: userError } = await supabase
       .from('user_preference_vectors')
-      .select('positive_vector, negative_vector')
+      .select('positive_vector, negative_vector, interaction_count')
       .eq('user_id', user_id)
       .maybeSingle();
 
     if (userError) throw userError;
 
-    let candidates = [];
+    // Helper: Calculation for engagement score
+    const getEngagementScore = (p: any) => {
+      const shares = p.shares_count || 0;
+      const comments = p.comments_count || 0;
+      const likes = p.likes_count || 0;
+      const views = p.views_count || 0;
+      return (shares * 5) + (comments * 2) + (likes * 1) + (views * 0.1);
+    };
 
-    if (userData?.positive_vector) {
-      // 2. Vector Similarity Search
-      const { data: matchData, error: matchError } = await supabase.rpc('match_content', {
-        query_embedding: userData.positive_vector,
-        match_threshold: 0.1, 
-        match_count: limit * 5,
-        p_content_type: content_type,
-      });
-
-      if (matchError) throw matchError;
-      candidates = matchData;
-    } else {
-      // Cold start: just fetch recent popular content
-      const { data: recentData, error: recentError } = await supabase
-        .from(content_type === 'zap' ? 'zaps' : 'stories')
-        .select('id')
+    // --- MODE: VIRAL FEED ---
+    if (feed_type === 'viral') {
+      const { data: viralData, error: viralError } = await supabase
+        .from(table)
+        .select('id, created_at, likes_count, comments_count, shares_count, views_count')
         .eq('is_deleted', false)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-      
-      if (recentError) throw recentError;
-      return new Response(JSON.stringify({ recommendations: recentData.map(d => d.id) }), {
+        .gt('created_at', last24h)
+        .order('created_at', { ascending: false }) // Initial filter
+        .limit(200);
+
+      if (viralError) throw viralError;
+
+      const rankedViral = viralData
+        .map(p => {
+          const score = getEngagementScore(p);
+          // Gravity: older posts need higher engagement to stay up
+          const ageHours = (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60);
+          const gravityScore = score / Math.pow(ageHours + 2, 1.8);
+          return { id: p.id, score: gravityScore };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(r => r.id);
+
+      return new Response(JSON.stringify({ recommendations: rankedViral }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // 3. Rank Candidates with Hybrid Scoring
-    // Fetch engagement details AND embeddings for candidates
-    const table = content_type === 'zap' ? 'zaps' : 'stories';
-    const { data: postData, error: postError } = await supabase
+    // --- MODE: PERSONALIZED FEED (with Sprinkling) ---
+    const isColdStart = !userData || (userData.interaction_count || 0) < 5;
+
+    // A. Get Personalized Candidates
+    let personalIds: string[] = [];
+    if (!isColdStart && userData.positive_vector) {
+      const { data: matchData, error: matchError } = await supabase.rpc('match_content', {
+        query_embedding: userData.positive_vector,
+        match_threshold: 0.1,
+        match_count: limit * 2, // Get more for ranking
+        p_content_type: content_type,
+      });
+      if (matchError) throw matchError;
+      personalIds = matchData.map((m: any) => m.target_id);
+    }
+
+    // B. Get Trending/Viral Candidates (Discovery)
+    const { data: trendingData, error: trendingError } = await supabase
       .from(table)
       .select('id, created_at, likes_count, comments_count, shares_count, views_count')
-      .in('id', candidates.map((c: any) => c.target_id));
+      .eq('is_deleted', false)
+      .gt('created_at', last24h)
+      .limit(50);
+    
+    if (trendingError) throw trendingError;
+    const trendingIds = trendingData
+      .map(p => ({ id: p.id, score: getEngagementScore(p) / Math.pow((Date.now() - new Date(p.created_at).getTime())/(1000*3600) + 2, 1.5) }))
+      .sort((a, b) => b.score - a.score)
+      .map(r => r.id);
 
-    if (postError) throw postError;
+    // C. Get Random New Candidates (Discovery)
+    const { data: randomData, error: randomError } = await supabase
+      .from(table)
+      .select('id')
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    
+    if (randomError) throw randomError;
+    const discoveryIds = randomData.map(d => d.id).sort(() => Math.random() - 0.5);
 
-    // Fetch embeddings for negative signal calculation
-    const { data: embeddingData, error: embeddingError } = await supabase
-      .from('content_embeddings')
-      .select('target_id, embedding')
-      .in('target_id', candidates.map((c: any) => c.target_id));
-
-    if (embeddingError) throw embeddingError;
-
-    const ranked = candidates.map((c: any) => {
-      const post = postData.find((p: any) => p.id === c.target_id);
-      const postEmbedding = (embeddingData.find((e: any) => e.target_id === c.target_id)?.embedding) as number[] | undefined;
-      
-      if (!post) return { id: c.target_id, score: 0 };
-
-      // a. Cosine Similarity (0.0 to 1.0)
-      const positiveSimilarity = c.similarity;
-
-      // b. Negative Signal Penalty
-      let negativePenalty = 0;
-      if (userData?.negative_vector && postEmbedding) {
-        // Simple dot product for similarity (assuming vectors are normalized by CLIP)
-        const negativeSimilarity = postEmbedding.reduce((sum, val, i) => sum + val * (userData.negative_vector as number[])[i], 0);
-        negativePenalty = Math.max(0, negativeSimilarity) * 0.4; // 40% weight to negative signals
+    // D. Interleave Results (80% Personal, 10% Trending, 10% Random)
+    const finalResults = new Set<string>();
+    
+    for (let i = 0; i < limit; i++) {
+      if (isColdStart) {
+        // Just interleave trending and discovery for new users
+        if (i % 2 === 0 && trendingIds.length > 0) finalResults.add(trendingIds.shift()!);
+        else if (discoveryIds.length > 0) finalResults.add(discoveryIds.shift()!);
+      } else {
+        const rand = i % 10;
+        if (rand < 8 && personalIds.length > 0) finalResults.add(personalIds.shift()!);
+        else if (rand === 8 && trendingIds.length > 0) finalResults.add(trendingIds.shift()!);
+        else if (discoveryIds.length > 0) finalResults.add(discoveryIds.shift()!);
       }
+      if (finalResults.size >= limit) break;
+    }
 
-      // c. Engagement Score
-      const engagement = (post.likes_count || 0) + (post.comments_count || 0) * 2 + (post.shares_count || 0) * 5; // Share weight is 5
-      const engagementScore = Math.min(1.0, engagement / 100);
+    // Fill remaining if sets were too small
+    const remaining = [...personalIds, ...trendingIds, ...discoveryIds];
+    while (finalResults.size < limit && remaining.length > 0) {
+      finalResults.add(remaining.shift()!);
+    }
 
-      // d. Recency Score
-      const hoursSincePosted = (Date.now() - new Date(post.created_at).getTime()) / (1000 * 60 * 60);
-      const recencyScore = Math.exp(-hoursSincePosted / 48);
-
-      // e. Final Combined Score
-      const finalScore = (0.5 * positiveSimilarity) + (0.2 * engagementScore) + (0.2 * recencyScore) - negativePenalty;
-
-      return { id: post.id, score: finalScore };
-    });
-
-    // Sort by score and take top N
-    const results = ranked
-      .sort((a: any, b: any) => b.score - a.score)
-      .slice(0, limit)
-      .map((r: any) => r.id);
-
-    return new Response(JSON.stringify({ recommendations: results }), {
+    return new Response(JSON.stringify({ recommendations: Array.from(finalResults) }), {
       headers: { 'Content-Type': 'application/json' },
     });
 

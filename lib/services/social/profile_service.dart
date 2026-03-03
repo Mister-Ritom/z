@@ -2,11 +2,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
+import '../analytics/analytics_service.dart';
 
 /// ProfileService — fully Supabase-backed.
 /// Handles CRUD, follow/unfollow, search, and blocking.
 class ProfileService {
   final SupabaseClient _db = Database.client;
+  final AnalyticsService? analytics;
+
+  ProfileService({this.analytics});
 
   // ─── PROFILE CRUD ──────────────────────────────────────
 
@@ -125,6 +129,11 @@ class ProfileService {
         'follow_user',
         params: {'p_follower_id': followerId, 'p_following_id': followingId},
       );
+
+      analytics?.capture(
+        eventName: 'user_followed',
+        properties: {'follower_id': followerId, 'following_id': followingId},
+      );
     } catch (e, st) {
       AppLogger.error(
         'ProfileService',
@@ -141,6 +150,11 @@ class ProfileService {
       await _db.rpc(
         'unfollow_user',
         params: {'p_follower_id': followerId, 'p_following_id': followingId},
+      );
+
+      analytics?.capture(
+        eventName: 'user_unfollowed',
+        properties: {'follower_id': followerId, 'following_id': followingId},
       );
     } catch (e, st) {
       AppLogger.error(

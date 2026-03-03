@@ -4,7 +4,7 @@ class Database {
   static Supabase? _supabase;
   static Future<void> initialize() async {
     _supabase = await Supabase.initialize(
-      url: 'https://acrjeiyscacdtyxxsxid.supabase.co',
+      url: 'https://zdotcom.jiobase.com',
       anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjcmplaXlzY2FjZHR5eHhzeGlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNjg0MzMsImV4cCI6MjA4NTc0NDQzM30.mCnA44xS3a1zLFjYYbbMBwdMVCLQYZ7yMPiWsfJeCms',
     );

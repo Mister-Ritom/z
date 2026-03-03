@@ -68,7 +68,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: ProfilePicture(pfp: null, name: currentUser.email!),
+            child: ProfilePicture(
+              pfp: currentUser.profilePictureUrl,
+              name: currentUser.displayName ?? currentUser.email!,
+            ),
           ),
         ),
         title: Image.asset(

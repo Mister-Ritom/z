@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/social/profile_service.dart';
 import '../models/user_model.dart';
 
+import '../services/analytics/analytics_service.dart';
+
 final profileServiceProvider = Provider<ProfileService>((ref) {
-  return ProfileService();
+  final analytics = ref.watch(analyticsServiceProvider);
+  return ProfileService(analytics: analytics);
 });
 
 final userProfileProvider = FutureProvider.family<UserModel?, String>((

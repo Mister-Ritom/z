@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/models/report_model.dart';
-import 'package:z/services/moderation/report_service.dart';
 import 'package:z/providers/moderation_provider.dart';
-import 'package:cooler_ui/cooler_ui.dart';
 
 class ReportDialog extends ConsumerStatefulWidget {
   final ReportType reportType;
