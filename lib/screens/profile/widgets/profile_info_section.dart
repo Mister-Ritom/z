@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/utils/helpers.dart';
@@ -8,7 +9,7 @@ import 'package:z/utils/helpers.dart';
 class ProfileInfoSection extends ConsumerWidget {
   final UserModel user;
   final bool isOwnProfile;
-  final UserModel? currentUser;
+  final User? currentUser;
   final VoidCallback onEditProfile;
   final VoidCallback onFollowersTap;
   final VoidCallback onFollowingTap;

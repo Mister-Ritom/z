@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/models/report_model.dart';
-import 'package:z/providers/bookmarking_provider.dart';
 import 'package:z/providers/moderation_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:z/widgets/moderation/block_confirmation_dialog.dart';
@@ -40,7 +39,6 @@ class _ShortVideoOptionsSheetState
 
     setState(() => _isBookmarking = true);
     final zapService = ref.read(zapServiceProvider(true));
-    ref.read(bookmarkingProvider(widget.zapId).notifier).state = true;
 
     try {
       if (widget.isBookmarked) {
@@ -58,20 +56,21 @@ class _ShortVideoOptionsSheetState
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.isBookmarked
-                ? 'Removed from bookmarks'
-                : 'Added to bookmarks'),
+            content: Text(
+              widget.isBookmarked
+                  ? 'Removed from bookmarks'
+                  : 'Added to bookmarks',
+            ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
-      ref.read(bookmarkingProvider(widget.zapId).notifier).state = false;
       if (mounted) {
         setState(() => _isBookmarking = false);
       }
@@ -83,12 +82,14 @@ class _ShortVideoOptionsSheetState
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => BlockConfirmationDialog(
-        title: 'Delete Short',
-        message: 'Are you sure you want to delete this short? This action cannot be undone.',
-        confirmText: 'Delete',
-        onConfirm: () {},
-      ),
+      builder:
+          (context) => BlockConfirmationDialog(
+            title: 'Delete Short',
+            message:
+                'Are you sure you want to delete this short? This action cannot be undone.',
+            confirmText: 'Delete',
+            onConfirm: () {},
+          ),
     );
 
     if (confirmed != true) return;
@@ -107,9 +108,9 @@ class _ShortVideoOptionsSheetState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
       }
     } finally {
       if (mounted) {
@@ -123,11 +124,12 @@ class _ShortVideoOptionsSheetState
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => BlockConfirmationDialog(
-        title: 'Block Short',
-        message: 'Block this short? You won\'t see it in your feed.',
-        onConfirm: () {},
-      ),
+      builder:
+          (context) => BlockConfirmationDialog(
+            title: 'Block Short',
+            message: 'Block this short? You won\'t see it in your feed.',
+            onConfirm: () {},
+          ),
     );
 
     if (confirmed != true) return;
@@ -136,22 +138,18 @@ class _ShortVideoOptionsSheetState
     final blockService = ref.read(blockServiceProvider);
 
     try {
-      await blockService.blockPost(
-        blockerId: widget.currentUserId,
-        postId: widget.zapId,
-        isShort: true,
-      );
+      await blockService.blockPost(widget.currentUserId, widget.zapId);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Short blocked')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Short blocked')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to block: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to block: $e')));
       }
     } finally {
       if (mounted) {
@@ -168,20 +166,21 @@ class _ShortVideoOptionsSheetState
     try {
       await showDialog(
         context: context,
-        builder: (context) => ReportDialog(
-          reportType: ReportType.post,
-          postId: widget.zapId,
-          reporterId: widget.currentUserId,
-        ),
+        builder:
+            (context) => ReportDialog(
+              reportType: ReportType.post,
+              postId: widget.zapId,
+              reporterId: widget.currentUserId,
+            ),
       );
       if (mounted) {
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to report: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to report: $e')));
       }
     } finally {
       if (mounted) {
@@ -205,54 +204,57 @@ class _ShortVideoOptionsSheetState
             ),
             title: Text(widget.isBookmarked ? 'Remove bookmark' : 'Bookmark'),
             onTap: _isBookmarking ? null : _handleBookmark,
-            trailing: _isBookmarking
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
+            trailing:
+                _isBookmarking
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : null,
           ),
           if (isOwner)
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('Delete', style: TextStyle(color: Colors.red)),
               onTap: _isDeleting ? null : _handleDelete,
-              trailing: _isDeleting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
+              trailing:
+                  _isDeleting
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : null,
             ),
           ListTile(
             leading: const Icon(Icons.block),
             title: const Text('Block short'),
             onTap: _isBlocking ? null : _handleBlockPost,
-            trailing: _isBlocking
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
+            trailing:
+                _isBlocking
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : null,
           ),
           ListTile(
             leading: const Icon(Icons.flag_outlined),
             title: const Text('Report'),
             onTap: _isReporting ? null : _handleReport,
-            trailing: _isReporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
+            trailing:
+                _isReporting
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : null,
           ),
         ],
       ),
     );
   }
 }
-

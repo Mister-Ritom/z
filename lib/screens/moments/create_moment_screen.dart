@@ -37,7 +37,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
 
       final moment = MomentModel(
         id: '', // Service generates ID
-        userId: currentUser.uid,
+        userId: currentUser.id,
         text: text,
         category: _selectedCategory,
         visibility: _selectedVisibility,

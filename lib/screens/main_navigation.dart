@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:z/screens/creation/creation_screen.dart';
 import 'package:z/screens/home/home_screen.dart';
@@ -66,7 +67,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     final page = _pages[index];
     if (page is NotificationsScreen && currentUser != null) {
-      _markNotificationsRead(currentUser.uid);
+      _markNotificationsRead(currentUser.id);
     }
     notifier.state = index;
   }
@@ -103,10 +104,26 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
-    if (currentUser == null) return const SizedBox.shrink();
+    if (currentUser == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text("No user found"),
+            TextButton(
+              onPressed: () {
+                context.go("/login");
+              },
+              child: Text("Login"),
+            ),
+          ],
+        ),
+      );
+    }
 
     final unreadAsync = ref.watch(
-      unreadNotificationsCountProvider(currentUser.uid),
+      unreadNotificationsCountProvider(currentUser.id),
     );
     final currentIndex = ref.watch(currentIndexProvider);
 

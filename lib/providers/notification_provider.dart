@@ -1,57 +1,44 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/notification_model.dart';
-import '../utils/constants.dart';
+import '../supabase/database.dart';
+
+final notificationServiceProvider = Provider((ref) => Database.client);
 
 final notificationsProvider =
-    StreamProvider.family<List<NotificationModel>, String>((ref, userId) {
-      return FirebaseFirestore.instance
-          .collection(AppConstants.notificationsCollection)
-          .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .where('type', isNotEqualTo: 'message')
-          .limit(50)
-          .snapshots()
-          .map(
-            (snapshot) =>
-                snapshot.docs
-                    .map(
-                      (doc) => NotificationModel.fromMap({
-                        'id': doc.id,
-                        ...doc.data(),
-                      }),
-                    )
-                    .toList(),
-          );
+    FutureProvider.family<List<NotificationModel>, String>((ref, userId) async {
+      final db = ref.read(notificationServiceProvider);
+      final data = await db
+          .from('notifications')
+          .select()
+          .eq('user_id', userId)
+          .neq('type', 'message')
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      return data.map((d) => NotificationModel.fromMap(d)).toList();
     });
 
-final unreadNotificationsCountProvider = StreamProvider.family<int, String>((
+final unreadNotificationsCountProvider = FutureProvider.family<int, String>((
   ref,
   userId,
-) {
-  return FirebaseFirestore.instance
-      .collection(AppConstants.notificationsCollection)
-      .where('userId', isEqualTo: userId)
-      .where('isRead', isEqualTo: false)
-      .where("type", isNotEqualTo: "message")
-      .snapshots()
-      .map((snapshot) => snapshot.docs.length);
+) async {
+  final db = ref.read(notificationServiceProvider);
+  // Using head: true or similar if possible, but length is safe for now
+  final data = await db
+      .from('notifications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_read', false)
+      .neq('type', 'message');
+
+  return data.length;
 });
 
 Future<void> markAllNotificationsAsRead(String userId) async {
-  final querySnapshot =
-      await FirebaseFirestore.instance
-          .collection(AppConstants.notificationsCollection)
-          .where('userId', isEqualTo: userId)
-          .where('isRead', isEqualTo: false)
-          .where('type', isNotEqualTo: 'message')
-          .get();
-
-  final batch = FirebaseFirestore.instance.batch();
-
-  for (var doc in querySnapshot.docs) {
-    batch.update(doc.reference, {'isRead': true});
-  }
-
-  await batch.commit();
+  await Database.client
+      .from('notifications')
+      .update({'is_read': true})
+      .eq('user_id', userId)
+      .neq('type', 'message')
+      .eq('is_read', false);
 }

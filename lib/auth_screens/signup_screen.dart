@@ -1,14 +1,16 @@
 import 'package:flutter/gestures.dart';
-import 'package:z/utils/logger.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/info/privacy/privacy_screen.dart';
 import 'package:z/info/terms/terms_screen.dart';
+import 'package:z/providers/profile_provider.dart';
 import 'package:z/utils/helpers.dart';
+import 'package:z/utils/logger.dart';
+import 'package:z/services/analytics/analytics_service.dart';
 import '../providers/auth_provider.dart';
-import '../services/analytics/firebase_analytics_service.dart';
-import 'dart:async';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -39,12 +41,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    final email = _emailController.text.trim();
 
     try {
       final authService = ref.read(authServiceProvider);
+      final profileService = ref.read(profileServiceProvider);
 
       // Check username availability
-      final isAvailable = await authService.isUsernameAvailable(
+      final isAvailable = await profileService.isUsernameAvailable(
         _usernameController.text.trim(),
       );
 
@@ -58,28 +62,66 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         return;
       }
 
-      await authService.signUpWithEmail(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      final data = await authService.signUpWithEmail(
+        email: email,
+        password: _passwordController.text.trim(),
         username: _usernameController.text.trim(),
         displayName: _displayNameController.text.trim(),
       );
 
-      // Track successful signup
-      await FirebaseAnalyticsService.logSignUp(signUpMethod: 'email');
+      if (data == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Sign up failed')));
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final Session? session = data['session'];
+      final User? user = data['user'];
+      if (session == null || user != null) {
+        //User must verify their email
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sign up successful! Please check your email to verify your account.',
+              ),
+            ),
+          );
+          context.pushReplacement('/verify-email');
+        }
+      }
+
+      // Save email and password for verification screen
+      ref.read(pendingEmailProvider.notifier).state = email;
+      ref.read(pendingPasswordProvider.notifier).state =
+          _passwordController.text;
 
       AppLogger.info('SignUpScreen', 'Email sign up successful');
+
+      // Track signup event
+      unawaited(
+        ref
+            .read(analyticsServiceProvider)
+            .capture(
+              eventName: 'signup_successful',
+              properties: {'method': 'email', 'email': email},
+            ),
+      );
+
       if (mounted) {
         context.pushReplacement('/');
       }
     } catch (e, stackTrace) {
-      AppLogger.error('SignUpScreen', 'Email sign up failed', error: e, stackTrace: stackTrace);
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        stackTrace,
-        reason: 'Email sign up failed',
-        fatal: false,
+      AppLogger.error(
+        'SignUpScreen',
+        'Email sign up failed',
+        error: e,
+        stackTrace: stackTrace,
       );
       if (mounted) {
         ScaffoldMessenger.of(
@@ -98,25 +140,29 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     try {
       final authService = ref.read(authServiceProvider);
-      final user = await authService.signInWithGoogle();
-
-      // Track signup if new user, login if existing
-      if (user != null) {
-        await FirebaseAnalyticsService.logSignUp(signUpMethod: 'google');
-      }
+      await authService.signInWithGoogle();
 
       AppLogger.info('SignUpScreen', 'Google sign up successful');
+
+      // Track signup event
+      unawaited(
+        ref
+            .read(analyticsServiceProvider)
+            .capture(
+              eventName: 'signup_successful',
+              properties: {'method': 'google'},
+            ),
+      );
+
       if (mounted) {
         context.go('/');
       }
     } catch (e, stackTrace) {
-      AppLogger.error('SignUpScreen', 'Google sign up failed', error: e, stackTrace: stackTrace);
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        stackTrace,
-        reason: 'Google sign up failed',
-        fatal: false,
+      AppLogger.error(
+        'SignUpScreen',
+        'Google sign up failed',
+        error: e,
+        stackTrace: stackTrace,
       );
       if (mounted) {
         ScaffoldMessenger.of(
@@ -133,10 +179,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   @override
   void initState() {
     super.initState();
-    // Track screen view
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(FirebaseAnalyticsService.logScreenView(screenName: 'signup'));
-    });
   }
 
   @override

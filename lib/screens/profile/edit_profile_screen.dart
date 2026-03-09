@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/supabase/database.dart';
 import '../../models/user_model.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/storage_provider.dart';
@@ -99,15 +101,26 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final pfpChanged = newPfp != widget.user.profilePictureUrl;
       final coverChanged = newCover != widget.user.coverPhotoUrl;
 
-      await currentUser.updateProfile(
-        displayName: nameChanged ? displayName : null,
-        photoURL: pfpChanged ? newPfp : null,
-      );
-      await currentUser.reload();
+      //Update auth profile if display name or profile picture changed
+      if (nameChanged && pfpChanged) {
+        await Database.client.auth.updateUser(
+          UserAttributes(
+            data: {'full_name': displayName, 'profile_picture_url': newPfp},
+          ),
+        );
+      } else if (nameChanged) {
+        await Database.client.auth.updateUser(
+          UserAttributes(data: {'full_name': displayName}),
+        );
+      } else if (pfpChanged) {
+        await Database.client.auth.updateUser(
+          UserAttributes(data: {'profile_picture_url': newPfp}),
+        );
+      }
 
       // Update profile
       await profileService.updateProfile(
-        userId: widget.user.id,
+        widget.user.id,
         displayName: nameChanged ? displayName : null,
         bio: bioChanged ? bio : null,
         profilePictureUrl: pfpChanged ? newPfp : null,

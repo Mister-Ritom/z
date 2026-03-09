@@ -44,7 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     final unreadMessagesAsync = ref.watch(
-      unreadMessageCountProvider(currentUser.uid),
+      unreadMessageCountProvider(currentUser.id),
     );
     final uploads = ref.watch(uploadNotifierProvider);
     final zapUploads =
@@ -69,7 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: ProfilePicture(
-              pfp: currentUser.photoURL,
+              pfp: currentUser.profilePictureUrl,
               name: currentUser.displayName ?? currentUser.email!,
             ),
           ),
@@ -123,10 +123,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                FollowingTab(userId: currentUser.uid),
-                const ForYouTab(),
-              ],
+              children: [FollowingTab(), const ForYouTab()],
             ),
           ),
         ],

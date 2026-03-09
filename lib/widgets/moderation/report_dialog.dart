@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:z/models/report_model.dart';
-import 'package:z/services/moderation/report_service.dart';
+import 'package:z/providers/moderation_provider.dart';
 
-class ReportDialog extends StatefulWidget {
+class ReportDialog extends ConsumerStatefulWidget {
   final ReportType reportType;
   final String? postId;
   final String? userId;
@@ -19,13 +20,12 @@ class ReportDialog extends StatefulWidget {
   });
 
   @override
-  State<ReportDialog> createState() => _ReportDialogState();
+  ConsumerState<ReportDialog> createState() => _ReportDialogState();
 }
 
-class _ReportDialogState extends State<ReportDialog> {
+class _ReportDialogState extends ConsumerState<ReportDialog> {
   ReportCategory? _selectedCategory;
   final _detailsController = TextEditingController();
-  final _reportService = ReportService();
   bool _isSubmitting = false;
 
   @override
@@ -45,18 +45,20 @@ class _ReportDialogState extends State<ReportDialog> {
     setState(() => _isSubmitting = true);
 
     try {
-      await _reportService.reportContent(
-        reporterId: widget.reporterId,
-        reportType: widget.reportType,
-        postId: widget.postId,
-        userId: widget.userId,
-        storyId: widget.storyId,
-        category: _selectedCategory!,
-        additionalDetails:
-            _detailsController.text.trim().isEmpty
-                ? null
-                : _detailsController.text.trim(),
-      );
+      await ref
+          .read(reportServiceProvider)
+          .reportContent(
+            reporterId: widget.reporterId,
+            reportType: widget.reportType.name,
+            postId: widget.postId,
+            userId: widget.userId,
+            storyId: widget.storyId,
+            category: _selectedCategory!.name,
+            additionalDetails:
+                _detailsController.text.trim().isEmpty
+                    ? null
+                    : _detailsController.text.trim(),
+          );
 
       if (mounted) {
         Navigator.of(context).pop();

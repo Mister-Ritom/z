@@ -6,6 +6,7 @@ import 'package:z/screens/sharing/sharing_screen.dart';
 import '../providers/auth_provider.dart';
 import '../auth_screens/login_screen.dart';
 import '../auth_screens/signup_screen.dart';
+import '../auth_screens/verification_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/search/search_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
@@ -18,12 +19,10 @@ import '../info/feedback/feedback_screen.dart';
 import '../info/terms/terms_screen.dart';
 import '../info/privacy/privacy_screen.dart';
 import '../screens/messages/chat_screen.dart';
-import '../services/notifications/fcm_service.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../providers/settings_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(currentUserProvider);
   final routerKey = GlobalKey<NavigatorState>();
   late final GoRouter router;
 
@@ -32,16 +31,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: GoRouterRefreshNotifier(ref),
     redirect: (context, state) {
-      // Redirect file:// URIs to sharing screen (e.g., when sharing files to the app)
-      if (state.uri.scheme == 'file') {
-        // Extract the file path from the URI (remove the file:// scheme)
-        // For file:// URIs, uri.path gives us the actual file path
-        final filePath = state.uri.path;
-        final encodedPath = Uri.encodeComponent(filePath);
-        return '/sharing?file=$encodedPath';
-      }
-
-      final isAuthenticated = authState.valueOrNull != null;
+      final isAuthenticated = ref.watch(isAuthenticatedProvider);
+      final pendingEmail = ref.read(pendingEmailProvider);
       final settings = ref.read(settingsProvider);
       final hasSeenOnboarding = settings.hasSeenOnboarding;
 
@@ -56,7 +47,13 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isGoingToAuth =
           state.matchedLocation == '/login' ||
-          state.matchedLocation == '/signup';
+          state.matchedLocation == '/signup' ||
+          state.matchedLocation == '/verify-email';
+
+      // If just signed up and needs verification
+      if (pendingEmail != null && state.matchedLocation != '/verify-email') {
+        return '/verify-email';
+      }
 
       // If not authenticated and trying to access protected routes
       if (!isAuthenticated && !isGoingToAuth) {
@@ -79,6 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/signup',
         builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        builder: (context, state) => const VerificationScreen(),
       ),
       GoRoute(path: '/', builder: (context, state) => const MainNavigation()),
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
@@ -159,13 +160,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
   );
 
-  // Set up FCM navigation handler after router is created
-  FCMNavigationHandler.navigateToChat = (String otherUserId) {
-    Future.microtask(() {
-      router.go('/chat/$otherUserId');
-    });
-  };
-
   return router;
 });
 
@@ -174,6 +168,9 @@ class GoRouterRefreshNotifier extends ChangeNotifier {
   GoRouterRefreshNotifier(this._ref) {
     // Listen to auth state changes
     _subscription = _ref.listen(currentUserProvider, (previous, next) {
+      notifyListeners();
+    });
+    _pendingSubscription = _ref.listen(pendingEmailProvider, (previous, next) {
       notifyListeners();
     });
     _settingsSubscription = _ref.listen(settingsProvider, (previous, next) {
@@ -185,11 +182,13 @@ class GoRouterRefreshNotifier extends ChangeNotifier {
 
   final Ref _ref;
   late final ProviderSubscription _subscription;
+  late final ProviderSubscription _pendingSubscription;
   late final ProviderSubscription _settingsSubscription;
 
   @override
   void dispose() {
     _subscription.close();
+    _pendingSubscription.close();
     _settingsSubscription.close();
     super.dispose();
   }

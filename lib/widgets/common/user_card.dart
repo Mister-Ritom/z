@@ -18,7 +18,7 @@ class UserCard extends ConsumerWidget {
     if (currentUser == null) {
       return SizedBox.shrink();
     }
-    final isOwnProfile = currentUser.uid == user.id;
+    final isOwnProfile = currentUser.id == user.id;
 
     void onTap() {
       Navigator.push(
@@ -78,7 +78,7 @@ class UserCard extends ConsumerWidget {
             if (!isOwnProfile && showFollowButton)
               SizedBox(
                 width: 96,
-                child: _followButton(currentUser.uid, user.id, ref),
+                child: _followButton(currentUser.id, user.id, ref),
               ),
           ],
         ),

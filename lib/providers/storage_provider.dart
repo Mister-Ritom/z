@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:z/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
+import 'package:z/utils/logger.dart';
 import '../services/storage/storage_service.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
@@ -17,6 +19,7 @@ final uploadNotifierProvider =
 enum UploadType { zap, shorts, cover, pfp, story, document }
 
 class UploadTaskState {
+  final String id;
   final String fileName;
   final double progress;
   final UploadType type;
@@ -25,6 +28,7 @@ class UploadTaskState {
   final String? error;
 
   const UploadTaskState({
+    required this.id,
     required this.fileName,
     required this.progress,
     required this.type,
@@ -34,17 +38,16 @@ class UploadTaskState {
   });
 
   UploadTaskState copyWith({
-    String? fileName,
     double? progress,
-    UploadType? type,
     bool? isUploading,
     String? downloadUrl,
     String? error,
   }) {
     return UploadTaskState(
-      fileName: fileName ?? this.fileName,
+      id: id,
+      fileName: fileName,
       progress: progress ?? this.progress,
-      type: type ?? this.type,
+      type: type,
       isUploading: isUploading ?? this.isUploading,
       downloadUrl: downloadUrl ?? this.downloadUrl,
       error: error ?? this.error,
@@ -56,213 +59,186 @@ class UploadNotifier extends StateNotifier<List<UploadTaskState>> {
   final Ref ref;
   UploadNotifier(this.ref) : super([]);
 
-  Future<void> uploadFiles({
+  static const _parallelLimit = 3;
+  static const _maxRetries = 2;
+
+  Future<List<String>> uploadFiles({
     required List<XFile> files,
     required UploadType type,
     required String referenceId,
     void Function(List<String> urls)? onComplete,
   }) async {
     final storage = ref.read(storageServiceProvider);
-
-    final newTasks =
-        files
-            .map(
-              (_) => UploadTaskState(
-                fileName: const Uuid().v4(),
-                type: type,
-                progress: 0,
-                isUploading: true,
-              ),
-            )
-            .toList();
-
-    state = [...state, ...newTasks];
-
     final uploadedUrls = <String>[];
-    final tasks = <Future<void>>[];
+    final queue = <Future<void>>[];
 
     for (int i = 0; i < files.length; i++) {
+      if (queue.length >= _parallelLimit) {
+        await Future.any(queue);
+        // Clean up completed futures from queue
+        // Note: we don't need to manually remove here if we use Future.wait at the end,
+        // but this limit prevents too many concurrent uploads.
+      }
+
       final file = files[i];
-      final taskIndex = state.length - files.length + i;
-      final taskId = state[taskIndex].fileName;
+      final id = const Uuid().v4();
 
-      tasks.add(
-        Future(() async {
-          String? mimeType;
-          try {
-            mimeType = file.mimeType ?? getMimeTypeFromPath(file.path);
-            final fileBytes = await file.readAsBytes();
-            String downloadUrl = "";
+      state = [
+        ...state,
+        UploadTaskState(
+          id: id,
+          fileName: file.name,
+          progress: 0,
+          type: type,
+          isUploading: true,
+        ),
+      ];
 
-            AppLogger.info('StorageProvider', 'Starting file upload', data: {'fileName': file.name, 'mimeType': mimeType, 'type': type.name, 'fileIndex': i});
-
-            Future<void> updateProgress(double p) async {
-              state = [
-                for (int j = 0; j < state.length; j++)
-                  if (j == taskIndex)
-                    state[j].copyWith(progress: p, isUploading: true)
-                  else
-                    state[j],
-              ];
-            }
-
-            await updateProgress(0.2);
-
-            switch (type) {
-              case UploadType.zap:
-                if (mimeType.startsWith('image/') ||
-                    mimeType.startsWith('video/')) {
-                  final referenceWithIndex =
-                      mimeType.startsWith('image/')
-                          ? '$referenceId-img-$i'
-                          : '$referenceId-vid-$i';
-
-                  downloadUrl = await storage.uploadFile(
-                    file: File(file.path),
-                    type: type,
-                    referenceId: referenceWithIndex,
-                  );
-                } else {
-                  downloadUrl = await storage.uploadDocument(
-                    fileBytes: fileBytes,
-                    mimeType: mimeType,
-                    referenceId: referenceId,
-                  );
-                }
-                break;
-
-              case UploadType.story:
-                if (!mimeType.startsWith('image/') &&
-                    !mimeType.startsWith('video/')) {
-                  throw Exception("❌ Story can only contain images or videos.");
-                }
-                final storyRef =
-                    mimeType.startsWith('image/')
-                        ? '$referenceId-img-$i'
-                        : '$referenceId-vid-$i';
-
-                downloadUrl = await storage.uploadFile(
-                  file: File(file.path),
-                  type: type,
-                  referenceId: storyRef,
-                );
-                break;
-
-              case UploadType.shorts:
-                if (!mimeType.startsWith('video/')) {
-                  throw Exception("❌ Shorts can only contain video files.");
-                }
-                downloadUrl = await storage.uploadFile(
-                  file: File(file.path),
-                  type: type,
-                  referenceId: referenceId,
-                );
-                break;
-
-              case UploadType.cover:
-                if (!mimeType.startsWith('image/')) {
-                  throw Exception("❌ Cover photo must be an image.");
-                }
-                downloadUrl = await storage.uploadFile(
-                  file: File(file.path),
-                  type: type,
-                  referenceId: referenceId,
-                );
-                break;
-
-              case UploadType.pfp:
-                if (!mimeType.startsWith('image/')) {
-                  throw Exception("❌ Profile picture must be an image.");
-                }
-                downloadUrl = await storage.uploadFile(
-                  file: File(file.path),
-                  type: type,
-                  referenceId: referenceId,
-                );
-                break;
-
-              case UploadType.document:
-                downloadUrl = await storage.uploadDocument(
-                  fileBytes: fileBytes,
-                  mimeType: mimeType,
-                  referenceId: referenceId,
-                );
-                break;
-            }
-
-            await updateProgress(1.0);
-            uploadedUrls.add(downloadUrl);
-
-            state = [
-              for (int j = 0; j < state.length; j++)
-                if (j == taskIndex)
-                  state[j].copyWith(
-                    progress: 1.0,
-                    isUploading: false,
-                    downloadUrl: downloadUrl,
-                  )
-                else
-                  state[j],
-            ];
-
-            await Future.delayed(const Duration(seconds: 2));
-            state = state.where((t) => t.fileName != taskId).toList();
-          } catch (e, st) {
-            AppLogger.error('StorageProvider', 'Upload failed', error: e, stackTrace: st, data: {'filePath': file.path, 'fileName': file.name, 'type': type.name, 'mimeType': mimeType});
-            state = [
-              for (int j = 0; j < state.length; j++)
-                if (j == taskIndex)
-                  state[j].copyWith(isUploading: false, error: e.toString())
-                else
-                  state[j],
-            ];
-          }
-        }),
+      final uploadFuture = _uploadSingle(
+        id: id,
+        file: file,
+        index: i,
+        type: type,
+        referenceId: referenceId,
+        storage: storage,
+        onDone: (url) => uploadedUrls.add(url),
       );
+
+      queue.add(uploadFuture);
+      // Remove from queue when done to keep queue.length accurate for limit
+      uploadFuture.whenComplete(() => queue.remove(uploadFuture));
     }
 
-    await Future.wait(tasks);
+    await Future.wait(queue);
 
-    AppLogger.info('StorageProvider', 'All uploads completed', data: {'totalFiles': files.length, 'successfulUploads': uploadedUrls.length, 'type': type.name});
     if (onComplete != null) onComplete(uploadedUrls);
+    return uploadedUrls;
   }
 
-  String getMimeTypeFromPath(String path) {
-    final ext = path.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      case 'heic':
-      case 'heif':
-        return 'image/heic';
-      case 'webp':
-        return 'image/webp';
-      case 'mp4':
-        return 'video/mp4';
-      case 'mov':
-        return 'video/quicktime';
-      case 'avi':
-        return 'video/x-msvideo';
-      case 'mkv':
-        return 'video/x-matroska';
-      case 'mp3':
-      case 'wav':
-      case 'aac':
-      case 'm4a':
-        return 'audio/mpeg';
-      case 'pdf':
-        return 'application/pdf';
-      case 'txt':
-        return 'text/plain';
-      case 'json':
-        return 'application/json';
-      default:
-        return 'application/octet-stream';
+  Future<void> _uploadSingle({
+    required String id,
+    required XFile file,
+    required int index,
+    required UploadType type,
+    required String referenceId,
+    required StorageService storage,
+    required void Function(String url) onDone,
+  }) async {
+    int attempt = 0;
+
+    while (true) {
+      try {
+        final mime = file.mimeType ?? lookupMimeType(file.path) ?? '';
+        String downloadUrl = "";
+
+        _setProgress(id, 0.1);
+
+        switch (type) {
+          case UploadType.zap:
+          case UploadType.story:
+            if (mime.startsWith('image/') || mime.startsWith('video/')) {
+              final refId = "$referenceId-$index";
+              downloadUrl = await storage.uploadFile(
+                file: File(file.path),
+                type: type,
+                referenceId: refId,
+              );
+            } else {
+              final bytes = await file.readAsBytes();
+              downloadUrl = await storage.uploadDocument(
+                fileBytes: bytes,
+                mimeType: mime,
+                referenceId: referenceId,
+              );
+            }
+            break;
+
+          case UploadType.shorts:
+            if (!mime.startsWith('video/')) {
+              throw Exception("Shorts must be video");
+            }
+            downloadUrl = await storage.uploadFile(
+              file: File(file.path),
+              type: type,
+              referenceId: referenceId,
+            );
+            break;
+
+          case UploadType.cover:
+          case UploadType.pfp:
+            if (!mime.startsWith('image/')) {
+              throw Exception("Image required");
+            }
+            downloadUrl = await storage.uploadFile(
+              file: File(file.path),
+              type: type,
+              referenceId: referenceId,
+            );
+            break;
+
+          case UploadType.document:
+            final bytes = await file.readAsBytes();
+            downloadUrl = await storage.uploadDocument(
+              fileBytes: bytes,
+              mimeType: mime,
+              referenceId: referenceId,
+            );
+            break;
+        }
+
+        _setProgress(id, 1.0, done: true, url: downloadUrl);
+        onDone(downloadUrl);
+
+        await Future.delayed(const Duration(seconds: 2));
+        _remove(id);
+        return;
+      } catch (e, st) {
+        attempt++;
+        AppLogger.error(
+          'UploadNotifier',
+          'Upload failed',
+          error: e,
+          stackTrace: st,
+          data: {'file': file.path},
+        );
+
+        if (attempt > _maxRetries) {
+          _setError(id, e.toString());
+          return;
+        }
+
+        await Future.delayed(Duration(milliseconds: 400 * attempt));
+      }
     }
+  }
+
+  void _setProgress(
+    String id,
+    double progress, {
+    bool done = false,
+    String? url,
+  }) {
+    state = [
+      for (final t in state)
+        if (t.id == id)
+          t.copyWith(
+            progress: progress,
+            isUploading: !done,
+            downloadUrl: url ?? t.downloadUrl,
+          )
+        else
+          t,
+    ];
+  }
+
+  void _setError(String id, String err) {
+    state = [
+      for (final t in state)
+        if (t.id == id) t.copyWith(isUploading: false, error: err) else t,
+    ];
+  }
+
+  void _remove(String id) {
+    state = state.where((t) => t.id != id).toList();
   }
 }

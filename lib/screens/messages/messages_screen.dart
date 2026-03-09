@@ -27,9 +27,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final conversationsAsync = ref.watch(
-      conversationsProvider(currentUser.uid),
-    );
+    final conversationsAsync = ref.watch(conversationsProvider(currentUser.id));
 
     return Scaffold(
       appBar: AppBar(
@@ -56,7 +54,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
 
               // Determine the "other user" by excluding the current user from recipients
               final otherUserId = conversation.recipients.firstWhere(
-                (id) => id != currentUser.uid,
+                (id) => id != currentUser.id,
               );
 
               final userAsync = ref.watch(userProfileProvider(otherUserId));
@@ -88,13 +86,13 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                         color:
                             conversation.unreadCount > 0 &&
                                     conversation.lastMessageSender !=
-                                        currentUser.uid
+                                        currentUser.id
                                 ? Theme.of(context).colorScheme.inverseSurface
                                 : Colors.grey,
                         fontWeight:
                             conversation.unreadCount > 0 &&
                                     conversation.lastMessageSender !=
-                                        currentUser.uid
+                                        currentUser.id
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                       ),
@@ -108,7 +106,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         if (conversation.unreadCount > 0 &&
-                            conversation.lastMessageSender != currentUser.uid)
+                            conversation.lastMessageSender != currentUser.id)
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
@@ -131,10 +129,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ChatScreen(
-                            otherUserId: otherUserId,
-                            initialMediaPaths: widget.initialMediaPaths,
-                          ),
+                          builder:
+                              (context) => ChatScreen(
+                                otherUserId: otherUserId,
+                                initialMediaPaths: widget.initialMediaPaths,
+                              ),
                         ),
                       );
                     },

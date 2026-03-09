@@ -1,80 +1,25 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
-import 'package:z/firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/providers/settings_provider.dart';
-import 'package:z/providers/fcm_provider.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/services/ads/ad_manager.dart';
-import 'package:z/services/analytics/firebase_analytics_service.dart';
 import 'package:share_handler/share_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
+import 'package:z/services/analytics/analytics_service.dart';
 import 'utils/router.dart';
-
-Future<void> configureFirebaseEmulators() async {
-  if (kReleaseMode) return;
-
-  final host =
-      defaultTargetPlatform == TargetPlatform.android
-          ? '10.0.2.2'
-          : 'localhost';
-
-  try {
-    FirebaseAuth.instance.useAuthEmulator(host, 9099);
-    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-    FirebaseStorage.instanceFor(
-      app: Firebase.app(),
-      bucket: DefaultFirebaseOptions.currentPlatform.storageBucket,
-    ).useStorageEmulator(host, 9199);
-    FirebaseFunctions.instance.useFunctionsEmulator(host, 5001);
-
-    AppLogger.info("Main", 'Firebase emulators connected on $host');
-  } catch (e, st) {
-    AppLogger.error(
-      "Main",
-      'Failed to connect Firebase emulators',
-      error: e,
-      stackTrace: st,
-    );
-  }
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
   // Pre-initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
 
-  //await configureFirebaseEmulators();
-
-  // Initialize Crashlytics
-  FlutterError.onError = (errorDetails) {
-    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-  };
-
-  // Pass all uncaught asynchronous errors to Crashlytics
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
-
-  // Enable Crashlytics collection in release mode
-  if (kReleaseMode) {
-    FirebaseAnalyticsService.setCrashlyticsCollectionEnabled(true);
-  } else {
-    // Disable in debug mode for faster development
-    FirebaseAnalyticsService.setCrashlyticsCollectionEnabled(false);
-  }
+  // Initialize Supabase
+  await Database.initialize();
 
   // Initialize ad manager
   await AdManager().initialize();
@@ -103,35 +48,28 @@ class _MyAppState extends ConsumerState<MyApp> {
   void initState() {
     super.initState();
     _initSharingListener();
-    // Initialize FCM service
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        final fcmService = ref.read(fcmServiceProvider);
-        await fcmService.initialize();
-      } catch (e, st) {
-        // Log error but don't crash the app
-        AppLogger.error(
-          'MyApp',
-          'Error initializing FCM service in initState',
-          error: e,
-          stackTrace: st,
-        );
-      }
-    });
 
     _authSubscription = ref.listenManual<AsyncValue<User?>>(
       currentUserProvider,
       (previous, next) {
         next.whenData((user) async {
-          final fcmService = ref.read(fcmServiceProvider);
+          final analyticsService = ref.read(analyticsServiceProvider);
           if (user != null) {
-            await fcmService.getTokenAndSave(user.uid);
-            await FirebaseAnalyticsService.setUserId(user.uid);
-            _previousUserId = user.uid;
+            _previousUserId = user.id;
+            // Identify user in PostHog
+            unawaited(
+              analyticsService.identify(
+                user.id,
+                userProperties: {
+                  'email': (user.email ?? '') as Object,
+                  'username': (user.userMetadata?['username'] ?? '') as Object,
+                },
+              ),
+            );
           } else if (_previousUserId != null) {
-            await fcmService.deleteToken(_previousUserId!);
-            await FirebaseAnalyticsService.setUserId(null);
             _previousUserId = null;
+            // Reset PostHog on logout
+            unawaited(analyticsService.reset());
           }
         });
       },

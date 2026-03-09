@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum MomentCategory {
   life,
   habit,
@@ -32,7 +30,7 @@ enum MomentCategory {
 
 enum MomentVisibility {
   public,
-  circle, // Friends/Followers only
+  circle,
   private;
 
   static MomentVisibility parse(String value) {
@@ -64,34 +62,32 @@ class MomentModel {
     this.isExpired = false,
   });
 
-  factory MomentModel.fromMap(Map<String, dynamic> map, String id) {
+  factory MomentModel.fromMap(Map<String, dynamic> map, [String? id]) {
     return MomentModel(
-      id: id,
-      userId: map['userId'] ?? '',
+      id: id ?? map['id'] ?? '',
+      userId: map['user_id'] ?? '',
       text: map['text'] ?? '',
       category: MomentCategory.parse(map['category'] ?? 'presence'),
       visibility: MomentVisibility.parse(map['visibility'] ?? 'circle'),
       createdAt:
-          map['createdAt'] is Timestamp
-              ? (map['createdAt'] as Timestamp).toDate()
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'].toString())
               : DateTime.now(),
       expiresAt:
-          map['expiresAt'] is Timestamp
-              ? (map['expiresAt'] as Timestamp).toDate()
+          map['expires_at'] != null
+              ? DateTime.parse(map['expires_at'].toString())
               : null,
-      isExpired: map['isExpired'] ?? false,
+      isExpired: map['is_expired'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'userId': userId,
+      'user_id': userId,
       'text': text,
       'category': category.name,
       'visibility': visibility.name,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
-      'isExpired': isExpired,
+      'is_expired': isExpired,
     };
   }
 

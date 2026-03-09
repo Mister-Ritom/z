@@ -19,9 +19,7 @@ class NotificationsScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final notificationsAsync = ref.watch(
-      notificationsProvider(currentUser.uid),
-    );
+    final notificationsAsync = ref.watch(notificationsProvider(currentUser.id));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),

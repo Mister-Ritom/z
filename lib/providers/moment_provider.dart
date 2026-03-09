@@ -8,33 +8,32 @@ final momentServiceProvider = Provider<MomentService>((ref) {
   return MomentService();
 });
 
-final userMomentsProvider = StreamProvider.family<List<MomentModel>, String>((
+final userMomentsProvider = FutureProvider.family<List<MomentModel>, String>((
   ref,
   userId,
-) {
+) async {
   final service = ref.watch(momentServiceProvider);
-  return service.getUserMoments(userId);
+  return await service.getUserMoments(userId);
 });
 
 // Provides the "Moments Rail" content
-// Provides the "Moments Rail" content
-final momentsRailProvider = StreamProvider<List<MomentModel>>((ref) {
+final momentsRailProvider = FutureProvider<List<MomentModel>>((ref) async {
   final service = ref.watch(momentServiceProvider);
   final currentUser = ref.watch(currentUserProvider).valueOrNull;
 
-  if (currentUser == null) return Stream.value([]);
+  if (currentUser == null) return [];
 
-  final followingAsync = ref.watch(userFollowingProvider(currentUser.uid));
+  final followingAsync = ref.watch(userFollowingProvider(currentUser.id));
 
   return followingAsync.when(
-    data: (followingIds) {
+    data: (followingIds) async {
       // Also include own moments
-      return service.getMomentsFeed(
+      return await service.getMomentsFeed(
         followingIds: followingIds,
-        currentUserId: currentUser.uid,
+        currentUserId: currentUser.id,
       );
     },
-    loading: () => Stream.value([]),
-    error: (_, __) => Stream.value([]),
+    loading: () => [],
+    error: (_, __) => [],
   );
 });

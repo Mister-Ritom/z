@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum BlockType {
   post, // Block specific post/short
   userContent, // Block user for zaps/shorts (affects recommendations)
@@ -26,22 +24,25 @@ class BlockModel {
   factory BlockModel.fromMap(Map<String, dynamic> map) {
     return BlockModel(
       id: map['id'] ?? '',
-      blockerId: map['blockerId'] ?? '',
-      blockType: _blockTypeFromString(map['blockType'] ?? 'post'),
-      blockedPostId: map['blockedPostId'],
-      blockedUserId: map['blockedUserId'],
-      createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
+      blockerId: map['blocker_id'] ?? '',
+      blockType: _blockTypeFromString(map['block_type'] ?? 'post'),
+      blockedPostId: map['blocked_post_id'],
+      blockedUserId: map['blocked_user_id'],
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'])
+              : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'blockerId': blockerId,
-      'blockType': _blockTypeToString(blockType),
-      'blockedPostId': blockedPostId,
-      'blockedUserId': blockedUserId,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'blocker_id': blockerId,
+      'block_type': _blockTypeToString(blockType),
+      'blocked_post_id': blockedPostId,
+      'blocked_user_id': blockedUserId,
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
@@ -69,4 +70,3 @@ class BlockModel {
     }
   }
 }
-

@@ -1,6 +1,7 @@
 import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/zap_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:z/widgets/zap/card/zap_card.dart';
@@ -8,12 +9,24 @@ import 'package:z/widgets/common/empty_state_widget.dart';
 import 'package:z/widgets/moments/moments_rail.dart';
 
 class FollowingTab extends ConsumerWidget {
-  final String userId;
-
-  const FollowingTab({super.key, required this.userId});
+  const FollowingTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    if (currentUser == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('No user found'),
+          ],
+        ),
+      );
+    }
+    final userId = currentUser.id;
     final zapsAsync = ref.watch(followingFeedProvider(userId));
     return CustomScrollView(
       slivers: [
