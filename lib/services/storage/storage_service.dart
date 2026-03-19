@@ -1,101 +1,99 @@
 import 'dart:typed_data';
-import 'package:z/utils/logger.dart';
-import 'dart:io' show Platform, File;
-import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io' show File;
+import 'dart:async';
+import 'package:mime/mime.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:z/providers/storage_provider.dart';
+import 'package:z/supabase/database.dart';
+import 'package:z/utils/logger.dart';
 import 'package:z/utils/helpers.dart';
 import 'package:z/utils/constants.dart';
-import '../analytics/firebase_analytics_service.dart';
 
 class StorageService {
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final SupabaseClient _supabase = Database.client;
+
+  static const _maxRetries = 3;
+  static const _timeout = Duration(seconds: 60);
 
   Future<String> uploadFile({
     required File file,
     required UploadType type,
     required String referenceId,
+    bool private = false,
+    int privatUrlDurationSeconds = 60 * 60 * 24 * 365,
   }) async {
-    try {
-      String bucket;
-      String fileName;
-      String path;
-      bool isVideo = Helpers.isVideoPath(file.path);
+    int attempt = 0;
 
-      switch (type) {
-        case UploadType.pfp:
-          bucket = AppConstants.profilePicturesBucket;
-          fileName =
-              'profile_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
-          break;
-        case UploadType.cover:
-          bucket = AppConstants.coverPhotosBucket;
-          fileName =
-              'cover_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
-          break;
-        case UploadType.zap:
-          bucket = AppConstants.zapMediaBucket;
-          fileName =
-              'zap_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
-          break;
-        case UploadType.story:
-          bucket = AppConstants.storyMediaBucket;
-          fileName =
-              'story_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
-          break;
-        case UploadType.shorts:
-          bucket = AppConstants.shortsVideoBucket;
-          fileName =
-              'short_${referenceId}_${DateTime.now().millisecondsSinceEpoch}';
-          break;
-        default:
-          bucket = "";
-          fileName = "";
-          break;
-      }
+    while (true) {
+      try {
+        final isVideo = Helpers.isVideoPath(file.path);
 
-      if (isVideo) {
-        path = "/video";
-        fileName = "$fileName.mp4";
-      } else {
-        path = "/image";
-        fileName = "$fileName.jpg";
-      }
+        final bucket = _getBucket(type);
+        final timestamp = DateTime.now().microsecondsSinceEpoch;
+        final ext = isVideo ? 'mp4' : 'jpg';
+        final folder = isVideo ? 'video' : 'image';
+        final fileName = "${type.name}_${referenceId}_$timestamp.$ext";
+        final storagePath = "$folder/$fileName";
 
-      final ref = _storage.ref().child('$bucket$path/$fileName');
-      if (isVideo && (Platform.isAndroid || Platform.isIOS)) {
-        final info = await VideoCompress.compressVideo(
-          file.path,
-          quality: VideoQuality.MediumQuality,
-          deleteOrigin: false,
+        File uploadFile = file;
+
+        if (isVideo) {
+          final info = await VideoCompress.compressVideo(
+            file.path,
+            quality: VideoQuality.MediumQuality,
+            deleteOrigin: false,
+          );
+          if (info?.file != null) uploadFile = info!.file!;
+        }
+
+        final mime =
+            lookupMimeType(uploadFile.path) ??
+            (isVideo ? 'video/mp4' : 'image/jpeg');
+
+        await _supabase.storage
+            .from(bucket)
+            .upload(
+              storagePath,
+              uploadFile,
+              fileOptions: FileOptions(contentType: mime, upsert: false),
+            )
+            .timeout(_timeout);
+
+        if (isVideo) {
+          await VideoCompress.deleteAllCache();
+        }
+
+        final url =
+            private
+                ? await _supabase.storage
+                    .from(bucket)
+                    .createSignedUrl(storagePath, privatUrlDurationSeconds)
+                : _supabase.storage.from(bucket).getPublicUrl(storagePath);
+
+        AppLogger.info(
+          'StorageService',
+          'Upload success',
+          data: {'bucket': bucket, 'path': storagePath},
         );
-        if (info?.file == null) throw Exception("Video compression failed");
-        await ref.putData(
-          info!.file!.readAsBytesSync(),
-          SettableMetadata(contentType: 'video/mp4'),
-        );
-        await VideoCompress.deleteAllCache();
-      } else {
-        final contentType =
-            fileName.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg';
-        await ref.putData(
-          file.readAsBytesSync(),
-          SettableMetadata(contentType: contentType),
-        );
-      }
 
-      AppLogger.info('StorageService', 'File uploaded successfully', data: {'type': type.name, 'referenceId': referenceId});
-      return await ref.getDownloadURL();
-    } catch (e, st) {
-      AppLogger.error('StorageService', 'Failed to upload file', error: e, stackTrace: st, data: {'type': type.name, 'referenceId': referenceId});
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        st,
-        reason: 'Failed to upload file',
-        fatal: false,
-      );
-      throw Exception('Failed to upload file: $e');
+        return url;
+      } catch (e, st) {
+        attempt++;
+
+        AppLogger.error(
+          'StorageService',
+          'Upload failed attempt $attempt',
+          error: e,
+          stackTrace: st,
+        );
+
+        if (attempt >= _maxRetries) {
+          throw Exception('Upload failed after retries: $e');
+        }
+
+        await Future.delayed(Duration(milliseconds: 500 * attempt));
+      }
     }
   }
 
@@ -104,29 +102,74 @@ class StorageService {
     required String referenceId,
     required String mimeType,
     String subFolder = "",
+    bool private = false,
   }) async {
-    try {
-      final ext = mimeType.split('/').last;
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'documents/$subFolder/$referenceId/doc_$timestamp.$ext';
-      final ref = _storage.ref().child(
-        '${AppConstants.documentsBucket}/$fileName',
-      );
+    int attempt = 0;
 
-      await ref.putData(fileBytes, SettableMetadata(contentType: mimeType));
-      AppLogger.info('StorageService', 'Document uploaded successfully', data: {'referenceId': referenceId, 'mimeType': mimeType});
-      return await ref.getDownloadURL();
-    } catch (e, stackTrace) {
-      AppLogger.error('StorageService', 'Failed to upload document', error: e, stackTrace: stackTrace, data: {'referenceId': referenceId, 'mimeType': mimeType});
-      // Report error to Crashlytics
-      await FirebaseAnalyticsService.recordError(
-        e,
-        stackTrace,
-        reason: 'Failed to upload document',
-        fatal: false,
-      );
-      throw Exception('Failed to upload document: $e');
+    while (true) {
+      try {
+        final bucket = AppConstants.documentsBucket;
+        final ext = mimeType.split('/').last;
+        final timestamp = DateTime.now().microsecondsSinceEpoch;
+
+        final path = "documents/$subFolder/$referenceId/doc_$timestamp.$ext";
+
+        await _supabase.storage
+            .from(bucket)
+            .uploadBinary(
+              path,
+              fileBytes,
+              fileOptions: FileOptions(contentType: mimeType, upsert: false),
+            )
+            .timeout(_timeout);
+
+        final url =
+            private
+                ? await _supabase.storage
+                    .from(bucket)
+                    .createSignedUrl(path, 60 * 60 * 24 * 365)
+                : _supabase.storage.from(bucket).getPublicUrl(path);
+
+        AppLogger.info(
+          'StorageService',
+          'Document upload success',
+          data: {'bucket': bucket, 'path': path},
+        );
+
+        return url;
+      } catch (e, st) {
+        attempt++;
+
+        AppLogger.error(
+          'StorageService',
+          'Document upload failed attempt $attempt',
+          error: e,
+          stackTrace: st,
+        );
+
+        if (attempt >= _maxRetries) {
+          throw Exception('Document upload failed after retries: $e');
+        }
+
+        await Future.delayed(Duration(milliseconds: 500 * attempt));
+      }
     }
   }
 
+  String _getBucket(UploadType type) {
+    switch (type) {
+      case UploadType.pfp:
+        return AppConstants.profilePicturesBucket;
+      case UploadType.cover:
+        return AppConstants.coverPhotosBucket;
+      case UploadType.zap:
+        return AppConstants.zapMediaBucket;
+      case UploadType.story:
+        return AppConstants.storyMediaBucket;
+      case UploadType.shorts:
+        return AppConstants.shortsVideoBucket;
+      default:
+        throw Exception("Invalid upload type");
+    }
+  }
 }

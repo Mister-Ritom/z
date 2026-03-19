@@ -12,7 +12,14 @@ import 'package:z/screens/creation/story_creation.dart';
 
 class CreationScreen extends ConsumerStatefulWidget {
   final List<XFile>? initialMedia;
-  const CreationScreen({super.key, this.initialMedia});
+  final String? initialText;
+  final int initialIndex;
+  const CreationScreen({
+    super.key,
+    this.initialMedia,
+    this.initialText,
+    this.initialIndex = 0,
+  });
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() {
@@ -21,17 +28,36 @@ class CreationScreen extends ConsumerStatefulWidget {
 }
 
 class _CreationScreenState extends ConsumerState<CreationScreen> {
-  final indexProvider = StateProvider((ref) => 0);
+  late final StateProvider<int> indexProvider;
 
   final _postKey = GlobalKey<PostCreationState>();
   final _storyKey = GlobalKey<StoryCreationState>();
   final _shortsKey = GlobalKey<ShortsCreationState>();
 
-  late final List<Widget> _pages = [
-    PostCreation(key: _postKey),
-    StoryCreation(key: _storyKey),
-    ShortsCreation(key: _shortsKey),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    indexProvider = StateProvider((ref) => widget.initialIndex);
+    _pages = [
+      PostCreation(
+        key: _postKey,
+        initialMedia: widget.initialMedia,
+        initialText: widget.initialText,
+      ),
+      StoryCreation(
+        key: _storyKey,
+        initialMedia: widget.initialMedia,
+        initialText: widget.initialText,
+      ),
+      ShortsCreation(
+        key: _shortsKey,
+        initialMedia: widget.initialMedia,
+        initialText: widget.initialText,
+      ),
+    ];
+  }
 
   CreationPage? get _currentStep {
     final index = ref.read(indexProvider);

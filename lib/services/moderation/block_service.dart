@@ -1,412 +1,174 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:z/models/block_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
 
+/// BlockService — unified blocking for users, posts, and messaging.
+/// Uses a single `blocks` table with a `block_type` column.
 class BlockService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _db = Database.client;
 
-  /// Block a specific post/short
-  Future<void> blockPost({
-    required String blockerId,
-    required String postId,
-    bool isShort = false,
-  }) async {
+  // ─── USER BLOCKS ───────────────────────────────────────
+
+  Future<void> blockUser(String blockerId, String blockedUserId) async {
     try {
-      final block = BlockModel(
-        id: _firestore.collection('blocks').doc().id,
-        blockerId: blockerId,
-        blockType: BlockType.post,
-        blockedPostId: postId,
-        createdAt: DateTime.now(),
-      );
-
-      await _firestore
-          .collection('blocks')
-          .doc(block.id)
-          .set(block.toMap());
-
-      // Also store in user's blocked posts collection for quick lookup
-      await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_posts')
-          .doc(postId)
-          .set({
-        'postId': postId,
-        'isShort': isShort,
-        'blockedAt': DateTime.now(),
+      await _db.from('blocks').upsert({
+        'blocker_id': blockerId,
+        'block_type': 'user',
+        'blocked_user_id': blockedUserId,
       });
-
-      AppLogger.info(
-        'BlockService',
-        'Post blocked successfully',
-        data: {'blockerId': blockerId, 'postId': postId, 'isShort': isShort},
-      );
     } catch (e, st) {
       AppLogger.error(
         'BlockService',
-        'Error blocking post',
+        'Failed to block user',
         error: e,
         stackTrace: st,
       );
-      throw Exception('Failed to block post: $e');
+      rethrow;
     }
   }
 
-  /// Block a user for zaps/shorts (affects recommendations)
-  Future<void> blockUserForContent({
-    required String blockerId,
-    required String blockedUserId,
-  }) async {
+  Future<void> unblockUser(String blockerId, String blockedUserId) async {
     try {
-      final block = BlockModel(
-        id: _firestore.collection('blocks').doc().id,
-        blockerId: blockerId,
-        blockType: BlockType.userContent,
-        blockedUserId: blockedUserId,
-        createdAt: DateTime.now(),
-      );
-
-      await _firestore
-          .collection('blocks')
-          .doc(block.id)
-          .set(block.toMap());
-
-      // Also store in user's blocked users collection for quick lookup
-      await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_users_content')
-          .doc(blockedUserId)
-          .set({
-        'blockedUserId': blockedUserId,
-        'blockedAt': DateTime.now(),
-      });
-
-      AppLogger.info(
-        'BlockService',
-        'User blocked for content successfully',
-        data: {'blockerId': blockerId, 'blockedUserId': blockedUserId},
-      );
+      await _db
+          .from('blocks')
+          .delete()
+          .eq('blocker_id', blockerId)
+          .eq('block_type', 'user')
+          .eq('blocked_user_id', blockedUserId);
     } catch (e, st) {
       AppLogger.error(
         'BlockService',
-        'Error blocking user for content',
+        'Failed to unblock user',
         error: e,
         stackTrace: st,
       );
-      throw Exception('Failed to block user for content: $e');
+      rethrow;
     }
   }
 
-  /// Block a user for messaging only (doesn't affect recommendations)
-  Future<void> blockUserForMessaging({
-    required String blockerId,
-    required String blockedUserId,
-  }) async {
+  Future<bool> isUserBlocked(String blockerId, String blockedUserId) async {
     try {
-      final block = BlockModel(
-        id: _firestore.collection('blocks').doc().id,
-        blockerId: blockerId,
-        blockType: BlockType.userMessaging,
-        blockedUserId: blockedUserId,
-        createdAt: DateTime.now(),
-      );
-
-      await _firestore
-          .collection('blocks')
-          .doc(block.id)
-          .set(block.toMap());
-
-      // Also store in user's blocked messaging users collection
-      await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_users_messaging')
-          .doc(blockedUserId)
-          .set({
-        'blockedUserId': blockedUserId,
-        'blockedAt': DateTime.now(),
-      });
-
-      AppLogger.info(
-        'BlockService',
-        'User blocked for messaging successfully',
-        data: {'blockerId': blockerId, 'blockedUserId': blockedUserId},
-      );
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error blocking user for messaging',
-        error: e,
-        stackTrace: st,
-      );
-      throw Exception('Failed to block user for messaging: $e');
-    }
-  }
-
-  /// Unblock a post
-  Future<void> unblockPost({
-    required String blockerId,
-    required String postId,
-  }) async {
-    try {
-      // Remove from blocks collection
-      final blocksSnapshot = await _firestore
-          .collection('blocks')
-          .where('blockerId', isEqualTo: blockerId)
-          .where('blockType', isEqualTo: 'post')
-          .where('blockedPostId', isEqualTo: postId)
-          .get();
-
-      for (var doc in blocksSnapshot.docs) {
-        await doc.reference.delete();
-      }
-
-      // Remove from user's blocked posts collection
-      await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_posts')
-          .doc(postId)
-          .delete();
-
-      AppLogger.info(
-        'BlockService',
-        'Post unblocked successfully',
-        data: {'blockerId': blockerId, 'postId': postId},
-      );
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error unblocking post',
-        error: e,
-        stackTrace: st,
-      );
-      throw Exception('Failed to unblock post: $e');
-    }
-  }
-
-  /// Unblock a user for content
-  Future<void> unblockUserForContent({
-    required String blockerId,
-    required String blockedUserId,
-  }) async {
-    try {
-      // Remove from blocks collection
-      final blocksSnapshot = await _firestore
-          .collection('blocks')
-          .where('blockerId', isEqualTo: blockerId)
-          .where('blockType', isEqualTo: 'userContent')
-          .where('blockedUserId', isEqualTo: blockedUserId)
-          .get();
-
-      for (var doc in blocksSnapshot.docs) {
-        await doc.reference.delete();
-      }
-
-      // Remove from user's blocked users collection
-      await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_users_content')
-          .doc(blockedUserId)
-          .delete();
-
-      AppLogger.info(
-        'BlockService',
-        'User unblocked for content successfully',
-        data: {'blockerId': blockerId, 'blockedUserId': blockedUserId},
-      );
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error unblocking user for content',
-        error: e,
-        stackTrace: st,
-      );
-      throw Exception('Failed to unblock user for content: $e');
-    }
-  }
-
-  /// Unblock a user for messaging
-  Future<void> unblockUserForMessaging({
-    required String blockerId,
-    required String blockedUserId,
-  }) async {
-    try {
-      // Remove from blocks collection
-      final blocksSnapshot = await _firestore
-          .collection('blocks')
-          .where('blockerId', isEqualTo: blockerId)
-          .where('blockType', isEqualTo: 'userMessaging')
-          .where('blockedUserId', isEqualTo: blockedUserId)
-          .get();
-
-      for (var doc in blocksSnapshot.docs) {
-        await doc.reference.delete();
-      }
-
-      // Remove from user's blocked messaging users collection
-      await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_users_messaging')
-          .doc(blockedUserId)
-          .delete();
-
-      AppLogger.info(
-        'BlockService',
-        'User unblocked for messaging successfully',
-        data: {'blockerId': blockerId, 'blockedUserId': blockedUserId},
-      );
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error unblocking user for messaging',
-        error: e,
-        stackTrace: st,
-      );
-      throw Exception('Failed to unblock user for messaging: $e');
-    }
-  }
-
-  /// Get all blocked post IDs for a user
-  Future<Set<String>> getBlockedPostIds(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('blocked_posts')
-          .get();
-
-      return snapshot.docs.map((doc) => doc.id).toSet();
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error getting blocked post IDs',
-        error: e,
-        stackTrace: st,
-      );
-      return {};
-    }
-  }
-
-  /// Get all blocked user IDs for content
-  Future<Set<String>> getBlockedUserIdsForContent(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('blocked_users_content')
-          .get();
-
-      return snapshot.docs.map((doc) => doc.id).toSet();
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error getting blocked user IDs for content',
-        error: e,
-        stackTrace: st,
-      );
-      return {};
-    }
-  }
-
-  /// Get all blocked user IDs for messaging
-  Future<Set<String>> getBlockedUserIdsForMessaging(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('blocked_users_messaging')
-          .get();
-
-      return snapshot.docs.map((doc) => doc.id).toSet();
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error getting blocked user IDs for messaging',
-        error: e,
-        stackTrace: st,
-      );
-      return {};
-    }
-  }
-
-  /// Check if a post is blocked
-  Future<bool> isPostBlocked({
-    required String userId,
-    required String postId,
-  }) async {
-    try {
-      final doc = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('blocked_posts')
-          .doc(postId)
-          .get();
-
-      return doc.exists;
-    } catch (e, st) {
-      AppLogger.error(
-        'BlockService',
-        'Error checking if post is blocked',
-        error: e,
-        stackTrace: st,
-      );
+      final data =
+          await _db
+              .from('blocks')
+              .select('id')
+              .eq('blocker_id', blockerId)
+              .eq('block_type', 'user')
+              .eq('blocked_user_id', blockedUserId)
+              .maybeSingle();
+      return data != null;
+    } catch (e) {
       return false;
     }
   }
 
-  /// Check if a user is blocked for content
-  Future<bool> isUserBlockedForContent({
-    required String blockerId,
-    required String blockedUserId,
-  }) async {
+  Future<List<String>> getBlockedUserIds(String userId) async {
     try {
-      final doc = await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_users_content')
-          .doc(blockedUserId)
-          .get();
-
-      return doc.exists;
+      final data = await _db
+          .from('blocks')
+          .select('blocked_user_id')
+          .eq('blocker_id', userId)
+          .eq('block_type', 'user');
+      return data.map<String>((d) => d['blocked_user_id'] as String).toList();
     } catch (e, st) {
       AppLogger.error(
         'BlockService',
-        'Error checking if user is blocked for content',
+        'Failed to get blocked users',
         error: e,
         stackTrace: st,
       );
+      return [];
+    }
+  }
+
+  // ─── POST BLOCKS ───────────────────────────────────────
+
+  Future<void> blockPost(String blockerId, String postId) async {
+    try {
+      await _db.from('blocks').upsert({
+        'blocker_id': blockerId,
+        'block_type': 'post',
+        'blocked_post_id': postId,
+      });
+    } catch (e, st) {
+      AppLogger.error(
+        'BlockService',
+        'Failed to block post',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+  }
+
+  Future<bool> isPostBlocked(String blockerId, String postId) async {
+    try {
+      final data =
+          await _db
+              .from('blocks')
+              .select('id')
+              .eq('blocker_id', blockerId)
+              .eq('block_type', 'post')
+              .eq('blocked_post_id', postId)
+              .maybeSingle();
+      return data != null;
+    } catch (e) {
       return false;
     }
   }
 
-  /// Check if a user is blocked for messaging
-  Future<bool> isUserBlockedForMessaging({
-    required String blockerId,
-    required String blockedUserId,
-  }) async {
-    try {
-      final doc = await _firestore
-          .collection('users')
-          .doc(blockerId)
-          .collection('blocked_users_messaging')
-          .doc(blockedUserId)
-          .get();
+  // ─── MESSAGING BLOCKS ─────────────────────────────────
 
-      return doc.exists;
+  Future<void> blockMessaging(String blockerId, String blockedUserId) async {
+    try {
+      await _db.from('blocks').upsert({
+        'blocker_id': blockerId,
+        'block_type': 'messaging',
+        'blocked_user_id': blockedUserId,
+      });
     } catch (e, st) {
       AppLogger.error(
         'BlockService',
-        'Error checking if user is blocked for messaging',
+        'Failed to block messaging',
         error: e,
         stackTrace: st,
       );
+      rethrow;
+    }
+  }
+
+  Future<void> unblockMessaging(String blockerId, String blockedUserId) async {
+    try {
+      await _db
+          .from('blocks')
+          .delete()
+          .eq('blocker_id', blockerId)
+          .eq('block_type', 'messaging')
+          .eq('blocked_user_id', blockedUserId);
+    } catch (e, st) {
+      AppLogger.error(
+        'BlockService',
+        'Failed to unblock messaging',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+  }
+
+  Future<bool> isMessagingBlocked(String userId1, String userId2) async {
+    try {
+      final data =
+          await _db
+              .from('blocks')
+              .select('id')
+              .eq('block_type', 'messaging')
+              .or('blocker_id.eq.$userId1,blocker_id.eq.$userId2')
+              .or('blocked_user_id.eq.$userId1,blocked_user_id.eq.$userId2')
+              .maybeSingle();
+      return data != null;
+    } catch (e) {
       return false;
     }
   }
 }
-

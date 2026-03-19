@@ -114,14 +114,9 @@ class _DrawPainter extends CustomPainter {
 
 class _StickerItem {
   Offset position;
-  double scale;
-  double rotation;
+  double scale = 1.0;
+  double rotation = 0.0;
   final Widget child;
 
-  _StickerItem({
-    required this.child,
-    required this.position,
-    this.scale = 1,
-    this.rotation = 0,
-  });
+  _StickerItem({required this.child, required this.position});
 }

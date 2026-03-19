@@ -1,9 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:z/utils/constants.dart';
+import 'package:z/supabase/database.dart';
 import '../services/social/message_service.dart';
 import '../models/message_model.dart';
-import 'auth_provider.dart';
 
 final messageServiceProvider = Provider<MessageService>((ref) {
   return MessageService();
@@ -17,26 +15,25 @@ final conversationsProvider =
 
 final messagesProvider = StreamProvider.family<List<MessageModel>, String>((
   ref,
-  key,
+  conversationId,
 ) {
-  // Use ||| as separator - this must never appear in user IDs
-  const separator = '|||';
-  final recipients = key.split(separator);
   final messageService = ref.watch(messageServiceProvider);
-  final currentUser = ref.watch(currentUserProvider).valueOrNull;
-  final currentUserId = currentUser?.uid ?? recipients.first;
-  return messageService.getMessages(recipients, currentUserId);
+  return messageService.getMessages(conversationId);
 });
 
 final unreadMessageCountProvider = StreamProvider.family<int, String>((
   ref,
   userId,
 ) {
-  return FirebaseFirestore.instance
-      .collection(AppConstants.messagesCollection)
-      .where('recipientsIds', arrayContains: userId)
-      .where('senderId', isNotEqualTo: userId)
-      .where('isRead', isEqualTo: false)
-      .snapshots()
-      .map((snapshot) => snapshot.docs.length);
+  // Use Supabase Realtime to track unread count
+  return Database.client.from('conversations').stream(primaryKey: ['id']).map((
+    data,
+  ) {
+    return data.where((d) {
+      final recipients = List<String>.from(d['recipients'] ?? []);
+      return recipients.contains(userId) &&
+          d['is_read'] == false &&
+          d['last_message_sender'] != userId;
+    }).length;
+  });
 });

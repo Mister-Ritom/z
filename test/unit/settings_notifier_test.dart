@@ -10,8 +10,7 @@ void main() {
     late SettingsNotifier notifier;
 
     Future<void> initializeNotifier() async {
-      notifier = SettingsNotifier(preferences: prefs);
-      await notifier.initialized;
+      notifier = SettingsNotifier(prefs);
     }
 
     setUp(() async {

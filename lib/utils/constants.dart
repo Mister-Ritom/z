@@ -1,22 +1,22 @@
 import 'package:flutter/foundation.dart';
 
 class AppConstants {
-  // Firebase Collections
-  static const String usersCollection = 'users';
+  // Database Collection/Table Names
+  static const String usersCollection = 'profiles';
   static const String zapsCollection = 'zaps';
-  static const String shortsCollection = 'shorts';
+  static const String shortsCollection = 'zaps'; // Shorts are in zaps table
   static const String notificationsCollection = 'notifications';
   static const String messagesCollection = 'messages';
-  static const String followersCollection = 'followers';
-  static const String followingCollection = 'following';
-  static const String likesCollection = 'likes';
   static const String bookmarksCollection = 'bookmarks';
   static const String storiesCollection = 'stories';
+  static const String commentsCollection = 'comments';
+  static const String followsCollection = 'follows';
+  static const String momentsCollection = 'moments';
 
   // Supabase Storage Buckets
-  static const String profilePicturesBucket = 'profile-pictures';
-  static const String coverPhotosBucket = 'cover-photos';
-  static const String zapMediaBucket = 'zap-media';
+  static const String profilePicturesBucket = 'profile_pictures';
+  static const String coverPhotosBucket = 'cover_photos';
+  static const String zapMediaBucket = 'zap_media';
   static const String storyMediaBucket = 'stories';
   static const String shortsVideoBucket = 'shorts';
   static const String documentsBucket = 'documents';
@@ -89,9 +89,6 @@ class AppConstants {
   static const Duration adPreloadTimeout = Duration(
     seconds: 10,
   ); // Timeout for ad loading
-
-  // FCM Tokens Collection
-  static const String fcmTokensCollection = 'fcm_tokens';
 
   // iOS Notification Support
   static const bool iosNotificationAvailable = false;

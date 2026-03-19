@@ -7,10 +7,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:z/info/zap/zap_detail_screen.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/models/zap_model.dart';
-import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/zap_provider.dart';
+import 'package:z/providers/interaction_provider.dart';
+import 'package:z/providers/moderation_provider.dart';
 import 'package:z/screens/main_navigation.dart';
 import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/utils/constants.dart';
@@ -61,15 +62,11 @@ class ZapCard extends ConsumerWidget {
   const ZapCard({super.key, required this.zap, this.enableNavigation = true});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUserId = ref.watch(currentUserProvider).value?.uid ?? '';
+    final currentUserId = ref.watch(currentUserProvider).value?.id ?? '';
 
     final userAsync = ref.watch(userProfileProvider(zap.userId));
     final isLikedAsync = ref.watch(
-      postLikedStreamProvider((currentUserId, zap.id)),
-    );
-    final likesCountAsync = ref.watch(postLikesStreamProvider(zap.id));
-    final repliesCountAsync = ref.watch(
-      postCommentsCountStreamProvider(zap.id),
+      postLikedProvider((currentUserId, zap.id, false)),
     );
 
     return userAsync.when(
@@ -89,9 +86,9 @@ class ZapCard extends ConsumerWidget {
           text: zap.text,
           mediaUrls: zap.mediaUrls,
           createdAt: _formatDate(zap.createdAt),
-          likesCount: likesCountAsync.value ?? zap.likesCount,
-          repliesCount: repliesCountAsync.value ?? zap.repliesCount,
-          isLiked: isLikedAsync.value ?? false, // Stream-driven
+          likesCount: zap.likesCount,
+          repliesCount: zap.repliesCount,
+          isLiked: isLikedAsync.value ?? false,
           songId: zap.songId,
           isVerified: userModel.isVerified,
           isThread: zap.isThread,
@@ -102,22 +99,13 @@ class ZapCard extends ConsumerWidget {
           post: zapPost,
           onLikeToggle:
               () => ref
-                  .read(postAnalyticsProvider)
-                  .toggleLike(
-                    currentUserId,
-                    zap.id,
-                    zap.hashtags,
-                    creatorUserId: zap.userId,
-                  ),
+                  .read(interactionServiceProvider(false))
+                  .toggleLike(currentUserId, zap.id),
           onBoostTap: () {
             if (currentUserId == zap.userId) return;
             ref
-                .read(postAnalyticsProvider)
-                .repostPost(
-                  originalPostId: zap.id,
-                  currentUserId: currentUserId,
-                  originalUserId: zap.userId,
-                );
+                .read(interactionServiceProvider(false))
+                .toggleRepost(currentUserId, zap.id);
           },
         );
 
@@ -310,7 +298,9 @@ class ZapPostCard extends ConsumerWidget {
               },
               onBoostTap: onBoostTap, // Passed from ZapCard
               onShareTap: () async {
-                await ref.read(postAnalyticsProvider).share(post.id);
+                await ref
+                    .read(interactionServiceProvider(false))
+                    .share(post.id);
                 await SharePlus.instance.share(
                   ShareParams(
                     text:
@@ -328,16 +318,16 @@ class ZapPostCard extends ConsumerWidget {
                         .read(
                           isBookmarkedProvider((
                             zapId: post.id,
-                            userId: currentUser.uid,
+                            userId: currentUser.id,
                           )),
                         )
                         .value ??
                     false;
 
                 if (bookmarked) {
-                  await zapService.removeBookmark(post.id, currentUser.uid);
+                  await zapService.removeBookmark(post.id, currentUser.id);
                 } else {
-                  await zapService.bookmarkZap(post.id, currentUser.uid);
+                  await zapService.bookmarkZap(post.id, currentUser.id);
                 }
                 ref.invalidate(isBookmarkedProvider);
               },
@@ -627,8 +617,9 @@ class ZapText extends StatelessWidget {
             recognizer:
                 TapGestureRecognizer()
                   ..onTapDown = (details) {
-                    if (matchText.startsWith('#'))
+                    if (matchText.startsWith('#')) {
                       return; //TODO go to a separate page
+                    }
                     _showTagPopup(context, matchText.substring(1), details);
                   },
           ),
@@ -725,7 +716,7 @@ class ZapActions extends StatelessWidget {
                 child: Icon(
                   LucideIcons.badgeCheck,
                   size: 20,
-                  color: Colors.blueAccent.withOpacityAlpha(0.6),
+                  color: Colors.blueAccent.withValues(alpha: 0.6),
                 ),
               ),
             CoolIconButton(
@@ -844,20 +835,21 @@ class ZapMenuSheet extends ConsumerWidget {
                 ),
                 TextButton(
                   onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(ctx); // Close dialog
                     Navigator.pop(context); // Close sheet
                     try {
                       final currentUser = ref.read(currentUserProvider).value;
                       if (currentUser != null) {
                         await ref
-                            .read(profileServiceProvider)
-                            .blockUser(currentUser.uid, targetUserId);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                            .read(blockServiceProvider)
+                            .blockUser(currentUser.id, targetUserId);
+                        messenger.showSnackBar(
                           SnackBar(content: Text('@$username blocked.')),
                         );
                       }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(content: Text('Failed to block: $e')),
                       );
                     }
@@ -882,7 +874,7 @@ class ZapMenuSheet extends ConsumerWidget {
               postId: postId,
               reportType: ReportType.post,
               userId: targetUserId,
-              reporterId: currentUser.uid,
+              reporterId: currentUser.id,
             ),
       );
     } // ... existing code ...
@@ -920,7 +912,7 @@ class ZapMenuSheet extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.1),
+                      color: Colors.blueAccent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(
@@ -1015,7 +1007,7 @@ class _MenuOption extends StatelessWidget {
         isDanger ? Colors.redAccent : (isDark ? Colors.white : Colors.black87);
     final bgHover =
         isDanger
-            ? Colors.redAccent.withOpacity(0.1)
+            ? Colors.redAccent.withValues(alpha: 0.1)
             : (isDark ? Colors.grey.shade800 : Colors.grey.shade100);
 
     return Padding(
@@ -1069,7 +1061,7 @@ class _MusicBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(left: 4, right: 12, top: 4, bottom: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
+        color: Colors.black.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white24),
       ),

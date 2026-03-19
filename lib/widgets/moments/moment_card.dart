@@ -12,18 +12,18 @@ class MomentCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider(moment.userId));
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      width: 140, // Fixed width for rail
+      width: 150, // Slightly wider
       margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Theme.of(
-            context,
-          ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+          color: colorScheme.outline.withValues(alpha: 0.5),
+          width: 1,
         ),
       ),
       child: Column(
@@ -37,39 +37,58 @@ class MomentCard extends ConsumerWidget {
               const Spacer(),
               userAsync.when(
                 data:
-                    (user) => CircleAvatar(
-                      radius: 8,
-                      backgroundImage:
-                          user?.profilePictureUrl != null
-                              ? NetworkImage(user!.profilePictureUrl!)
-                              : null,
-                      child:
-                          user?.profilePictureUrl == null
-                              ? const Icon(Icons.person, size: 8)
-                              : null,
+                    (user) => Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: colorScheme.secondary.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 8,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        backgroundImage:
+                            user?.profilePictureUrl != null
+                                ? NetworkImage(user!.profilePictureUrl!)
+                                : null,
+                        child:
+                            user?.profilePictureUrl == null
+                                ? Icon(
+                                  Icons.person,
+                                  size: 8,
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                )
+                                : null,
+                      ),
                     ),
                 loading: () => const SizedBox(width: 16, height: 16),
                 error: (_, __) => const SizedBox(width: 16, height: 16),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           // Content
           Text(
             moment.text,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-              height: 1.2,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+              fontSize: 14,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           // Footer: Time
           Text(
             timeago.format(moment.createdAt, locale: 'en_short'),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).hintColor,
+              color: colorScheme.onSurface.withValues(alpha: 0.4),
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

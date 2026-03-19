@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:z/utils/logger.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:z/supabase/database.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class FeedbackScreen extends StatefulWidget {
@@ -25,7 +24,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Database.client.auth.currentUser;
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -48,12 +47,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     try {
       if (!mounted) return;
       String platform = Theme.of(context).platform.name;
-      await FirebaseFirestore.instance.collection('feedbacks').add({
-        'userId': user.uid,
+      await Database.client.from('feedbacks').insert({
+        'user_id': user.id,
         'email': user.email,
         'message': text,
-        'timestamp': FieldValue.serverTimestamp(),
-        'appVersion': '$version+$build',
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'app_version': '$version+$build',
         'platform': platform,
       });
 
@@ -65,7 +64,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       AppLogger.info(
         'FeedbackScreen',
         'Feedback submitted successfully',
-        data: {'userId': user.uid},
+        data: {'userId': user.id},
       );
     } catch (e, st) {
       if (!mounted) return;
@@ -77,7 +76,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         'Error submitting feedback',
         error: e,
         stackTrace: st,
-        data: {'userId': user.uid},
+        data: {'userId': user.id},
       );
     } finally {
       if (mounted) {

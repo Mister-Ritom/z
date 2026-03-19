@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum Privacy {
   eveyrone,
   followers,
@@ -9,21 +7,23 @@ enum Privacy {
   String toString() {
     switch (this) {
       case Privacy.eveyrone:
-        return 'Everyone';
+        return 'public';
       case Privacy.followers:
-        return 'Followers';
+        return 'followers';
       case Privacy.unlisted:
-        return 'Unlisted';
+        return 'private';
     }
   }
 
-  static Privacy parse(String value) {
-    switch (value.toLowerCase()) {
+  static Privacy parse(String? value) {
+    switch (value?.toLowerCase()) {
       case 'everyone':
+      case 'public':
         return Privacy.eveyrone;
       case 'followers':
         return Privacy.followers;
       case 'unlisted':
+      case 'private':
         return Privacy.unlisted;
       default:
         return Privacy.eveyrone;
@@ -43,6 +43,9 @@ class ZapModel {
   final int likesCount;
   final int rezapsCount;
   final int repliesCount;
+  final int viewsCount;
+  final int sharesCount;
+  final int commentsCount;
   final bool isThread;
   final bool isShort;
   final String? threadParentId;
@@ -51,6 +54,7 @@ class ZapModel {
   final bool isDeleted;
   final String? songId;
   final Privacy privacy;
+  final DateTime? updatedAt;
 
   ZapModel({
     required this.id,
@@ -64,68 +68,77 @@ class ZapModel {
     this.likesCount = 0,
     this.rezapsCount = 0,
     this.repliesCount = 0,
+    this.viewsCount = 0,
+    this.sharesCount = 0,
+    this.commentsCount = 0,
     this.isThread = false,
+    this.isShort = false,
     this.threadParentId,
     this.hashtags = const [],
     this.mentions = const [],
     this.isDeleted = false,
-    this.songId, // 👈 NEW
-    this.isShort = false,
+    this.songId,
     this.privacy = Privacy.eveyrone,
+    this.updatedAt,
   });
 
   factory ZapModel.fromMap(Map<String, dynamic> map) {
-    final urls = List<String>.from((map['mediaUrls'] ?? []));
-    if (map.containsKey("mediaUrl")) urls.add(map["mediaUrl"]);
+    final urls = List<String>.from(map['media_urls'] ?? []);
+
     return ZapModel(
       id: map['id'] ?? '',
-      userId: map['userId'] ?? '',
-      originalUserId: map['originalUserId'],
-      parentZapId: map['parentZapId'],
-      quotedZapId: map['quotedZapId'],
+      userId: map['user_id'] ?? '',
+      originalUserId: map['original_user_id'],
+      parentZapId: map['parent_zap_id'],
+      quotedZapId: map['quoted_zap_id'],
       text: map['text'] ?? '',
       mediaUrls: urls,
       createdAt:
-          map['createdAt'] is Timestamp
-              ? (map['createdAt'] as Timestamp).toDate()
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'])
               : DateTime.now(),
-      likesCount: map['likesCount'] ?? 0,
-      rezapsCount: map['rezapsCount'] ?? 0,
-      repliesCount: map['repliesCount'] ?? 0,
-      isThread: map['isThread'] ?? false,
-      isShort: map['isShort'] ?? false,
-      threadParentId: map['threadParentId'],
+      likesCount: map['likes_count'] ?? 0,
+      rezapsCount: map['rezaps_count'] ?? 0,
+      repliesCount: map['replies_count'] ?? 0,
+      viewsCount: map['views_count'] ?? 0,
+      sharesCount: map['shares_count'] ?? 0,
+      commentsCount: map['comments_count'] ?? 0,
+      isThread: map['is_thread'] ?? false,
+      isShort: map['is_short'] ?? false,
+      threadParentId: map['thread_parent_id'],
       hashtags: List<String>.from(map['hashtags'] ?? []),
       mentions: List<String>.from(map['mentions'] ?? []),
-      isDeleted: map['isDeleted'] ?? false,
-      songId: map['songId'], // 👈 NEW
-      privacy:
-          map.containsKey('privacy')
-              ? Privacy.parse(map['privacy'])
-              : Privacy.eveyrone,
+      isDeleted: map['is_deleted'] ?? false,
+      songId: map['song_id'],
+      privacy: Privacy.parse(map['privacy']),
+      updatedAt:
+          map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'userId': userId,
-      'originalUserId': originalUserId,
-      'parentZapId': parentZapId,
-      'quotedZapId': quotedZapId,
+      'user_id': userId,
+      'original_user_id': originalUserId,
+      'parent_zap_id': parentZapId,
+      'quoted_zap_id': quotedZapId,
       'text': text,
-      'mediaUrls': mediaUrls,
-      'createdAt': createdAt,
-      'likesCount': likesCount,
-      'rezapsCount': rezapsCount,
-      'repliesCount': repliesCount,
-      'isThread': isThread,
-      'threadParentId': threadParentId,
+      'media_urls': mediaUrls,
+      'created_at': createdAt.toIso8601String(),
+      'likes_count': likesCount,
+      'rezaps_count': rezapsCount,
+      'replies_count': repliesCount,
+      'views_count': viewsCount,
+      'shares_count': sharesCount,
+      'comments_count': commentsCount,
+      'is_thread': isThread,
+      'is_short': isShort,
+      'thread_parent_id': threadParentId,
       'hashtags': hashtags,
       'mentions': mentions,
-      'isShort': isShort,
-      'isDeleted': isDeleted,
-      'songId': songId,
+      'is_deleted': isDeleted,
+      'song_id': songId,
       'privacy': privacy.toString(),
     };
   }
@@ -133,6 +146,7 @@ class ZapModel {
   ZapModel copyWith({
     String? id,
     String? userId,
+    String? originalUserId,
     String? parentZapId,
     String? quotedZapId,
     String? text,
@@ -141,6 +155,9 @@ class ZapModel {
     int? likesCount,
     int? rezapsCount,
     int? repliesCount,
+    int? viewsCount,
+    int? sharesCount,
+    int? commentsCount,
     bool? isThread,
     bool? isShort,
     String? threadParentId,
@@ -153,6 +170,7 @@ class ZapModel {
     return ZapModel(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      originalUserId: originalUserId ?? this.originalUserId,
       parentZapId: parentZapId ?? this.parentZapId,
       quotedZapId: quotedZapId ?? this.quotedZapId,
       text: text ?? this.text,
@@ -161,6 +179,9 @@ class ZapModel {
       likesCount: likesCount ?? this.likesCount,
       rezapsCount: rezapsCount ?? this.rezapsCount,
       repliesCount: repliesCount ?? this.repliesCount,
+      viewsCount: viewsCount ?? this.viewsCount,
+      sharesCount: sharesCount ?? this.sharesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
       isThread: isThread ?? this.isThread,
       isShort: isShort ?? this.isShort,
       threadParentId: threadParentId ?? this.threadParentId,

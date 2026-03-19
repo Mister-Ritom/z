@@ -39,10 +39,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     final messageService = ref.read(messageServiceProvider);
 
     try {
-      await messageService.deleteMessage(
-        messageId: widget.message.id,
-        userId: widget.message.senderId,
-      );
+      await messageService.deleteMessage(widget.message.id);
       if (mounted) {
         ScaffoldMessenger.of(
           context,

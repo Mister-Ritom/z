@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,16 +6,17 @@ import 'package:z/providers/profile_provider.dart';
 import 'package:z/providers/storage_provider.dart';
 import 'package:z/providers/stories_provider.dart';
 import 'package:z/utils/helpers.dart';
+import 'package:z/utils/logger.dart';
 import 'package:z/widgets/common/app_image.dart';
 import 'package:z/widgets/media/camera_view.dart';
 import 'package:z/widgets/media/video_player_widget.dart';
 import '../../models/story_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/analytics/firebase_analytics_service.dart';
+import '../../services/analytics/analytics_service.dart';
 
 class StoryCreationScreen extends ConsumerStatefulWidget {
   final XFile? initialFile;
-  
+
   const StoryCreationScreen({super.key, this.initialFile});
 
   @override
@@ -81,33 +83,39 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
     final user = ref.read(currentUserProvider).value;
     if (user == null) return;
 
-    final visibleTo = await _getVisibleTo(user.uid);
+    final visibleTo = await _getVisibleTo(user.id);
     final uploadNotifier = ref.read(uploadNotifierProvider.notifier);
     final service = ref.read(storyServiceProvider);
 
     uploadNotifier.uploadFiles(
       files: [file],
       type: UploadType.document,
-      referenceId: user.uid,
+      referenceId: user.id,
       onComplete: (urls) async {
         try {
           final mediaUrl = urls.first;
           await service.createStory(
-            uid: user.uid,
+            uid: user.id,
             caption: _textController.text.trim(),
             mediaUrl: mediaUrl,
             visibility: _visibility,
             visibleTo: visibleTo,
           );
-          // Track story creation in Firebase Analytics
-          await FirebaseAnalyticsService.logStoryCreated();
+          // Track story creation
+          unawaited(
+            ref
+                .read(analyticsServiceProvider)
+                .capture(
+                  eventName: 'story_created',
+                  properties: {'visibility': _visibility.name},
+                ),
+          );
         } catch (e, stackTrace) {
-          // Report error to Crashlytics
-          await FirebaseAnalyticsService.recordError(
-            e,
-            stackTrace,
-            reason: 'Failed to create story',
-            fatal: false,
+          AppLogger.error(
+            'StoryService',
+            'Failed to create story',
+            error: e,
+            stackTrace: stackTrace,
           );
         }
       },

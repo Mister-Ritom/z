@@ -5,12 +5,12 @@ import 'recommendation_provider.dart';
 
 final storyServiceProvider = Provider((ref) => StoryService());
 
-final storiesVisibleProvider = StreamProvider.family<List<StoryModel>, String>((
+final storiesVisibleProvider = FutureProvider.family<List<StoryModel>, String>((
   ref,
   currentUserId,
-) {
+) async {
   final service = ref.watch(storyServiceProvider);
-  return service.getStoriesVisibleTo(currentUserId);
+  return await service.getStoriesVisibleTo(currentUserId);
 });
 
 final groupedStoriesProvider =
@@ -62,15 +62,18 @@ final groupedPublicStoriesProvider =
       });
     });
 
-final userStoriesProvider = StreamProvider.family<List<StoryModel>, String>((
+final userStoriesProvider = FutureProvider.family<List<StoryModel>, String>((
   ref,
   uid,
-) {
+) async {
   final service = ref.watch(storyServiceProvider);
-  return service.getStoriesByUser(uid);
+  return await service.getStoriesByUser(uid);
 });
 
-final userHasStoriesProvider = StreamProvider.family<bool, String>((ref, uid) {
+final userHasStoriesProvider = FutureProvider.family<bool, String>((
+  ref,
+  uid,
+) async {
   final service = ref.watch(storyServiceProvider);
-  return service.userHasStories(uid);
+  return await service.userHasStories(uid);
 });

@@ -1,102 +1,62 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:z/models/report_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
 
+/// ReportService — content reporting via Supabase.
 class ReportService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _db = Database.client;
 
-  /// Report a post, user, or story
   Future<void> reportContent({
     required String reporterId,
-    required ReportType reportType,
+    required String reportType,
+    required String category,
     String? postId,
     String? userId,
     String? storyId,
-    required ReportCategory category,
     String? additionalDetails,
   }) async {
     try {
-      // Validate that the correct ID is provided based on report type
-      if (reportType == ReportType.post && postId == null) {
-        throw Exception('Post ID is required for post reports');
-      }
-      if (reportType == ReportType.user && userId == null) {
-        throw Exception('User ID is required for user reports');
-      }
-      if (reportType == ReportType.story && storyId == null) {
-        throw Exception('Story ID is required for story reports');
-      }
-
-      final report = ReportModel(
-        id: _firestore.collection('reports').doc().id,
-        reporterId: reporterId,
-        reportType: reportType,
-        reportedPostId: postId,
-        reportedUserId: userId,
-        reportedStoryId: storyId,
-        category: category,
-        additionalDetails: additionalDetails,
-        createdAt: DateTime.now(),
-      );
-
-      await _firestore
-          .collection('reports')
-          .doc(report.id)
-          .set(report.toMap());
-
-      AppLogger.info(
-        'ReportService',
-        'Content reported successfully',
-        data: {
-          'reportId': report.id,
-          'reportType': reportType.toString(),
-          'category': category.toString(),
-        },
-      );
+      await _db.from('reports').insert({
+        'reporter_id': reporterId,
+        'report_type': reportType,
+        'category': category,
+        'reported_post_id': postId,
+        'reported_user_id': userId,
+        'reported_story_id': storyId,
+        'additional_details': additionalDetails,
+      });
+      AppLogger.info('ReportService', 'Report submitted: $reportType');
     } catch (e, st) {
       AppLogger.error(
         'ReportService',
-        'Error reporting content',
+        'Failed to report',
         error: e,
         stackTrace: st,
       );
-      throw Exception('Failed to report content: $e');
+      rethrow;
     }
   }
 
-  /// Check if user has already reported this content
   Future<bool> hasReported({
     required String reporterId,
-    required ReportType reportType,
     String? postId,
     String? userId,
     String? storyId,
   }) async {
     try {
-      Query query = _firestore
-          .collection('reports')
-          .where('reporterId', isEqualTo: reporterId)
-          .where('reportType', isEqualTo: reportType.toString().split('.').last);
+      var query = _db
+          .from('reports')
+          .select('id')
+          .eq('reporter_id', reporterId);
 
-      if (reportType == ReportType.post && postId != null) {
-        query = query.where('reportedPostId', isEqualTo: postId);
-      } else if (reportType == ReportType.user && userId != null) {
-        query = query.where('reportedUserId', isEqualTo: userId);
-      } else if (reportType == ReportType.story && storyId != null) {
-        query = query.where('reportedStoryId', isEqualTo: storyId);
-      }
+      if (postId != null) query = query.eq('reported_post_id', postId);
+      if (userId != null) query = query.eq('reported_user_id', userId);
+      if (storyId != null) query = query.eq('reported_story_id', storyId);
 
-      final snapshot = await query.limit(1).get();
-      return snapshot.docs.isNotEmpty;
-    } catch (e, st) {
-      AppLogger.error(
-        'ReportService',
-        'Error checking if content is reported',
-        error: e,
-        stackTrace: st,
-      );
+      final data = await query.maybeSingle();
+      return data != null;
+    } catch (e) {
       return false;
     }
   }
 }
-

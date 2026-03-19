@@ -1,7 +1,7 @@
 class NotificationModel {
   final String id;
-  final String userId; // User who receives the notification
-  final String fromUserId; // User who triggered the notification
+  final String userId;
+  final String fromUserId;
   final NotificationType type;
   final String? zapId;
   final DateTime createdAt;
@@ -20,27 +20,29 @@ class NotificationModel {
   factory NotificationModel.fromMap(Map<String, dynamic> map) {
     return NotificationModel(
       id: map['id'] ?? '',
-      userId: map['userId'] ?? '',
-      fromUserId: map['fromUserId'] ?? '',
+      userId: map['user_id'] ?? '',
+      fromUserId: map['from_user_id'] ?? '',
       type: NotificationType.values.firstWhere(
         (e) => e.toString() == 'NotificationType.${map['type']}',
         orElse: () => NotificationType.like,
       ),
-      zapId: map['zapId'],
-      createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
-      isRead: map['isRead'] ?? false,
+      zapId: map['zap_id'],
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'].toString())
+              : DateTime.now(),
+      isRead: map['is_read'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'userId': userId,
-      'fromUserId': fromUserId,
+      'user_id': userId,
+      'from_user_id': fromUserId,
       'type': type.toString().split('.').last,
-      'zapId': zapId,
-      'createdAt': createdAt,
-      'isRead': isRead,
+      'zap_id': zapId,
+      'created_at': createdAt.toIso8601String(),
+      'is_read': isRead,
     };
   }
 }

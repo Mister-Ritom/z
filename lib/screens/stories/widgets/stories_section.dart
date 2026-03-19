@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:z/analytics/story_analytics_service.dart';
 import 'package:z/models/story_model.dart';
 import 'package:z/models/user_model.dart';
-import 'package:z/providers/analytics_providers.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/interaction_provider.dart';
+import 'package:z/services/social/interaction_service.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/screens/profile/profile_screen.dart';
 import 'package:z/screens/stories/story_item_screen.dart';
@@ -100,7 +100,7 @@ class StoryItemCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final analyticsService = ref.read(storyAnalyticsProvider);
+    final interactionService = ref.watch(interactionServiceProvider(false));
 
     return Card(
       elevation: 2,
@@ -141,7 +141,7 @@ class StoryItemCard extends ConsumerWidget {
             SizedBox(
               height: 100,
               child: FutureBuilder<List<StoryModel>>(
-                future: _sortStoriesByViewed(stories, analyticsService, ref),
+                future: _sortStoriesByViewed(stories, interactionService, ref),
                 builder: (context, snapshot) {
                   final sortedStories = snapshot.data ?? stories;
 
@@ -153,7 +153,7 @@ class StoryItemCard extends ConsumerWidget {
                       final story = sortedStories[index];
                       return _StoryThumbnail(
                         story: story,
-                        analyticsService: analyticsService,
+                        interactionService: interactionService,
                         onTap:
                             (key) =>
                                 _openStory(context, key, storyIndex: index),
@@ -171,10 +171,10 @@ class StoryItemCard extends ConsumerWidget {
 
   Future<List<StoryModel>> _sortStoriesByViewed(
     List<StoryModel> stories,
-    StoryAnalyticsService analyticsService,
+    InteractionService interactionService,
     WidgetRef ref,
   ) async {
-    final currentUserId = ref.read(currentUserProvider).valueOrNull?.uid;
+    final currentUserId = ref.read(currentUserProvider).valueOrNull?.id;
     if (currentUserId == null) return stories;
 
     final futures =
@@ -183,8 +183,8 @@ class StoryItemCard extends ConsumerWidget {
               (story) async => (
                 story: story,
                 viewed:
-                    await analyticsService
-                        .isStoryViewedStream(currentUserId, story.id)
+                    await interactionService
+                        .storyViewedStream(currentUserId, story.id)
                         .first,
               ),
             )
@@ -250,12 +250,12 @@ class StoryItemCard extends ConsumerWidget {
 
 class _StoryThumbnail extends ConsumerWidget {
   final StoryModel story;
-  final StoryAnalyticsService analyticsService;
+  final InteractionService interactionService;
   final void Function(GlobalKey key) onTap;
 
   const _StoryThumbnail({
     required this.story,
-    required this.analyticsService,
+    required this.interactionService,
     required this.onTap,
   });
 
@@ -268,7 +268,7 @@ class _StoryThumbnail extends ConsumerWidget {
     return StreamBuilder<bool>(
       stream:
           currentUser != null
-              ? analyticsService.isStoryViewedStream(currentUser.uid, story.id)
+              ? interactionService.storyViewedStream(currentUser.id, story.id)
               : Stream.value(false),
       initialData: false,
       builder: (context, snapshot) {

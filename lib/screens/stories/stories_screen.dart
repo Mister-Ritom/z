@@ -16,7 +16,7 @@ class StoriesScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final currentUserId = currentUser.uid;
+    final currentUserId = currentUser.id;
     final groupedStoriesAsync = ref.watch(
       groupedStoriesProvider(currentUserId),
     );

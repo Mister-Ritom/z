@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:cooler_ui/cooler_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,9 +7,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:z/screens/creation/abstract_page.dart';
 import 'package:z/widgets/common/app_image.dart';
 import 'package:z/widgets/media/camera_view.dart';
+import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/stories_provider.dart';
+import 'package:z/providers/storage_provider.dart';
+import 'package:z/services/content/stories/story_service.dart';
+import 'package:z/models/story_model.dart';
 
 class StoryCreation extends ConsumerStatefulWidget {
-  const StoryCreation({super.key});
+  final List<XFile>? initialMedia;
+  final String? initialText;
+  const StoryCreation({super.key, this.initialMedia, this.initialText});
 
   @override
   ConsumerState<StoryCreation> createState() => StoryCreationState();
@@ -19,6 +27,18 @@ class StoryCreationState extends ConsumerState<StoryCreation>
   final mediaProvider = StateProvider<XFile?>((ref) => null);
   final showCaptionProvider = StateProvider<bool>((ref) => true);
   final textOnlyProvider = StateProvider<bool>((ref) => false);
+  late final TextEditingController captionController;
+
+  @override
+  void initState() {
+    super.initState();
+    captionController = TextEditingController(text: widget.initialText);
+    if (widget.initialMedia != null && widget.initialMedia!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(mediaProvider.notifier).state = widget.initialMedia!.first;
+      });
+    }
+  }
 
   Future<XFile?> _pickMedia() async {
     final List<XFile>? files = await Navigator.of(context).push(
@@ -94,19 +114,19 @@ class StoryCreationState extends ConsumerState<StoryCreation>
                       ),
 
                       Positioned(
-                        right: 12,
-                        top: 24,
+                        right: 16,
+                        top: 32,
                         child: CoolColumn(
-                          divider: const SizedBox(height: 6),
+                          divider: const SizedBox(height: 12),
                           children: [
-                            CoolIconButton(
+                            _PremiumIconButton(
                               icon: LucideIcons.pen,
                               onPressed: () {
                                 ref.read(showCaptionProvider.notifier).state =
                                     !showCaption;
                               },
                             ),
-                            CoolIconButton(
+                            _PremiumIconButton(
                               icon: LucideIcons.caseSensitive,
                               onPressed: () {
                                 ref.read(textOnlyProvider.notifier).state =
@@ -116,15 +136,15 @@ class StoryCreationState extends ConsumerState<StoryCreation>
                                 }
                               },
                             ),
-                            CoolIconButton(
+                            _PremiumIconButton(
                               icon: LucideIcons.sticker,
                               onPressed: () {},
                             ),
-                            CoolIconButton(
+                            _PremiumIconButton(
                               icon: LucideIcons.brush,
                               onPressed: () {},
                             ),
-                            CoolIconButton(
+                            _PremiumIconButton(
                               icon: LucideIcons.music,
                               onPressed: () {},
                             ),
@@ -137,11 +157,13 @@ class StoryCreationState extends ConsumerState<StoryCreation>
               ),
           if (showCaption)
             AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              margin: const EdgeInsets.only(top: 8),
               child: CoolTextField(
                 hintText: "Add Caption...",
-                maxLines: textOnly ? 8 : 3,
+                maxLines: textOnly ? 8 : 4,
+                controller: captionController,
               ),
             ),
           SizedBox(height: 128),
@@ -152,6 +174,102 @@ class StoryCreationState extends ConsumerState<StoryCreation>
 
   @override
   Future<CreationResult?> onNext() async {
+    final String text = captionController.text.trim();
+    final media = ref.read(mediaProvider);
+    final textOnly = ref.read(textOnlyProvider);
+
+    if (!textOnly && media == null && text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Cannot upload empty story")),
+      );
+      return CreationResult.stay;
+    }
+
+    final currentUserId = ref.read(currentUserProvider).valueOrNull?.id;
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("User not authenticated")));
+      return CreationResult.stay;
+    }
+
+    final storyService = ref.read(storyServiceProvider);
+
+    _handleBackgroundStoryCreation(
+      text: text,
+      userId: currentUserId,
+      media: media,
+      storyService: storyService,
+      textOnly: textOnly,
+    );
+
     return CreationResult.success;
+  }
+
+  void _handleBackgroundStoryCreation({
+    required String text,
+    required String userId,
+    required XFile? media,
+    required StoryService storyService,
+    required bool textOnly,
+  }) async {
+    try {
+      String mediaUrl = "";
+      if (!textOnly && media != null) {
+        final uploadService = ref.read(uploadNotifierProvider.notifier);
+        final urls = await uploadService.uploadFiles(
+          files: [media],
+          type: UploadType.story,
+          referenceId:
+              userId, // Stories don't have a fixed ID before creation here
+        );
+        if (urls.isNotEmpty) {
+          mediaUrl = urls.first;
+        }
+      }
+
+      await storyService.createStory(
+        uid: userId,
+        caption: text,
+        mediaUrl: mediaUrl,
+        visibility: StoryVisibility.public,
+        visibleTo: [],
+      );
+    } catch (e) {
+      // Log error
+    }
+  }
+}
+
+class _PremiumIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _PremiumIconButton({required this.icon, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+        ),
+      ),
+    );
   }
 }

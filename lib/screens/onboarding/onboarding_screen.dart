@@ -60,36 +60,54 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Widget _buildPage(OnboardingPage page) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(40.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.secondary,
+                  Theme.of(
+                    context,
+                  ).colorScheme.secondary.withValues(alpha: 0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.secondary.withValues(alpha: 0.3),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-            child: Icon(
-              page.icon,
-              size: 80,
-              color: Theme.of(context).primaryColor,
-            ),
+            child: Icon(page.icon, size: 80, color: Colors.white),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 48),
           Text(
             page.title,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
             page.description,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
+              height: 1.5,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -99,37 +117,49 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Widget _buildBottomControls() {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
               _pages.length,
-              (index) => Container(
+              (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 width: _currentPage == index ? 24 : 8,
                 height: 8,
                 decoration: BoxDecoration(
+                  gradient:
+                      _currentPage == index
+                          ? LinearGradient(
+                            colors: [
+                              Theme.of(context).colorScheme.secondary,
+                              Theme.of(
+                                context,
+                              ).colorScheme.secondary.withValues(alpha: 0.8),
+                            ],
+                          )
+                          : null,
                   color:
                       _currentPage == index
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey[300],
+                          ? null
+                          : Theme.of(context).colorScheme.outline,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 48),
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 56,
             child: ElevatedButton(
               onPressed: () {
                 if (_currentPage < _pages.length - 1) {
                   _pageController.nextPage(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeIn,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeOutCubic,
                   );
                 } else {
                   _completeOnboarding();
@@ -137,10 +167,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               },
               child: Text(
                 _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
             ),
           ),

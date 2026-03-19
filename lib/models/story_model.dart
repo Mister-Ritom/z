@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum StoryVisibility {
   public,
   followers,
@@ -12,7 +10,7 @@ enum StoryVisibility {
       case StoryVisibility.followers:
         return 'followers';
       case StoryVisibility.mutual:
-        return 'mutual';
+        return 'close_friends';
     }
   }
 
@@ -21,6 +19,7 @@ enum StoryVisibility {
       case 'followers':
         return StoryVisibility.followers;
       case 'mutual':
+      case 'close_friends':
         return StoryVisibility.mutual;
       case 'public':
       default:
@@ -34,11 +33,14 @@ class StoryModel {
   final String userId;
   final String caption;
   final String mediaUrl;
-  final Duration duration = Duration(seconds: 15);
+  final Duration duration = const Duration(seconds: 15);
   final StoryVisibility visibility;
   final DateTime createdAt;
   final List<String> visibleTo;
   final bool isDeleted;
+  final int likesCount;
+  final int viewsCount;
+  final int sharesCount;
 
   StoryModel({
     required this.id,
@@ -49,30 +51,38 @@ class StoryModel {
     required this.createdAt,
     required this.visibleTo,
     this.isDeleted = false,
+    this.likesCount = 0,
+    this.viewsCount = 0,
+    this.sharesCount = 0,
   });
 
-  factory StoryModel.fromDoc(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory StoryModel.fromMap(Map<String, dynamic> map) {
     return StoryModel(
-      id: doc.id,
-      userId: data['userId'],
-      caption: data['caption'],
-      mediaUrl: data['mediaUrl'],
-      visibility: StoryVisibility.fromString(data['visibility'] ?? 'public'),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      visibleTo: List<String>.from(data['visibleTo'] ?? []),
-      isDeleted: data['isDeleted'] ?? false,
+      id: map['id'] ?? '',
+      userId: map['user_id'] ?? '',
+      caption: map['caption'] ?? '',
+      mediaUrl: map['media_url'] ?? '',
+      visibility: StoryVisibility.fromString(map['visibility'] ?? 'public'),
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'].toString())
+              : DateTime.now(),
+      visibleTo: List<String>.from(map['visible_to'] ?? []),
+      isDeleted: map['is_deleted'] ?? false,
+      likesCount: map['likes_count'] ?? 0,
+      viewsCount: map['views_count'] ?? 0,
+      sharesCount: map['shares_count'] ?? 0,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'userId': userId,
+      'user_id': userId,
       'caption': caption,
-      'mediaUrl': mediaUrl,
+      'media_url': mediaUrl,
       'visibility': visibility.name,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'visibleTo': visibleTo,
+      'visible_to': visibleTo,
+      'is_deleted': isDeleted,
     };
   }
 }
