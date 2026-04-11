@@ -20,6 +20,8 @@ import '../info/terms/terms_screen.dart';
 import '../info/privacy/privacy_screen.dart';
 import '../screens/messages/chat_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
+import '../screens/profile/wallet_screen.dart';
+import '../screens/profile/referral_screen.dart';
 import '../providers/settings_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -153,6 +155,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/privacy',
         builder: (context, state) => const PrivacyScreen(),
+      ),
+      GoRoute(
+        path: '/wallet',
+        builder: (context, state) => const WalletScreen(),
+      ),
+      GoRoute(
+        path: '/referrals',
+        builder: (context, state) => const ReferralScreen(),
       ),
     ],
     errorBuilder: (context, state) {

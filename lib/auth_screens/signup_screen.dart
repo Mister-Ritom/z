@@ -11,6 +11,7 @@ import 'package:z/utils/helpers.dart';
 import 'package:z/utils/logger.dart';
 import 'package:z/services/analytics/analytics_service.dart';
 import '../providers/auth_provider.dart';
+import '../providers/settings_provider.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -62,11 +63,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         return;
       }
 
+      final referralCode = GoRouterState.of(context).uri.queryParameters['ref'] ??
+          ref.read(sharedPreferencesProvider).getString('referral_code');
+
       final data = await authService.signUpWithEmail(
         email: email,
         password: _passwordController.text.trim(),
         username: _usernameController.text.trim(),
         displayName: _displayNameController.text.trim(),
+        referralCode: referralCode,
       );
 
       if (data == null) {

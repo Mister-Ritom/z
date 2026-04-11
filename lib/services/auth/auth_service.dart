@@ -5,6 +5,7 @@ import 'package:z/models/user_model.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../analytics/analytics_service.dart';
 
 class AuthService {
@@ -26,6 +27,7 @@ class AuthService {
     required User user,
     required String username,
     required String displayName,
+    String? referralCode,
   }) async {
     final profileService = ref.read(profileServiceProvider);
     final userModel = UserModel(
@@ -38,13 +40,42 @@ class AuthService {
 
     await profileService.createProfile(userModel);
 
+    // ─── REFERRAL LOGIC ──────────────────────────────────
+    if (referralCode != null && referralCode.isNotEmpty) {
+      try {
+        // Find referrer by username
+        final referrerData = await Database.client
+            .from('profiles')
+            .select('id')
+            .eq('username', referralCode)
+            .maybeSingle();
+
+        if (referrerData != null) {
+          final String referrerId = referrerData['id'] as String;
+          
+          await Database.client.from('referrals').insert({
+            'referrer_id': referrerId,
+            'referred_id': user.id,
+            'status': 'joined',
+          });
+          
+          AppLogger.info('AuthService', 'Referral recorded: $referralCode -> ${user.id}');
+        }
+      } catch (e, st) {
+        AppLogger.error('AuthService', 'Failed to record referral', error: e, stackTrace: st);
+      }
+    }
+
     analytics?.identify(
       user.id,
       userProperties: {'username': username, 'display_name': displayName},
     );
     analytics?.capture(
       eventName: 'user_onboarded',
-      properties: {'method': 'signup'},
+      properties: {
+        'method': 'signup',
+        'referred_by': referralCode ?? 'none',
+      },
     );
 
     return userModel;
@@ -55,6 +86,7 @@ class AuthService {
     required String password,
     required String username,
     required String displayName,
+    String? referralCode,
   }) async {
     try {
       final signUpResponse = await _auth.signUp(
@@ -67,10 +99,17 @@ class AuthService {
 
       if (user == null) return null;
 
+      String? effectiveReferralCode = referralCode;
+      if (effectiveReferralCode == null || effectiveReferralCode.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        effectiveReferralCode = prefs.getString('referral_code');
+      }
+
       final profile = await _createUserProfileFromAuthResponse(
         user: user,
         username: username,
         displayName: displayName,
+        referralCode: effectiveReferralCode,
       );
       return {
         'user': user,
@@ -143,10 +182,15 @@ class AuthService {
     var username = displayName.replaceAll(" ", "_");
     username = await profileService.getAvailableUsername(username);
 
+    // Try to get referral code from preferences if not provided
+    final prefs = await SharedPreferences.getInstance();
+    final storedReferral = prefs.getString('referral_code');
+
     return _createUserProfileFromAuthResponse(
       user: user,
       username: username,
       displayName: displayName,
+      referralCode: storedReferral,
     );
   }
 

@@ -13,6 +13,7 @@ import 'package:z/screens/stories/stories_screen.dart';
 import 'package:z/screens/notifications/notifications_screen.dart';
 import 'package:z/providers/notification_provider.dart';
 import 'package:z/providers/auth_provider.dart';
+import 'package:z/providers/wallet_provider.dart';
 import 'package:z/utils/logger.dart';
 
 extension ColorX on Color {
@@ -130,6 +131,74 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     final unreadCount = unreadAsync.maybeWhen(data: (c) => c, orElse: () => 0);
 
     return CoolScaffold(
+      appBar: currentIndex == 2
+          ? null
+          : CoolAppBar(
+              title: Text(_getPageLabel(_pages[currentIndex])),
+              actions: [
+                Consumer(
+                  builder: (context, ref, child) {
+                    final walletAsync = ref.watch(walletProvider);
+                    return GestureDetector(
+                      onTap: () => context.push('/wallet'),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.amber.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              LucideIcons.coins,
+                              color: Colors.amber,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            walletAsync.when(
+                              data: (wallet) => Text(
+                                (wallet?.availableBalance ?? 0)
+                                    .toStringAsFixed(0),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                              loading: () => const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.amber,
+                                  ),
+                                ),
+                              ),
+                              error: (_, __) => const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
       body: PageView(
         controller: _pageController,
         pageSnapping: true,

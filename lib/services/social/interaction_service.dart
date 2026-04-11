@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:z/supabase/database.dart';
 import 'package:z/utils/logger.dart';
@@ -150,21 +152,50 @@ class InteractionService {
     }
   }
 
-  // ─── VIEWS DEBOUNCING ──────────────────────────────────
+  // ─── VIEWS BATCHING ──────────────────────────────────
   static final Map<String, Set<String>> _viewBuffer = {};
-  static DateTime _lastFlush = DateTime.now();
+  static String? _ipAddress;
   static bool _isFlushing = false;
+  static Timer? _periodicTimer;
+
+  static void startBatchTimer(String userId, InteractionService instance) {
+    if (_periodicTimer != null) return;
+    _periodicTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      instance.flushAll(userId);
+    });
+  }
+
+  static void stopBatchTimer() {
+    _periodicTimer?.cancel();
+    _periodicTimer = null;
+  }
+
+  Future<void> _fetchIpAddress() async {
+    if (_ipAddress != null) return;
+    try {
+      final response = await http.get(Uri.parse('https://api.ipify.org')).timeout(
+        const Duration(seconds: 5),
+      );
+      if (response.statusCode == 200) {
+        _ipAddress = response.body;
+        AppLogger.info('InteractionService', 'Fetched public IP: $_ipAddress');
+      }
+    } catch (e) {
+      // Just log and continue, server can fallback
+      AppLogger.warn('InteractionService', 'Failed to fetch public IP: $e');
+    }
+  }
 
   Future<void> view(String userId, String targetId) async {
     try {
       _viewBuffer.putIfAbsent(_contentType, () => {}).add(targetId);
+      
+      // Proactively fetch IP if we don't have it
+      unawaited(_fetchIpAddress());
 
-      final shouldFlush =
-          DateTime.now().difference(_lastFlush).inSeconds > 10 ||
-          (_viewBuffer[_contentType]?.length ?? 0) >= 20;
-
-      if (shouldFlush && !_isFlushing) {
-        _flushViews(userId); // Non-blocking flush
+      // Trigger immediate flush if buffer is large
+      if ((_viewBuffer[_contentType]?.length ?? 0) >= 50 && !_isFlushing) {
+        _flushViews(userId);
       }
     } catch (e, st) {
       AppLogger.error(
@@ -176,44 +207,47 @@ class InteractionService {
     }
   }
 
+  Future<void> flushAll(String userId) async {
+    await _flushViews(userId);
+  }
+
   Future<void> _flushViews(String userId) async {
-    if (_isFlushing) return;
+    if (_isFlushing || _viewBuffer.isEmpty) return;
     _isFlushing = true;
     try {
-      final targets = _viewBuffer[_contentType]?.toList() ?? [];
-      if (targets.isEmpty) return;
+      final List<Map<String, dynamic>> batch = [];
+      
+      _viewBuffer.forEach((type, ids) {
+        for (final id in ids) {
+          batch.add({
+            'post_id': id,
+            'action_type': 'view',
+            'actor_id': userId,
+            'ip_address': _ipAddress, // Might be null, server RPC handles it
+          });
+        }
+      });
 
-      _viewBuffer[_contentType]?.clear();
-      _lastFlush = DateTime.now();
+      if (batch.isEmpty) return;
 
-      for (final id in targets) {
-        await _db.from('user_interactions').upsert({
-          'user_id': userId,
-          'target_id': id,
-          'target_type': _contentType,
-          'viewed': true,
-          'viewed_at': DateTime.now().toIso8601String(),
-        });
+      // Copy buffer and clear it to avoid race conditions
+      _viewBuffer.clear();
 
-        await _db.rpc(
-          'increment_counter',
-          params: {
-            'p_table': _contentTable,
-            'p_column': 'views_count',
-            'p_id': id,
-            'p_amount': 1,
-          },
-        );
+      await _db.rpc(
+        'process_engagements_batch',
+        params: {'p_engagements': batch},
+      );
 
-        analytics?.capture(
-          eventName: 'content_viewed',
-          properties: {'target_id': id, 'target_type': _contentType},
-        );
-      }
+      AppLogger.info('InteractionService', 'Batched ${batch.length} views to server');
+
+      analytics?.capture(
+        eventName: 'content_views_batched',
+        properties: {'count': batch.length},
+      );
     } catch (e, st) {
       AppLogger.error(
         'InteractionService',
-        'Flush failed',
+        'Batch flush failed',
         error: e,
         stackTrace: st,
       );

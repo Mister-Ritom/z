@@ -1,13 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/social/interaction_service.dart';
 import '../services/analytics/analytics_service.dart';
+import 'package:z/providers/auth_provider.dart';
 
 final interactionServiceProvider = Provider.family<InteractionService, bool>((
   ref,
   isShort,
 ) {
   final analytics = ref.watch(analyticsServiceProvider);
-  return InteractionService(isShortVideo: isShort, analytics: analytics);
+  final service = InteractionService(isShortVideo: isShort, analytics: analytics);
+
+  // Auto-start batch timer when user is logged in
+  ref.listen(currentUserProvider, (previous, next) {
+    final user = next.valueOrNull;
+    if (user != null) {
+      InteractionService.startBatchTimer(user.id, service);
+    } else {
+      InteractionService.stopBatchTimer();
+    }
+  }, fireImmediately: true);
+
+  return service;
 });
 
 // ─── POST INTERACTIONS ──────────────────────────────────

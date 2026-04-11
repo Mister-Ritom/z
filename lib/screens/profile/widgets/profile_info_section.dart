@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:z/models/user_model.dart';
 import 'package:z/providers/profile_provider.dart';
 import 'package:z/utils/helpers.dart';
@@ -87,6 +88,30 @@ class ProfileInfoSection extends ConsumerWidget {
                         ),
                     ],
                   ),
+                ),
+              if (isOwnProfile)
+                Column(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => context.push('/referrals'),
+                      icon: const Icon(Icons.group_add_outlined, size: 18),
+                      label: const Text('Refer & Earn'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        side: const BorderSide(color: Colors.blue),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => context.push('/wallet'),
+                      icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+                      label: const Text('My Wallet'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
